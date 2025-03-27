@@ -1,0 +1,111 @@
+import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import { RichText as RichTextHelper, AppBskyFeedPost, type AppBskyRichtextFacet } from "@atproto/api";
+import { Fragment, type JSX } from "preact";
+
+interface Props {
+  record: PostView["record"];
+  truncate?: boolean;
+}
+
+export function getHandle(mention: string) {
+  return mention.slice(1);
+}
+
+export function PostText(props: Props) {
+  const { record, truncate } = props;
+  const postRecord = AppBskyFeedPost.isRecord(record) ? record : null;
+  const text = postRecord?.text as string || "";
+  const facets = postRecord?.facets as AppBskyRichtextFacet.Main[] || [];
+  const tags = postRecord?.tags as string[] || [];
+
+  const richText = new RichTextHelper({
+    text: text.toString(),
+    facets: facets as AppBskyRichtextFacet.Main[],
+  });
+
+  const content: { text: string; component: JSX.Element }[] = [];
+
+  for (const segment of richText.segments()) {
+    if (segment.isMention()) {
+      content.push({
+        text: segment.text,
+        component: (
+          <>
+            {segment.mention?.did && (
+              <a
+                className="text-blue-500 hover:text-blue-500 hover:underline break-after-auto"
+                href={`/dashboard/user/${getHandle(segment.text)}`}
+                onClick={(e: MouseEvent) => e.stopPropagation()}
+              >
+                {segment.text}
+              </a>
+            )}
+          </>
+        ),
+      });
+    } else if (segment.isLink()) {
+      content.push({
+        text: segment.text,
+        component: (
+          <a
+            className="text-blue-500 hover:text-blue-500 hover:underline break-all"
+            href={segment.link?.uri!}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+          >
+            {segment.text}
+          </a>
+        ),
+      });
+    } else if (segment.isTag()) {
+      const encodedTag = encodeURIComponent(segment.tag?.tag!);
+      content.push({
+        text: segment.text,
+        component: (
+          <a
+            href={`/dashboard/search?query=%23${encodedTag}`}
+            className="text-blue-500 hover:text-blue-500 hover:underline break-all"
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+          >
+            {segment.text}
+          </a>
+        ),
+      });
+    } else {
+      content.push({
+        text: segment.text,
+        component: (
+          <span className="text-gray-100">
+            {segment.text}
+          </span>
+        ),
+      });
+    }
+  }
+
+  return (
+    <div
+      dir="auto"
+      className={`text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] ${
+        truncate && "line-clamp-6"
+      } text-base leading-5`}
+    >
+      {content.map((segment, i) => (
+        <Fragment key={`${segment.text}-${i}`}>{segment.component}</Fragment>
+      ))}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 my-2">
+          {tags.map((tag: string) => (
+            <span
+              key={tag}
+              className="text-blue-500 hover:text-blue-500 hover:underline text-sm"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+} 

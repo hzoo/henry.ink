@@ -1,0 +1,39 @@
+{
+  "name": "extension-atproto-annotations",
+  "description": "annotations using atproto",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "site": "vite",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "tsc --noEmit",
+    "postinstall": "wxt prepare",
+    "release": "bun scripts/release.ts"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.14.12",
+    "@preact/signals": "^2.0.1",
+    "@preact/signals-react": "^3.0.1",
+    "@tailwindcss/vite": "^4.0.17",
+    "preact": "^10.26.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.1",
+    "@types/bun": "^1.2.6",
+    "@types/chrome": "^0.0.312",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.2",
+    "@wxt-dev/module-react": "^1.1.2",
+    "typescript": "^5.6.3",
+    "vite-plugin-svgr": "^4.3.0",
+    "wxt": "^0.19.29"
+  }
+}
