@@ -31,7 +31,8 @@ export function setupSidePanel() {
 	// Listen for tab changes
 	browser.tabs.onActivated.addListener(refreshCurrentUrl);
 	browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
-		if (changeInfo.url) {
+		// {status: 'loading', url: 'https://news.ycombinator.com/'}
+		if (changeInfo.status === 'loading' && changeInfo.url) {
 			refreshCurrentUrl();
 		}
 	});
