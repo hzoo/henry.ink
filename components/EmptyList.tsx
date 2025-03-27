@@ -51,12 +51,9 @@ export function EmptyList() {
           ) : (
             <>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                To protect your privacy, auto-search needs to be enabled for this site.
+                To protect your privacy, auto-search needs to be enabled for this site ({currentDomain.value}).
               </p>
               <WhitelistButton />
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-4">
-                This will enable auto-search for {currentDomain.value}
-              </p>
             </>
           )}
         </>

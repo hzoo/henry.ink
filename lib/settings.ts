@@ -81,6 +81,10 @@ export function isDomainWhitelisted(domain: string): boolean {
   return whitelistedDomains.value.includes(domain);
 }
 
+export function getAllWhitelistedDomains(): string[] {
+  return [...whitelistedDomains.value].sort();
+}
+
 // Initialize whitelist from storage
 chrome.storage.local.get(['whitelistedDomains']).then((result) => {
   if (result.whitelistedDomains) {

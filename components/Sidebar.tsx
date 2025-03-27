@@ -33,6 +33,8 @@ function SidebarBody() {
 						error.value = err.message || 'Failed to fetch Bluesky posts';
 						loading.value = false;
 					});
+			} else {
+				contentItems.value = [];
 			}
 		}
 	});
