@@ -1,28 +1,14 @@
-import { useSignal, useComputed } from "@preact/signals";
-import { autoFetchEnabled, toggleAutoFetch, extractBaseDomain, isDomainWhitelisted, addDomainToWhitelist, removeDomainFromWhitelist } from "@/lib/settings";
-import { useEffect } from "preact/hooks";
+import { useSignal } from "@preact/signals";
+import { autoFetchEnabled, toggleAutoFetch, addDomainToWhitelist, removeDomainFromWhitelist } from "@/lib/settings";
 import { WhitelistedSitesManager } from "./WhitelistedSitesManager";
+import { currentDomain, isWhitelisted } from "@/lib/messaging";
 
 const handleAutoFetchToggle = async () => {
   await toggleAutoFetch();
 };
 
 export function BlueskySettings() {
-  const currentDomain = useSignal("");
   const showWhitelistManager = useSignal(false);
-  
-  const isWhitelisted = useComputed(() => 
-    isDomainWhitelisted(currentDomain.value)
-  );
-  
-  useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-      if (tab.url) {
-        currentDomain.value = extractBaseDomain(tab.url);
-      }
-    });
-  }, [currentDomain]);
-  
   const handleWhitelistToggle = async () => {
     if (isWhitelisted.value) {
       await removeDomainFromWhitelist(currentDomain.value);

@@ -1,6 +1,9 @@
-import { signal } from "@preact/signals";
+import { computed, signal } from "@preact/signals";
+import { extractBaseDomain, isDomainWhitelisted } from "./settings";
 
 export const currentUrl = signal<string>("");
+export const currentDomain = computed(() => currentUrl.value ? extractBaseDomain(currentUrl.value) : "");
+export const isWhitelisted = computed(() => isDomainWhitelisted(currentDomain.value));
 
 // Helper to get the active tab
 export async function getActiveTab() {

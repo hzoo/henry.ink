@@ -1,23 +1,10 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
 import { isDarkMode, toggleTheme } from "@/lib/settings";
 import { mode } from "@/lib/signals";
-import { autoFetchEnabled, isDomainWhitelisted } from "@/lib/settings";
-import { useSignal, useComputed } from "@preact/signals";
-import { useEffect } from "preact/hooks";
-import { extractBaseDomain } from "@/lib/settings";
+import { autoFetchEnabled } from "@/lib/settings";
+import { currentDomain, isWhitelisted } from "@/lib/messaging";
 
 export function SidebarHeader() {
-	const currentDomain = useSignal("");
-	const isWhitelisted = useComputed(() => isDomainWhitelisted(currentDomain.value));
-
-	useEffect(() => {
-		chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-			if (tab.url) {
-				currentDomain.value = extractBaseDomain(tab.url);
-			}
-		});
-	}, [currentDomain]);
-
 	return (
 		<div class="sticky top-0 z-10 p-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
 			<div class="flex items-center justify-between gap-1">
@@ -29,7 +16,7 @@ export function SidebarHeader() {
 							bsky posts
 						</button>
 						{autoFetchEnabled.value ? (
-							isWhitelisted.value && currentDomain.value && (
+							isWhitelisted.value ? (
 								<div class="flex items-center text-[10px] mt-0.5 gap-1">
 									<span class="flex items-center gap-0.5 text-green-600 dark:text-green-400 whitespace-nowrap">
 										<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
@@ -39,6 +26,12 @@ export function SidebarHeader() {
 									</span>
 									<span class="text-gray-600 dark:text-gray-400 truncate">
 										{currentDomain.value}
+									</span>
+								</div>
+							) : (
+								<div class="flex items-center text-[10px] mt-0.5">
+									<span class="text-gray-600 dark:text-gray-400">
+										Not whitelisted
 									</span>
 								</div>
 							)

@@ -1,22 +1,9 @@
-import { autoFetchEnabled, extractBaseDomain, isDomainWhitelisted } from "@/lib/settings";
+import { autoFetchEnabled } from "@/lib/settings";
 import { ManualFetchButton } from "@/components/ManualFetchButton";
 import { WhitelistButton } from "@/components/WhitelistButton";
-import { useSignal, useComputed } from "@preact/signals";
+import { isWhitelisted, currentDomain } from "@/lib/messaging";
 
 export function EmptyList() {
-  const currentDomain = useSignal("");
-
-  // Get current domain on mount
-  chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-    if (tab.url) {
-      currentDomain.value = extractBaseDomain(tab.url);
-    }
-  });
-
-  const isWhitelisted = useComputed(() => 
-    isDomainWhitelisted(currentDomain.value)
-  );
-
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 text-center">
       <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-4">
