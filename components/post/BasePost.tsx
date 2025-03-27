@@ -1,5 +1,4 @@
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
-import { PostText } from "../PostText";
 import { getTimeAgo } from "@/lib/utils/time";
 
 export function getPostId(uri: string) {

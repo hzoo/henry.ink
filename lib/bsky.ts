@@ -24,4 +24,21 @@ export async function searchBskyPosts(url: string, signal?: AbortSignal) {
       throw error;
     }
   }
+}
+
+export async function getPostThread(uri: string, signal?: AbortSignal) {
+  try {
+    // Increased depth to get deep threading
+    const response = await agent.app.bsky.feed.getPostThread(
+      { uri, depth: 1 }, 
+      { signal }
+    );
+    if (!response.success) throw new Error("Could not fetch thread");
+    return response.data.thread;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('Error fetching thread:', error);
+      throw error;
+    }
+  }
 } 
