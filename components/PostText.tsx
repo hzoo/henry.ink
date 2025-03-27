@@ -64,7 +64,9 @@ export function PostText(props: Props) {
         text: segment.text,
         component: (
           <a
-            href={`/dashboard/search?query=%23${encodedTag}`}
+            href={`https://bsky.app/hashtag/${encodedTag}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-blue-500 hover:text-blue-500 hover:underline break-all"
             onClick={(e: MouseEvent) => e.stopPropagation()}
           >
@@ -87,9 +89,9 @@ export function PostText(props: Props) {
   return (
     <div
       dir="auto"
-      className={`text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] ${
+      className={`text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] flex-1 ${
         truncate && "line-clamp-6"
-      } text-base leading-5`}
+      } text-sm`}
     >
       {content.map((segment, i) => (
         <Fragment key={`${segment.text}-${i}`}>{segment.component}</Fragment>
