@@ -23,7 +23,7 @@ export function PostList() {
     <div className="space-y-0">
       {contentItems.value.map((post: PostView) => (
         <PostComponent
-          key={post.uri}
+          key={post.cid}
           post={post}
           showReplies={expandedPosts.value.has(post.uri)}
           onToggleReplies={() => toggleReplies(post.uri)}
