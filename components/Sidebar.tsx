@@ -12,6 +12,7 @@ import { PostList } from "@/components/PostList";
 function SidebarBody() {
 	// Load content when URL changes
 	useSignalEffect(() => {
+		const controller = new AbortController();
 		const newUrl = currentUrl.value;
 		
 		if (newUrl) {
@@ -23,10 +24,12 @@ function SidebarBody() {
 				loading.value = true;
 				error.value = '';
 				
-				searchBskyPosts(newUrl)
+				searchBskyPosts(newUrl, controller.signal)
 					.then(posts => {
-						contentItems.value = posts;
-						console.log(contentItems.value.slice(0, 5));
+						if (posts) { // Check if posts is defined (in case of abort)
+							contentItems.value = posts;
+							console.log(contentItems.value.slice(0, 3));
+						}
 						loading.value = false;
 					})
 					.catch(err => {
@@ -37,6 +40,11 @@ function SidebarBody() {
 				contentItems.value = [];
 			}
 		}
+
+		// Cleanup function to abort any in-flight request when URL changes
+		return () => {
+			controller.abort();
+		};
 	});
 
 	return (

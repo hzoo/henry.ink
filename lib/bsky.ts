@@ -4,7 +4,7 @@ import { searchSort, searchAuthor } from './signals';
 
 const agent = new AtpAgent({ service: 'https://public.api.bsky.app' });
 
-export async function searchBskyPosts(url: string) {
+export async function searchBskyPosts(url: string, signal?: AbortSignal) {
   try {
     const params: QueryParams = {
       q: url,
@@ -15,10 +15,13 @@ export async function searchBskyPosts(url: string) {
       params.author = searchAuthor.value;
     }
 
-    const response = await agent.app.bsky.feed.searchPosts(params);
+    const response = await agent.app.bsky.feed.searchPosts(params, { signal });
     return response.data.posts;
-  } catch (error) {
-    console.error('Error searching Bluesky posts:', error);
-    throw error;
+  } catch (error: unknown) {
+    // Only rethrow if it's not an abort error
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('Error searching Bluesky posts:', error);
+      throw error;
+    }
   }
 } 
