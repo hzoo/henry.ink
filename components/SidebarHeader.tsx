@@ -1,20 +1,42 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
-import { isDarkMode, toggleTheme } from "@/lib/settings";
-import { mode } from "@/lib/signals";
+import { mode, searchSort, searchAuthor } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
+import { useSignal } from "@preact/signals";
 
 export function SidebarHeader() {
+	const showFilters = useSignal(false);
+	const authorInput = useSignal(searchAuthor.value || '');
+
+	const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+		searchSort.value = e.currentTarget.value as 'top' | 'latest';
+	};
+
+	const handleAuthorBlur = () => {
+		searchAuthor.value = authorInput.value || null;
+	};
+
 	return (
 		<div class="sticky top-0 z-10 p-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
 			<div class="flex items-center justify-between gap-1">
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-col items-start p-1">
-						<button 
-							class="text-base font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300"
-						>
-							bsky posts
-						</button>
+						<div class="flex items-center gap-2">
+							<button 
+								class="text-base font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300"
+							>
+								bsky posts
+							</button>
+							<button
+								onClick={() => showFilters.value = !showFilters.value}
+								class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+								aria-label="Toggle filters"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+								</svg>
+							</button>
+						</div>
 						{autoFetchEnabled.value ? (
 							isWhitelisted.value ? (
 								<div class="flex items-center text-[10px] mt-0.5 gap-1">
@@ -45,7 +67,7 @@ export function SidebarHeader() {
 					</div>
 				</div>
 				<div class="flex items-center gap-1 flex-shrink-0">
-					<button
+					{/* <button
 						onClick={toggleTheme}
 						class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700"
 						aria-label="Toggle theme"
@@ -59,7 +81,7 @@ export function SidebarHeader() {
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 							</svg>
 						)}
-					</button>
+					</button> */}
 					<button
 						onClick={() => mode.value = mode.value === 'full' ? 'compact' : 'full'}
 						class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700"
@@ -78,6 +100,46 @@ export function SidebarHeader() {
 					<SettingsToggle />
 				</div>
 			</div>
+
+			{/* Search Filters */}
+			{showFilters.value && (
+				<div class="mt-2 p-2 space-y-2 text-sm bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+					<div class="flex gap-2">
+						<select
+							value={searchSort.value}
+							onChange={handleSortChange}
+							class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm"
+						>
+							<option value="latest">Latest</option>
+							<option value="top">Top</option>
+						</select>
+					</div>
+					<div class="flex items-center gap-2">
+						<input
+							type="text"
+							placeholder="Filter by author (press Enter)"
+							value={authorInput.value}
+							onChange={(e) => authorInput.value = e.currentTarget.value}
+							onBlur={handleAuthorBlur}
+							onKeyDown={(e) => e.key === 'Enter' && handleAuthorBlur()}
+							class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm"
+						/>
+						{searchAuthor.value && (
+							<button
+								onClick={() => {
+									searchAuthor.value = null;
+									authorInput.value = '';
+								}}
+								class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
