@@ -40,7 +40,13 @@ export function EmptyList() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 To protect your privacy, auto-search needs to be enabled for this site ({currentDomain.value}).
               </p>
-              <WhitelistButton />
+              <div className="space-y-2 flex flex-col items-center">
+                <WhitelistButton />
+                <div className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                  Or search manually without whitelisting:
+                </div>
+                <ManualFetchButton />
+              </div>
             </>
           )}
         </>
