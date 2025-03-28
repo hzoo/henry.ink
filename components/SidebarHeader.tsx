@@ -1,6 +1,6 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
 import { mode, searchSort, searchAuthor } from "@/lib/signals";
-import { autoFetchEnabled } from "@/lib/settings";
+import { autoFetchEnabled, isDarkMode } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { useSignal } from "@preact/signals";
 
@@ -68,7 +68,10 @@ export function SidebarHeader() {
 				</div>
 				<div class="flex items-center gap-1 flex-shrink-0">
 					{/* <button
-						onClick={toggleTheme}
+						onClick={() => {
+							isDarkMode.value = !isDarkMode.value;
+  							document.documentElement.classList.toggle('dark', isDarkMode.value);
+						}}
 						class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700"
 						aria-label="Toggle theme"
 					>

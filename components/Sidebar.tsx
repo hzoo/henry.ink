@@ -5,7 +5,8 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
 import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
-import { autoFetchEnabled, extractBaseDomain, isDomainWhitelisted } from "@/lib/settings";
+import { autoFetchEnabled, isDomainWhitelisted } from "@/lib/settings";
+import { extractBaseDomain } from "@/lib/extractBaseDomain";
 import { searchBskyPosts } from "@/lib/bsky";
 import { PostList } from "@/components/PostList";
 

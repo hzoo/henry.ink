@@ -1,15 +1,14 @@
 import { useSignal } from "@preact/signals";
 import {
 	autoFetchEnabled,
-	toggleAutoFetch,
 	addDomainToWhitelist,
 	removeDomainFromWhitelist,
 } from "@/lib/settings";
 import { WhitelistedSitesManager } from "./WhitelistedSitesManager";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 
-const handleAutoFetchToggle = async () => {
-	await toggleAutoFetch();
+const handleAutoFetchToggle = () => {
+	autoFetchEnabled.value = !autoFetchEnabled.value;
 };
 
 export function BlueskySettings() {

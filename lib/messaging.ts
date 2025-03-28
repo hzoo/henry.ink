@@ -1,5 +1,6 @@
 import { computed, signal } from "@preact/signals";
-import { extractBaseDomain, isDomainWhitelisted } from "./settings";
+import { isDomainWhitelisted } from "./settings";
+import { extractBaseDomain } from "./extractBaseDomain";
 
 export const currentUrl = signal<string>("");
 export const currentDomain = computed(() => currentUrl.value ? extractBaseDomain(currentUrl.value) : "");
@@ -12,7 +13,7 @@ export async function getActiveTab() {
 }
 
 // Request the current URL when the side panel opens
-async function refreshCurrentUrl() {
+async function setActiveUrl() {
 	try {
 		const tab = await getActiveTab();
 		if (tab?.id && tab.url) {
@@ -24,23 +25,23 @@ async function refreshCurrentUrl() {
 	}
 }
 
-// Setup the messaging for the side panel
-export function setupSidePanel() {
+// Setup the listener for tab changes
+export function setupTabListener() {
 	console.log("Setting up side panel");
 
 	// Initial URL fetch
-	refreshCurrentUrl();
+	setActiveUrl();
 
 	// Listen for tab changes
-	browser.tabs.onActivated.addListener(refreshCurrentUrl);
+	browser.tabs.onActivated.addListener(() => {
+		// activeInfo: {tabId: number, windowId: number}
+		setActiveUrl();
+	});
 	browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 		// {status: 'loading', url: 'https://news.ycombinator.com/'}
 		if (changeInfo.status === 'loading' && changeInfo.url) {
-			refreshCurrentUrl();
+			// just skip setActiveUrl()
+			currentUrl.value = changeInfo.url;
 		}
 	});
-
-	return {
-		refreshCurrentUrl,
-	};
 }
