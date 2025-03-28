@@ -49,7 +49,7 @@ function SidebarBody() {
 	});
 
 	return (
-		<div className="flex-1 overflow-y-auto">
+		<div className="overflow-y-auto">
 			{loading.value ? (
 				<LoadingItemList />
 			) : error.value ? (

@@ -20,7 +20,7 @@ export function FullPost({ post }: BasePostProps) {
     <article 
       className="border-b p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center">
           {avatar && (
             <img 
@@ -30,7 +30,7 @@ export function FullPost({ post }: BasePostProps) {
             />
           )}
           <div className="flex items-center flex-wrap gap-x-1 min-w-0">
-            <a href={postAuthorUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-base truncate hover:underline">
+            <a href={postAuthorUrl} target="_blank" rel="noopener noreferrer" className="font-semibold truncate hover:underline">
               {authorName}
             </a>
             <span className="text-gray-500">·</span>

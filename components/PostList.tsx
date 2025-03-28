@@ -7,13 +7,13 @@ export function PostList() {
   const PostComponent = mode.value === 'full' ? FullPost : CompactPost;
 
   return (
-    <div className="space-y-0">
+    <>
       {currentPosts.value.map((post: PostView) => (
         <PostComponent
           key={post.cid}
           post={post}
         />
       ))}
-    </div>
+    </>
   );
 } 
