@@ -12,5 +12,3 @@ export interface BskyPost {
   };
   indexedAt: string;
 }
-
-export type ContentItem = BskyPost; 

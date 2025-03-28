@@ -1,4 +1,4 @@
-import { contentItems, mode } from "@/lib/signals";
+import { currentPosts, mode } from "@/lib/signals";
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import { FullPost } from "./post/FullPost";
 import { CompactPost } from "./post/CompactPost";
@@ -8,7 +8,7 @@ export function PostList() {
 
   return (
     <div className="space-y-0">
-      {contentItems.value.map((post: PostView) => (
+      {currentPosts.value.map((post: PostView) => (
         <PostComponent
           key={post.cid}
           post={post}

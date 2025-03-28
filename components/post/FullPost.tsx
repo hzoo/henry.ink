@@ -1,6 +1,7 @@
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import { formatCount } from "@/lib/utils/count";
 import { PostText } from "../PostText";
 import { BasePost, type BasePostProps } from "./BasePost";
+import { Icon } from "../Icon";
 
 export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) {
   const {
@@ -48,13 +49,22 @@ export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) 
         <PostText record={post.record} truncate={false} />
         <div className="flex items-center gap-4 text-gray-500 text-sm">
           {replyCount !== undefined && (
-            <span>{replyCount} replies</span>
+            <span className="flex items-center gap-1">
+              <Icon name="comment" className="w-3 h-3" />
+              {formatCount(replyCount)}
+            </span>
           )}
           {repostCount !== undefined && (
-            <span>{repostCount} reposts</span>
+            <span className="flex items-center gap-1">
+              <Icon name="arrowPath" className="w-3 h-3" />
+              {formatCount(repostCount)}
+            </span>
           )}
           {likeCount !== undefined && (
-            <span>{likeCount} likes</span>
+            <span className="flex items-center gap-1">
+              <Icon name="heart" className="w-3 h-3" />
+              {formatCount(likeCount)}
+            </span>
           )}
         </div>
       </div>

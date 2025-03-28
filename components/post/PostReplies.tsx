@@ -73,7 +73,7 @@ export function PostReplies({
   return (
     <>
       {isLoading.value ? (
-        <div className="py-1 text-sm text-gray-500">Loading replies...</div>
+        <div className="pl-2 py-1 text-sm text-gray-500">Loading replies...</div>
       ) : (
         replies.value.map((reply) => (
           <CompactPost

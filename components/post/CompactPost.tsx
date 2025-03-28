@@ -3,6 +3,7 @@ import { BasePost, type BasePostProps } from "./BasePost";
 import { useSignal } from "@preact/signals-react/runtime";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate } from "@/lib/utils/time";
+import { Icon } from "@/components/Icon";
 
 export function CompactPost({
 	post,
@@ -12,13 +13,8 @@ export function CompactPost({
 }) {
 	const isExpanded = useSignal(false);
 
-	const {
-		postUrl,
-		postAuthorUrl,
-		authorHandle,
-		timeAgo,
-		replyCount,
-	} = BasePost({ post, isCompact: true });
+	const { postUrl, postAuthorUrl, authorHandle, timeAgo, replyCount } =
+		BasePost({ post, isCompact: true });
 
 	return (
 		<article className={`relative min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
@@ -32,16 +28,22 @@ export function CompactPost({
 					{/* Post metadata row */}
 					<div className="flex items-center gap-x-1.5 text-sm flex-wrap text-gray-500">
 						<button
-							onClick={() => window.open(postAuthorUrl, '_blank')}
-							className="hover:underline font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
+							onClick={() => window.open(postAuthorUrl, "_blank")}
+							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[120px]"
 							title={authorHandle}
 						>
 							@{authorHandle}
 						</button>
 						<span className="text-gray-400">·</span>
-						<a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:underline"
-                            title={getFormattedDate(post.indexedAt)}
-                        >{timeAgo}</a>
+						<a
+							href={postUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-gray-400 hover:underline"
+							title={getFormattedDate(post.indexedAt)}
+						>
+							{timeAgo}
+						</a>
 						{replyCount !== undefined && replyCount > 0 && (
 							<button
 								onClick={(e) => {
@@ -50,20 +52,18 @@ export function CompactPost({
 								}}
 								className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
 							>
-								{isExpanded.value
-									? `[-] ${replyCount} replies`
-									: `[+] ${replyCount} replies`}
+								<span className="flex items-center gap-1">
+									{isExpanded.value ? "[-]" : "[+]"}
+									<Icon name="comment" className="w-3 h-3" />
+									{replyCount}
+								</span>
 							</button>
 						)}
 					</div>
 
 					{/* Post content */}
 					<div className="text-sm break-words text-gray-900 dark:text-gray-100">
-						<PostText
-							record={post.record}
-							truncate={true}
-							hideUrls={false} // We'll show domains in a compact way
-						/>
+						<PostText record={post.record} truncate={true} />
 					</div>
 				</div>
 			</div>

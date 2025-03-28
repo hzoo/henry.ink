@@ -49,7 +49,7 @@ export function PostText(props: Props) {
       if (url && url === currentUrl.value) {
         content.push({
           text: "",
-          component: <></>
+          component: <span className="text-gray-500 italic">[current url]</span>
         });
         continue;
       }
@@ -87,7 +87,7 @@ export function PostText(props: Props) {
       content.push({
         text: segment.text,
         component: (
-          <span className="text-gray-100">
+          <span>
             {segment.text}
           </span>
         ),
@@ -98,7 +98,7 @@ export function PostText(props: Props) {
   return (
     <div
       dir="auto"
-      className={`text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] flex-1 ${
+      className={`text-gray-900 dark:text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] flex-1 ${
         truncate && "line-clamp-6"
       } text-sm`}
     >

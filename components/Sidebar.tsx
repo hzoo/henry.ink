@@ -4,7 +4,7 @@ import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
-import { contentItems, loading, error, contentSourceUrl } from "@/lib/signals";
+import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
 import { autoFetchEnabled, extractBaseDomain, isDomainWhitelisted } from "@/lib/settings";
 import { searchBskyPosts } from "@/lib/bsky";
 import { PostList } from "@/components/PostList";
@@ -25,10 +25,10 @@ function SidebarBody() {
 				error.value = '';
 				
 				searchBskyPosts(newUrl, controller.signal)
-					.then(posts => {
-						if (posts) { // Check if posts is defined (in case of abort)
-							contentItems.value = posts;
-							console.log(contentItems.value.slice(0, 3));
+					.then(fetchedPosts => {
+						if (fetchedPosts) {
+							currentPosts.value = fetchedPosts;
+							console.log(currentPosts.value.slice(0, 3));
 						}
 						loading.value = false;
 					})
@@ -37,7 +37,7 @@ function SidebarBody() {
 						loading.value = false;
 					});
 			} else {
-				contentItems.value = [];
+				currentPosts.value = [];
 			}
 		}
 
@@ -62,7 +62,7 @@ export function Sidebar() {
 	return (
 		<div className="flex flex-col h-full">
 			<SidebarHeader />
-			{contentItems.value.length === 0 && !loading.value && !error.value && <EmptyList />}
+			{currentPosts.value.length === 0 && !loading.value && !error.value && <EmptyList />}
 			<SidebarBody />
 		</div>
 	);

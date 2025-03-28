@@ -1,13 +1,12 @@
 import { searchBskyPosts } from "@/lib/bsky";
-import { contentItems, loading, error, contentSourceUrl } from "@/lib/signals";
+import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
 
 const handleFetch = async () => {
   loading.value = true;
   error.value = '';
 
   try {
-    const posts = await searchBskyPosts(contentSourceUrl.value);
-    contentItems.value = posts;
+    currentPosts.value = await searchBskyPosts(contentSourceUrl.value) || [];
     loading.value = false;
   } catch (err) {
     console.error('Error fetching posts:', err);

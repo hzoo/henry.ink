@@ -1,6 +1,3 @@
-import { contentItems, loading, error } from "./signals";
-import { currentUrl } from "./messaging";
-
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
