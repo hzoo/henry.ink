@@ -7,8 +7,8 @@ import svgr from 'vite-plugin-svgr'
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   manifest: {
-    name: "Bsky Posts",
-    description: "Annotations using atproto",
+    name: "Bluesky Sidebar",
+    description: "See what people are saying about the site you're on",
     version: "0.0.1",
     // https://developer.chrome.com/docs/extensions/reference/api/sidePanel
     permissions: ['storage', 'tabs', 'sidePanel'],
@@ -22,7 +22,7 @@ export default defineConfig({
   runner: {
     chromiumArgs: ["--user-data-dir=./.wxt/chrome-data"],
     startUrls: [
-      "https://neal.fun/infinite-craft/"
+      "https://ciechanow.ski/mechanical-watch/"
     ]
   }
 });
