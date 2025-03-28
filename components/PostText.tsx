@@ -3,6 +3,18 @@ import { RichText as RichTextHelper, AppBskyFeedPost, type AppBskyRichtextFacet 
 import { Fragment, type JSX } from "preact";
 import { currentUrl } from "@/lib/messaging";
 
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // Remove www.
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    // Reconstruct without www and trailing slash
+    return `${parsed.protocol}//${hostname}${parsed.pathname.replace(/\/$/, '')}${parsed.search}${parsed.hash}`.toLowerCase();
+  } catch {
+    return url.toLowerCase();
+  }
+}
+
 interface Props {
   record: PostView["record"];
   truncate?: boolean;
@@ -46,7 +58,8 @@ export function PostText(props: Props) {
       });
     } else if (segment.isLink()) {
       const url = segment.link?.uri;
-      if (url && url === currentUrl.value) {
+      console.log(url, currentUrl.value);
+      if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
         content.push({
           text: "",
           component: <span className="text-gray-500 italic">[current url]</span>
