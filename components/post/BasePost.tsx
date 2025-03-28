@@ -13,19 +13,10 @@ export interface BasePostProps {
 }
 
 export function BasePost({ post, isCompact, showReplies, onToggleReplies }: BasePostProps) {
-  const handlePostClick = () => {
-    window.open(`https://bsky.app/profile/${post.author.handle}/post/${getPostId(post.uri)}`, '_blank');
-  };
-
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.open(`https://bsky.app/profile/${post.author.handle}`, '_blank');
-  };
-
   return {
     post,
-    handlePostClick,
-    handleAuthorClick,
+    postUrl: `https://bsky.app/profile/${post.author.handle}/post/${getPostId(post.uri)}`,
+    postAuthorUrl: `https://bsky.app/profile/${post.author.handle}`,
     authorName: post.author.displayName || post.author.handle,
     authorHandle: post.author.handle,
     avatar: post.author.avatar,

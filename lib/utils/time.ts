@@ -34,3 +34,16 @@ export function getTimeAgo(date: number | string | Date): string {
     day: 'numeric'
   });
 } 
+
+// March 27, 2025 at 7:43 PM
+export function getFormattedDate(date: number | string | Date): string {
+  const then = new Date(date);
+  return then.toLocaleDateString('en-us', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  });
+} 

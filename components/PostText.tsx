@@ -1,6 +1,7 @@
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import { RichText as RichTextHelper, AppBskyFeedPost, type AppBskyRichtextFacet } from "@atproto/api";
 import { Fragment, type JSX } from "preact";
+import { currentUrl } from "@/lib/messaging";
 
 interface Props {
   record: PostView["record"];
@@ -44,6 +45,14 @@ export function PostText(props: Props) {
         ),
       });
     } else if (segment.isLink()) {
+      const url = segment.link?.uri;
+      if (url && url === currentUrl.value) {
+        content.push({
+          text: "",
+          component: <></>
+        });
+        continue;
+      }
       content.push({
         text: segment.text,
         component: (

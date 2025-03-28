@@ -4,21 +4,21 @@ import { BasePost, type BasePostProps } from "./BasePost";
 
 export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) {
   const {
-    handlePostClick,
-    handleAuthorClick,
     authorName,
     authorHandle,
     avatar,
     timeAgo,
     replyCount,
     repostCount,
-    likeCount
+    likeCount,
+    postUrl,
+    postAuthorUrl
   } = BasePost({ post, showReplies, onToggleReplies });
 
   return (
     <article 
       className="border-b p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-      onClick={handlePostClick}
+      onClick={() => window.open(postUrl, '_blank')}
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center">
@@ -34,7 +34,7 @@ export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) 
               {authorName}
             </span>
             <button 
-              onClick={handleAuthorClick}
+              onClick={() => window.open(postAuthorUrl, '_blank')}
               className="text-gray-500 hover:underline"
             >
               @{authorHandle}
