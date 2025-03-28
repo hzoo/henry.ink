@@ -15,15 +15,25 @@ export function WhitelistedSitesManager({ onClose }: Props) {
   };
 
   const modal = (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm mx-4 flex flex-col max-h-[min(32rem,90vh)]">
+    <div 
+      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50"
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm mx-4 flex flex-col max-h-[min(32rem,90vh)]"
+      >
         {/* Fixed Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Manage Whitelisted Sites
           </h2>
           <button
-            onClick={onClose}
+            onClick={onClose} 
             className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
             aria-label="Close"
           >
@@ -45,7 +55,9 @@ export function WhitelistedSitesManager({ onClose }: Props) {
                     {domain}
                   </span>
                   <button
-                    onClick={() => handleRemoveDomain(domain)}
+                    onClick={(e) => {
+                      handleRemoveDomain(domain);
+                    }}
                     className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-3 flex-shrink-0"
                     title="Remove from whitelist"
                   >

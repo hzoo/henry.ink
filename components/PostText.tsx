@@ -58,7 +58,6 @@ export function PostText(props: Props) {
       });
     } else if (segment.isLink()) {
       const url = segment.link?.uri;
-      console.log(url, currentUrl.value);
       if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
         content.push({
           text: "",
