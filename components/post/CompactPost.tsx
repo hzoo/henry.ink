@@ -27,6 +27,7 @@ export function CompactPost({ post, depth = 0 }: Omit<BasePostProps, 'showReplie
             <button 
               onClick={handleAuthorClick}
               className="text-gray-500 hover:underline truncate max-w-[120px]"
+              title={authorHandle}
             >
               @{authorHandle}
             </button>
@@ -35,7 +36,7 @@ export function CompactPost({ post, depth = 0 }: Omit<BasePostProps, 'showReplie
             {replyCount !== undefined && replyCount > 0 && (
               <>
                 <span className="text-gray-400 flex-shrink-0">·</span>
-                <span className="text-gray-400 flex-shrink-0">{replyCount} replies</span>
+                {/* <span className="text-gray-400 flex-shrink-0">{replyCount} replies</span> */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -43,7 +44,7 @@ export function CompactPost({ post, depth = 0 }: Omit<BasePostProps, 'showReplie
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
                 >
-                  [{isExpanded.value ? '-' : '+'}]
+                  [{isExpanded.value ? `-${replyCount}` : `+${replyCount}`}]
                 </button>
               </>
             )}
