@@ -1,20 +1,19 @@
 import { formatCount } from "@/lib/utils/count";
 import { PostText } from "../PostText";
-import { BasePost, type BasePostProps } from "./BasePost";
+import { getPostUrl, getAuthorUrl } from "../../lib/utils/postUrls";
+import { getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "../Icon";
+import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 
-export function FullPost({ post }: BasePostProps) {
-  const {
-    authorName,
-    authorHandle,
-    avatar,
-    timeAgo,
-    replyCount,
-    repostCount,
-    likeCount,
-    postUrl,
-    postAuthorUrl
-  } = BasePost({ post });
+interface FullPostProps {
+  post: PostView;
+}
+
+export function FullPost({ post }: FullPostProps) {
+  const authorName = post.author.displayName || post.author.handle;
+  const postUrl = getPostUrl(post.author.handle, post.uri);
+  const postAuthorUrl = getAuthorUrl(post.author.handle);
+  const timeAgo = getTimeAgo(post.indexedAt);
 
   return (
     <article 
@@ -22,9 +21,9 @@ export function FullPost({ post }: BasePostProps) {
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center">
-          {avatar && (
+          {post.author.avatar && (
             <img 
-              src={avatar} 
+              src={post.author.avatar} 
               alt={authorName}
               className="w-10 h-10 rounded-full mr-3 flex-shrink-0"
             />
@@ -35,7 +34,7 @@ export function FullPost({ post }: BasePostProps) {
             </a>
             <span className="text-gray-500">·</span>
             <a href={postAuthorUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500">
-              @{authorHandle}
+              @{post.author.handle}
             </a>
             <span className="text-gray-500">·</span>
             <a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:underline">
@@ -45,22 +44,22 @@ export function FullPost({ post }: BasePostProps) {
         </div>
         <PostText record={post.record} truncate={false} />
         <div className="flex items-center gap-4 text-gray-500 text-sm">
-          {replyCount !== undefined && (
+          {post.replyCount !== undefined && (
             <span className="flex items-center gap-1">
               <Icon name="comment" className="w-3 h-3" />
-              {formatCount(replyCount)}
+              {formatCount(post.replyCount)}
             </span>
           )}
-          {repostCount !== undefined && (
+          {post.repostCount !== undefined && (
             <span className="flex items-center gap-1">
               <Icon name="arrowPath" className="w-3 h-3" />
-              {formatCount(repostCount)}
+              {formatCount(post.repostCount)}
             </span>
           )}
-          {likeCount !== undefined && (
+          {post.likeCount !== undefined && (
             <span className="flex items-center gap-1">
               <Icon name="heart" className="w-3 h-3" />
-              {formatCount(likeCount)}
+              {formatCount(post.likeCount)}
             </span>
           )}
         </div>

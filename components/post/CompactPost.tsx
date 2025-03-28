@@ -1,20 +1,24 @@
 import { PostText } from "../PostText";
-import { BasePost, type BasePostProps } from "./BasePost";
+import { getPostUrl, getAuthorUrl } from "../../lib/utils/postUrls";
 import { useSignal } from "@preact/signals-react/runtime";
 import { PostReplies } from "@/components/post/PostReplies";
-import { getFormattedDate } from "@/lib/utils/time";
+import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
+import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+
+interface CompactPostProps {
+	post: PostView;
+	depth?: number;
+}
 
 export function CompactPost({
 	post,
 	depth = 0,
-}: BasePostProps & {
-	depth?: number;
-}) {
+}: CompactPostProps) {
 	const isExpanded = useSignal(false);
-
-	const { postUrl, postAuthorUrl, authorHandle, timeAgo, replyCount } =
-		BasePost({ post, isCompact: true });
+	const postUrl = getPostUrl(post.author.handle, post.uri);
+	const postAuthorUrl = getAuthorUrl(post.author.handle);
+	const timeAgo = getTimeAgo(post.indexedAt);
 
 	return (
 		<article className={`relative min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
@@ -32,9 +36,9 @@ export function CompactPost({
 							target="_blank"
 							rel="noopener noreferrer"
 							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[120px]"
-							title={authorHandle}
+							title={post.author.handle}
 						>
-							@{authorHandle}
+							@{post.author.handle}
 						</a>
 						<span className="text-gray-400">·</span>
 						<a
@@ -46,7 +50,7 @@ export function CompactPost({
 						>
 							{timeAgo}
 						</a>
-						{replyCount !== undefined && replyCount > 0 && (
+						{post.replyCount !== undefined && post.replyCount > 0 && (
 							<button
 								onClick={(e) => {
 									e.stopPropagation();
@@ -57,7 +61,7 @@ export function CompactPost({
 								<span className="flex items-center gap-1">
 									{isExpanded.value ? "[-]" : "[+]"}
 									<Icon name="comment" className="w-3 h-3" />
-									{replyCount}
+									{post.replyCount}
 								</span>
 							</button>
 						)}
@@ -71,7 +75,7 @@ export function CompactPost({
 			</div>
 
 			{isExpanded.value && (
-				<PostReplies post={post} replyCount={replyCount} depth={depth + 1} />
+				<PostReplies post={post} replyCount={post.replyCount} depth={depth + 1} />
 			)}
 		</article>
 	);
