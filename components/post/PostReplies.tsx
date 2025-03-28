@@ -1,22 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSignal } from "@preact/signals-react/runtime";
-import type { PostView, ThreadViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+import type { ThreadViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import { AppBskyFeedDefs } from "@atproto/api";
 import { getPostThread } from "@/lib/bsky";
 import { CompactPost } from "./CompactPost";
-import type { Signal } from "@preact/signals-core";
-
-interface ThreadReply {
-  post: PostView;
-  replies?: ThreadReply[];
-}
-
-interface PostRepliesProps {
-  post: PostView;
-  isExpanded: Signal<boolean>;
-  depth?: number;
-  maxDepth?: number;
-}
+import type { PostRepliesProps, ThreadReply } from "@/lib/types";
 
 function processThreadReplies(thread: ThreadViewPost): ThreadReply[] {
   if (!thread.replies) return [];
@@ -34,13 +22,21 @@ export function PostReplies({
   isExpanded,
   depth = 0,
   maxDepth = 6, // Limit maximum nesting depth for UI clarity
+  prefetchedReplies,
 }: PostRepliesProps) {
   const replyCount = post.replyCount;
   const isLoading = useSignal(false);
-  const replies = useSignal<ThreadReply[]>([]);
+  const replies = useSignal<ThreadReply[]>(prefetchedReplies || []);
+  const hasFetched = useRef(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Only fetch once when first expanded
   useEffect(() => {
+    // Skip if we have prefetched replies or if we've already fetched
+    if (prefetchedReplies || hasFetched.current) return;
+
+    // Only fetch if expanded
+    if (!isExpanded.value) return;
+
     let abortController: AbortController | null = null;
 
     async function loadReplies() {
@@ -51,6 +47,7 @@ export function PostReplies({
           const thread = await getPostThread(post.uri, { depth: maxDepth, signal: abortController.signal });
           if (thread && AppBskyFeedDefs.isThreadViewPost(thread)) {
             replies.value = processThreadReplies(thread as ThreadViewPost);
+            hasFetched.current = true;
           }
         } catch (error) {
           console.error('Error loading replies:', error);
@@ -62,7 +59,7 @@ export function PostReplies({
 
     loadReplies();
     return () => abortController?.abort();
-  }, []);
+  }, [isExpanded.value]);
 
   if (!isExpanded.value) {
     return null;
@@ -88,6 +85,7 @@ export function PostReplies({
             post={reply.post}
             depth={depth}
             expanded={isExpanded.value}
+            replies={reply.replies}
           />
         ))
       )}

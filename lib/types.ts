@@ -1,14 +1,15 @@
-export interface BskyPost {
-  uri: string;
-  cid: string;
-  record: {
-    text: string;
-    createdAt: string;
-  };
-  author: {
-    did: string;
-    handle: string;
-    displayName?: string;
-  };
-  indexedAt: string;
+import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import type { Signal } from "@preact/signals-react";
+
+export interface ThreadReply {
+  post: PostView;
+  replies?: ThreadReply[];
+}
+
+export interface PostRepliesProps {
+  post: PostView;
+  isExpanded: Signal<boolean>;
+  depth?: number;
+  maxDepth?: number;
+  prefetchedReplies?: ThreadReply[];
 }

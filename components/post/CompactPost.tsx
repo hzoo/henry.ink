@@ -6,11 +6,13 @@ import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import type { Signal } from "@preact/signals-core";
+import type { ThreadReply } from "@/lib/types";
 
 interface CompactPostProps {
 	post: PostView;
 	depth?: number;
 	expanded?: boolean;
+	replies?: ThreadReply[];
 }
 
 function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post: PostView }) {
@@ -33,6 +35,7 @@ export function CompactPost({
 	post,
 	depth = 0,
 	expanded = false,
+	replies,
 }: CompactPostProps) {
 	const isExpanded = useSignal(expanded);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
@@ -81,7 +84,12 @@ export function CompactPost({
 				</div>
 			</div>
 			{post.replyCount !== undefined && post.replyCount > 0 && (
-				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} />
+				<PostReplies 
+					post={post} 
+					depth={depth + 1} 
+					isExpanded={isExpanded} 
+					prefetchedReplies={replies}
+				/>
 			)}
 		</article>
 	);
