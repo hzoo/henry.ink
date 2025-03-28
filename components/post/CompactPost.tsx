@@ -27,13 +27,15 @@ export function CompactPost({
 				<div className="flex-1 min-w-0">
 					{/* Post metadata row */}
 					<div className="flex items-center gap-x-1.5 text-sm flex-wrap text-gray-500">
-						<button
-							onClick={() => window.open(postAuthorUrl, "_blank")}
+						<a
+							href={postAuthorUrl}
+							target="_blank"
+							rel="noopener noreferrer"
 							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[120px]"
 							title={authorHandle}
 						>
 							@{authorHandle}
-						</button>
+						</a>
 						<span className="text-gray-400">·</span>
 						<a
 							href={postUrl}

@@ -18,8 +18,7 @@ export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) 
 
   return (
     <article 
-      className="border-b p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-      onClick={() => window.open(postUrl, '_blank')}
+      className="border-b p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center">
@@ -31,19 +30,17 @@ export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) 
             />
           )}
           <div className="flex items-center flex-wrap gap-x-1 min-w-0">
-            <span className="font-semibold text-base truncate">
+            <a href={postAuthorUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-base truncate hover:underline">
               {authorName}
-            </span>
-            <button 
-              onClick={() => window.open(postAuthorUrl, '_blank')}
-              className="text-gray-500 hover:underline"
-            >
-              @{authorHandle}
-            </button>
+            </a>
             <span className="text-gray-500">·</span>
-            <span className="text-gray-500 hover:underline">
+            <a href={postAuthorUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500">
+              @{authorHandle}
+            </a>
+            <span className="text-gray-500">·</span>
+            <a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:underline">
               {timeAgo}
-            </span>
+            </a>
           </div>
         </div>
         <PostText record={post.record} truncate={false} />
