@@ -3,7 +3,7 @@ import { PostText } from "../PostText";
 import { BasePost, type BasePostProps } from "./BasePost";
 import { Icon } from "../Icon";
 
-export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) {
+export function FullPost({ post }: BasePostProps) {
   const {
     authorName,
     authorHandle,
@@ -14,7 +14,7 @@ export function FullPost({ post, showReplies, onToggleReplies }: BasePostProps) 
     likeCount,
     postUrl,
     postAuthorUrl
-  } = BasePost({ post, showReplies, onToggleReplies });
+  } = BasePost({ post });
 
   return (
     <article 

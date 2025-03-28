@@ -8,11 +8,9 @@ export function getPostId(uri: string) {
 export interface BasePostProps {
   post: PostView;
   isCompact?: boolean;
-  showReplies?: boolean;
-  onToggleReplies?: () => void;
 }
 
-export function BasePost({ post, isCompact, showReplies, onToggleReplies }: BasePostProps) {
+export function BasePost({ post, isCompact }: BasePostProps) {
   return {
     post,
     postUrl: `https://bsky.app/profile/${post.author.handle}/post/${getPostId(post.uri)}`,
@@ -24,8 +22,6 @@ export function BasePost({ post, isCompact, showReplies, onToggleReplies }: Base
     replyCount: post.replyCount,
     repostCount: post.repostCount,
     likeCount: post.likeCount,
-    showReplies,
-    onToggleReplies,
     isCompact
   };
 } 

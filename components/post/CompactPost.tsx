@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 export function CompactPost({
 	post,
 	depth = 0,
-}: Omit<BasePostProps, "showReplies" | "onToggleReplies"> & {
+}: BasePostProps & {
 	depth?: number;
 }) {
 	const isExpanded = useSignal(false);
