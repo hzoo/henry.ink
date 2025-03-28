@@ -26,12 +26,11 @@ export async function searchBskyPosts(url: string, signal?: AbortSignal) {
   }
 }
 
-export async function getPostThread(uri: string, signal?: AbortSignal) {
+export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
-    // Increased depth to get deep threading
     const response = await agent.app.bsky.feed.getPostThread(
-      { uri, depth: 1 }, 
-      { signal }
+      { uri, depth: options?.depth ?? 1 },
+      { signal: options?.signal }
     );
     if (!response.success) throw new Error("Could not fetch thread");
     return response.data.thread;

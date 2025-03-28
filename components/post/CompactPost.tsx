@@ -1,21 +1,40 @@
 import { PostText } from "../PostText";
-import { getPostUrl, getAuthorUrl } from "../../lib/utils/postUrls";
+import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { useSignal } from "@preact/signals-react/runtime";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import type { Signal } from "@preact/signals-core";
 
 interface CompactPostProps {
 	post: PostView;
 	depth?: number;
+	expanded?: boolean;
+}
+
+function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post: PostView }) {
+	return (<button
+		onClick={(e) => {
+			e.stopPropagation();
+			isExpanded.value = !isExpanded.value;
+		}}
+		className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+	>
+		<span className="flex items-center gap-1">
+			{isExpanded.value ? "[-]" : "[+]"}
+			<Icon name="comment" className="w-3 h-3" />
+			{post.replyCount}
+		</span>
+	</button>)
 }
 
 export function CompactPost({
 	post,
 	depth = 0,
+	expanded = false,
 }: CompactPostProps) {
-	const isExpanded = useSignal(false);
+	const isExpanded = useSignal(expanded);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
@@ -51,19 +70,7 @@ export function CompactPost({
 							{timeAgo}
 						</a>
 						{post.replyCount !== undefined && post.replyCount > 0 && (
-							<button
-								onClick={(e) => {
-									e.stopPropagation();
-									isExpanded.value = !isExpanded.value;
-								}}
-								className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-							>
-								<span className="flex items-center gap-1">
-									{isExpanded.value ? "[-]" : "[+]"}
-									<Icon name="comment" className="w-3 h-3" />
-									{post.replyCount}
-								</span>
-							</button>
+							<ExpandButton isExpanded={isExpanded} post={post} />
 						)}
 					</div>
 
@@ -73,9 +80,8 @@ export function CompactPost({
 					</div>
 				</div>
 			</div>
-
-			{isExpanded.value && (
-				<PostReplies post={post} replyCount={post.replyCount} depth={depth + 1} />
+			{post.replyCount !== undefined && post.replyCount > 0 && (
+				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} />
 			)}
 		</article>
 	);

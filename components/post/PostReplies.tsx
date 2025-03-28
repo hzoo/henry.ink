@@ -4,6 +4,7 @@ import type { PostView, ThreadViewPost } from '@atproto/api/dist/client/types/ap
 import { AppBskyFeedDefs } from "@atproto/api";
 import { getPostThread } from "@/lib/bsky";
 import { CompactPost } from "./CompactPost";
+import type { Signal } from "@preact/signals-core";
 
 interface ThreadReply {
   post: PostView;
@@ -12,7 +13,7 @@ interface ThreadReply {
 
 interface PostRepliesProps {
   post: PostView;
-  replyCount?: number;
+  isExpanded: Signal<boolean>;
   depth?: number;
   maxDepth?: number;
 }
@@ -30,13 +31,15 @@ function processThreadReplies(thread: ThreadViewPost): ThreadReply[] {
 
 export function PostReplies({ 
   post, 
-  replyCount, 
+  isExpanded,
   depth = 0,
-  maxDepth = 6 // Limit maximum nesting depth for UI clarity
+  maxDepth = 6, // Limit maximum nesting depth for UI clarity
 }: PostRepliesProps) {
+  const replyCount = post.replyCount;
   const isLoading = useSignal(false);
   const replies = useSignal<ThreadReply[]>([]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     let abortController: AbortController | null = null;
 
@@ -45,7 +48,7 @@ export function PostReplies({
         isLoading.value = true;
         abortController = new AbortController();
         try {
-          const thread = await getPostThread(post.uri, abortController.signal);
+          const thread = await getPostThread(post.uri, { depth: maxDepth, signal: abortController.signal });
           if (thread && AppBskyFeedDefs.isThreadViewPost(thread)) {
             replies.value = processThreadReplies(thread as ThreadViewPost);
           }
@@ -59,7 +62,11 @@ export function PostReplies({
 
     loadReplies();
     return () => abortController?.abort();
-  }, [post.uri, replyCount]);
+  }, []);
+
+  if (!isExpanded.value) {
+    return null;
+  }
 
   // Don't render beyond max depth
   if (depth >= maxDepth) {
@@ -80,6 +87,7 @@ export function PostReplies({
             key={reply.post.cid}
             post={reply.post}
             depth={depth}
+            expanded={isExpanded.value}
           />
         ))
       )}
