@@ -28,7 +28,7 @@ function SidebarBody() {
 					.then(fetchedPosts => {
 						if (fetchedPosts) {
 							currentPosts.value = fetchedPosts;
-							console.log(currentPosts.value.slice(0, 3));
+							// console.log(currentPosts.value.slice(0, 3));
 						}
 						loading.value = false;
 					})

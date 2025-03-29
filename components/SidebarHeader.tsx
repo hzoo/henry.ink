@@ -1,6 +1,6 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
 import { mode, searchSort, searchAuthor } from "@/lib/signals";
-import { autoFetchEnabled, isDarkMode } from "@/lib/settings";
+import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { useSignal } from "@preact/signals";
 
@@ -32,14 +32,14 @@ export function SidebarHeader() {
 								class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
 								aria-label="Toggle filters"
 							>
-								<Icon name="funnel" class="h-4 w-4" />
+								<Icon name="funnel" className="h-4 w-4" />
 							</button>
 						</div>
 						{autoFetchEnabled.value ? (
 							isWhitelisted.value ? (
 								<div class="flex items-center text-[10px] mt-0.5 gap-1">
 									<span class="flex items-center gap-0.5 text-green-600 dark:text-green-400 whitespace-nowrap">
-										<Icon name="arrowPath" class="h-2.5 w-2.5" />
+										<Icon name="arrowPath" className="h-2.5 w-2.5" />
 										Auto
 									</span>
 									<span class="text-gray-600 dark:text-gray-400 truncate">
@@ -69,9 +69,9 @@ export function SidebarHeader() {
 						aria-label="Toggle view mode"
 					>
 						{mode.value === 'full' ? (
-							<Icon name="rectangleStack" class="h-4 w-4" />
+							<Icon name="rectangleStack" className="h-4 w-4" />
 						) : (
-							<Icon name="queueList" class="h-4 w-4" />
+							<Icon name="queueList" className="h-4 w-4" />
 						)}
 					</button>
 					<SettingsToggle />
@@ -102,14 +102,14 @@ export function SidebarHeader() {
 							class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm"
 						/>
 						{searchAuthor.value && (
-							<button
+							<button	
 								onClick={() => {
 									searchAuthor.value = null;
 									authorInput.value = '';
 								}}
 								class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
 							>
-								<Icon name="xMark" class="h-3 w-3" />
+								<Icon name="xMark" className="h-3 w-3" />
 							</button>
 						)}
 					</div>
