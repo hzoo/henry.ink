@@ -1,5 +1,6 @@
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import { signal } from "@preact/signals";
+
 import { signalL } from "@/lib/signal";
 
 export const currentPosts = signal<PostView[]>([]);

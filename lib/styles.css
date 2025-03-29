@@ -2,12 +2,11 @@
 
 @theme {
   --color-bg: white;
-  --color-bg-dark: #111827;
-  --color-text: #1a202c;
-  --color-text-dark: #f3f4f6;
+  --color-bg-dark: #161e27;
+  --color-text: #000;
+  --color-text-dark: #fff;
 }
 
-/* Essential layout styles */
 html, body, #app {
   height: 100vh;
   width: 100%;
@@ -16,7 +15,6 @@ html, body, #app {
   padding: 0;
 }
 
-/* Base container styling with dark mode support */
 #app {
   background-color: var(--color-bg);
   color: var(--color-text);
