@@ -18,41 +18,33 @@ export const isWhitelisted = computed(() =>
 	whitelistedDomains.value.includes(currentDomain.value),
 );
 
-// Helper to get the active tab
-export async function getActiveTab() {
-	const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-	return tab;
-}
-
-// Request the current URL when the side panel opens
-async function setActiveUrl() {
-	try {
-		const tab = await getActiveTab();
-		if (tab?.id && tab.url) {
-			currentUrl.value = tab.url;
-			console.log("Current URL:", currentUrl.value);
-		}
-	} catch (error) {
-		console.error("Error fetching active tab:", error);
-	}
-}
+// Track the last active tab ID to optimize URL updates
+let activeTabId: number | undefined;
 
 // Setup the listener for tab changes
-export function setupTabListener() {
+export async function setupTabListener() {
 	console.log("Setting up side panel");
 
-	// Initial URL fetch
-	setActiveUrl();
+	// Initial URL fetch - get current active tab
+	const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+	if (tab?.id && tab.url) {
+		activeTabId = tab.id;
+		currentUrl.value = tab.url;
+	}
 
 	// Listen for tab changes
-	browser.tabs.onActivated.addListener(() => {
-		// activeInfo: {tabId: number, windowId: number}
-		setActiveUrl();
+	browser.tabs.onActivated.addListener(async (activeInfo) => {
+		activeTabId = activeInfo.tabId;
+		const tab = await browser.tabs.get(activeInfo.tabId);
+		if (tab.url) {
+			currentUrl.value = tab.url;
+		}
 	});
+
+	// Listen for URL changes
 	browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
-		// {status: 'loading', url: 'https://news.ycombinator.com/'}
-		if (changeInfo.status === "loading" && changeInfo.url) {
-			// just skip setActiveUrl()
+		// Only update if this is the active tab and there's a URL change
+		if (tabId === activeTabId && changeInfo.url) {
 			currentUrl.value = changeInfo.url;
 		}
 	});
