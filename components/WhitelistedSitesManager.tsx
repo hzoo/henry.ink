@@ -1,19 +1,16 @@
-import { useSignal } from "@preact/signals";
-import { getAllWhitelistedDomains, removeDomainFromWhitelist } from "@/lib/settings";
 import { createPortal } from "preact/compat";
+
+import { whitelistedDomains, removeDomainFromWhitelist } from "@/lib/settings";
 
 interface Props {
   onClose: () => void;
 }
 
+const handleRemoveDomain = async (domain: string) => {
+  await removeDomainFromWhitelist(domain);
+};
+
 export function WhitelistedSitesManager({ onClose }: Props) {
-  const domains = useSignal(getAllWhitelistedDomains());
-
-  const handleRemoveDomain = async (domain: string) => {
-    await removeDomainFromWhitelist(domain);
-    domains.value = getAllWhitelistedDomains();
-  };
-
   const modal = (
     <div 
       className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50"
@@ -45,9 +42,9 @@ export function WhitelistedSitesManager({ onClose }: Props) {
 
         {/* Scrollable Content */}
         <div className="overflow-y-auto flex-1 overscroll-contain">
-          {domains.value.length > 0 ? (
+          {whitelistedDomains.value.length > 0 ? (
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
-              {domains.value.map(domain => (
+              {whitelistedDomains.value.map(domain => (
                 <div key={domain} 
                   className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 group"
                 >

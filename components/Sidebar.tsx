@@ -1,12 +1,11 @@
 import { useSignalEffect } from "@preact/signals";
-import { currentUrl } from "@/lib/messaging";
+import { currentUrl, isWhitelisted } from "@/lib/messaging";
 import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
 import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
-import { autoFetchEnabled, isDomainWhitelisted } from "@/lib/settings";
-import { extractBaseDomain } from "@/lib/extractBaseDomain";
+import { autoFetchEnabled } from "@/lib/settings";
 import { searchBskyPosts } from "@/lib/bsky";
 import { PostList } from "@/components/PostList";
 
@@ -21,7 +20,7 @@ function SidebarBody() {
 			contentSourceUrl.value = newUrl;
 			
 			// Only fetch if auto-fetch is enabled AND domain is whitelisted
-			if (autoFetchEnabled.value && isDomainWhitelisted(extractBaseDomain(newUrl))) {
+			if (autoFetchEnabled.value && isWhitelisted.value) {
 				loading.value = true;
 				error.value = '';
 				

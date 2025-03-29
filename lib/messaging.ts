@@ -1,10 +1,22 @@
 import { computed, signal } from "@preact/signals";
-import { isDomainWhitelisted } from "./settings";
-import { extractBaseDomain } from "./extractBaseDomain";
+import { whitelistedDomains } from "./settings";
+
+function extractBaseDomain(url: string): string {
+	try {
+		const { hostname } = new URL(url);
+		return hostname;
+	} catch {
+		return "";
+	}
+}
 
 export const currentUrl = signal<string>("");
-export const currentDomain = computed(() => currentUrl.value ? extractBaseDomain(currentUrl.value) : "");
-export const isWhitelisted = computed(() => isDomainWhitelisted(currentDomain.value));
+export const currentDomain = computed(() =>
+	currentUrl.value ? extractBaseDomain(currentUrl.value) : "",
+);
+export const isWhitelisted = computed(() =>
+	whitelistedDomains.value.includes(currentDomain.value),
+);
 
 // Helper to get the active tab
 export async function getActiveTab() {
@@ -39,7 +51,7 @@ export function setupTabListener() {
 	});
 	browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 		// {status: 'loading', url: 'https://news.ycombinator.com/'}
-		if (changeInfo.status === 'loading' && changeInfo.url) {
+		if (changeInfo.status === "loading" && changeInfo.url) {
 			// just skip setActiveUrl()
 			currentUrl.value = changeInfo.url;
 		}

@@ -20,11 +20,3 @@ export async function removeDomainFromWhitelist(domain: string) {
     whitelistedDomains.value = currentDomains.filter(d => d !== domain);
   }
 }
-
-export function isDomainWhitelisted(domain: string): boolean {
-  return whitelistedDomains.value.includes(domain);
-}
-
-export function getAllWhitelistedDomains(): string[] {
-  return [...whitelistedDomains.value].sort();
-}

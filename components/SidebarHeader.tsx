@@ -1,6 +1,6 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
 import { mode, searchSort, searchAuthor } from "@/lib/signals";
-import { autoFetchEnabled, isDarkMode } from "@/lib/settings";
+import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { useSignal } from "@preact/signals";
 
