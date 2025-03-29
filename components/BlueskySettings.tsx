@@ -97,20 +97,7 @@ export function BlueskySettings() {
 								className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-left flex items-center gap-1"
 							>
 								<span>View all whitelisted sites</span>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									className="h-3 w-3"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M9 5l7 7-7 7"
-									/>
-								</svg>
+								<Icon name="rightArrow" className="h-3 w-3" />
 							</button>
 						</div>
 					</div>
