@@ -61,7 +61,7 @@ export function PostText(props: Props) {
       if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
         content.push({
           text: "",
-          component: <span className="text-gray-500 italic">[current url]</span>
+          component: <span className="text-gray-400 text-xs">[↗]</span>
         });
         continue;
       }

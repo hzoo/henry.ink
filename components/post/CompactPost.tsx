@@ -21,9 +21,9 @@ function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post:
 			e.stopPropagation();
 			isExpanded.value = !isExpanded.value;
 		}}
-		className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+		className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono"
 	>
-		<span className="flex items-center gap-1">
+		<span className="flex items-center gap-0.5 text-xs">
 			{isExpanded.value ? "[-]" : "[+]"}
 			<Icon name="comment" className="w-3 h-3" />
 			{post.replyCount}
@@ -52,12 +52,12 @@ export function CompactPost({
 			<div className="flex items-start gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-800">
 				<div className="flex-1 min-w-0">
 					{/* Post metadata row */}
-					<div className="flex items-center gap-x-1.5 text-sm flex-wrap text-gray-500">
+					<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500">
 						<a
 							href={postAuthorUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[120px]"
+							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[100px]"
 							title={post.author.handle}
 						>
 							@{post.author.handle}
