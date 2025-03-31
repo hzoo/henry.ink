@@ -1,6 +1,6 @@
 {
-  "name": "extension-bluesky-annotations",
-  "description": "see posts from bluesky on your current page",
+  "name": "extension-annotation-sidebar",
+  "description": "see annotations on your current page",
   "private": true,
   "version": "0.0.1",
   "type": "module",
