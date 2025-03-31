@@ -1,6 +1,6 @@
 {
-  "name": "extension-atproto-annotations",
-  "description": "annotations using atproto",
+  "name": "extension-bluesky-annotations",
+  "description": "see posts from bluesky on your current page",
   "private": true,
   "version": "0.0.1",
   "type": "module",
