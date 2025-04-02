@@ -28,3 +28,12 @@ Discover what people are saying about any webpage (currently Bluesky only) - a s
 - Go to `chrome://extensions/`
 - Enable "Developer mode" in the top-right corner
 - Click "Load unpacked", open the folder
+
+## Dev
+
+```sh
+bun install
+bun run dev
+bun run build
+bun run build:firefox
+```
