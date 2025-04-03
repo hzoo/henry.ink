@@ -22,12 +22,18 @@ Discover what people are saying about any webpage (currently Bluesky only) - a s
 - **Authentication**: Log in to like, repost, and reply to posts directly
 - **Smart Filtering**: Filter posts from your follows??
 
-# Install Locally
+## Local Chrome/Edge/Brave/Opera
 
 - Download the `zip` from [releases](https://github.com/hzoo/extension-annotation-sidebar/releases)
 - Go to `chrome://extensions/`
 - Enable "Developer mode" in the top-right corner
 - Click "Load unpacked", open the folder
+
+## Local Firefox
+
+1. Download the `zip` from [releases](https://github.com/hzoo/extension-annotation-sidebar/releases)
+2. Go to `about:debugging#/runtime/this-firefox`
+3. Click "Load Temporary Add-on…"
 
 ## Dev
 
