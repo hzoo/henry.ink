@@ -56,6 +56,18 @@ export function SettingsToggle() {
             </h3>
           </div>
           <BlueskySettings />
+          
+          {/* GitHub Repository Link */}
+          <div className="border-t border-gray-200 dark:border-gray-700 py-3 px-4">
+            <a 
+              href="https://github.com/hzoo/extension-annotation-sidebar" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors duration-150 ease-in-out"
+            >
+              Source on GitHub
+            </a>
+          </div>
         </div>
       )}
     </div>
