@@ -15,11 +15,10 @@ export default defineConfig({
     // host_permissions: ["<all_urls>"],
     action: {}, // Required for sidepanel to open on action click
   },
-  extensionApi: 'chrome',
   vite: () => ({
     plugins: [preact(), tailwindcss(), svgr()],
   }),
-  runner: {
+  webExt: {
     chromiumArgs: ["--user-data-dir=./.wxt/chrome-data"],
     startUrls: [
       "https://ciechanow.ski/mechanical-watch/"
