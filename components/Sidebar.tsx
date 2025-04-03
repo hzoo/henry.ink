@@ -4,10 +4,10 @@ import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
-import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
+import { currentPosts, loading, error, contentSourceUrl, cacheTimeAgo } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
-import { searchBskyPosts } from "@/lib/bsky";
 import { PostList } from "@/components/PostList";
+import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";
 
 function SidebarBody() {
 	// Load content when URL changes
@@ -21,23 +21,16 @@ function SidebarBody() {
 			
 			// Only fetch if auto-fetch is enabled AND domain is whitelisted
 			if (autoFetchEnabled.value && isWhitelisted.value) {
-				loading.value = true;
-				error.value = '';
-				
-				searchBskyPosts(newUrl, controller.signal)
-					.then(fetchedPosts => {
-						if (fetchedPosts) {
-							currentPosts.value = fetchedPosts;
-							// console.log(currentPosts.value.slice(0, 3));
-						}
-						loading.value = false;
-					})
-					.catch(err => {
-						error.value = err.message || 'Failed to fetch Bluesky posts';
-						loading.value = false;
-					});
+				// Try cache first, then update if needed
+				loadFromCacheAndUpdate(newUrl, controller.signal).then(hadCache => {
+					if (!hadCache) {
+						// No cache, do a full fetch
+						fetchPosts(newUrl, { signal: controller.signal });
+					}
+				});
 			} else {
 				currentPosts.value = [];
+				cacheTimeAgo.value = null;
 			}
 		}
 
