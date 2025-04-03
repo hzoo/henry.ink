@@ -90,7 +90,7 @@ export function PostText(props: Props) {
             href={`https://bsky.app/hashtag/${encodedTag}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-500 hover:text-blue-500 hover:underline break-all"
+            className="text-blue-500 hover:text-blue-500 hover:underline"
             onClick={(e: MouseEvent) => e.stopPropagation()}
           >
             {segment.text}
@@ -112,7 +112,7 @@ export function PostText(props: Props) {
   return (
     <div
       dir="auto"
-      className={`text-gray-900 dark:text-gray-100 whitespace-pre-wrap [overflow-wrap:anywhere] flex-1 ${
+      className={`text-gray-900 dark:text-gray-100 whitespace-pre-wrap [overflow-wrap:break-word] flex-1 ${
         truncate && "line-clamp-6"
       } text-sm`}
     >
