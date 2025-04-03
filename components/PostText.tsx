@@ -47,7 +47,9 @@ export function PostText(props: Props) {
             {segment.mention?.did && (
               <a
                 className="text-blue-500 hover:text-blue-500 hover:underline break-after-auto"
-                href={`/dashboard/user/${getHandle(segment.text)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                href={`https://bsky.app/profile/${getHandle(segment.text)}`}
                 onClick={(e: MouseEvent) => e.stopPropagation()}
               >
                 {segment.text}
