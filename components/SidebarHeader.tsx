@@ -1,8 +1,10 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
-import { mode, searchSort, searchAuthor } from "@/lib/signals";
+import { mode, searchSort, searchAuthor, cacheTimeAgo, contentSourceUrl } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { useSignal } from "@preact/signals";
+import { getTimeAgo } from "@/lib/utils/time";
+import { fetchPosts } from "@/lib/posts";
 
 export function SidebarHeader() {
 	const showFilters = useSignal(false);
@@ -14,6 +16,12 @@ export function SidebarHeader() {
 
 	const handleAuthorBlur = () => {
 		searchAuthor.value = authorInput.value || null;
+	};
+
+	const handleRefresh = () => {
+		if (contentSourceUrl.value) {
+			fetchPosts(contentSourceUrl.value);
+		}
 	};
 
 	return (
@@ -38,13 +46,23 @@ export function SidebarHeader() {
 						{autoFetchEnabled.value ? (
 							isWhitelisted.value ? (
 								<div class="flex items-center text-[10px] mt-0.5 gap-1">
-									<span class="flex items-center gap-0.5 text-green-600 dark:text-green-400 whitespace-nowrap">
+									<button
+										onClick={handleRefresh}
+										aria-label="Refresh posts"
+										title="Refresh posts"
+									><span class="flex items-center gap-0.5 text-green-600 dark:text-green-400 whitespace-nowrap cursor-pointer">
 										<Icon name="arrowPath" className="h-2.5 w-2.5" />
 										Auto
 									</span>
+									</button>
 									<span class="text-gray-600 dark:text-gray-400 truncate">
 										{currentDomain.value}
 									</span>
+									{cacheTimeAgo.value && (
+										<span class="text-gray-500 dark:text-gray-500 truncate">
+											{getTimeAgo(cacheTimeAgo.value)}
+										</span>
+									)}
 								</div>
 							) : (
 								<div class="flex items-center text-[10px] mt-0.5">

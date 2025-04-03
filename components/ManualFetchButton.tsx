@@ -1,29 +1,11 @@
-import { searchBskyPosts } from "@/lib/bsky";
-import { currentPosts, loading, error, contentSourceUrl } from "@/lib/signals";
-
-const handleFetch = () => {
-	loading.value = true;
-	error.value = "";
-
-	searchBskyPosts(contentSourceUrl.value)
-		.then((fetchedPosts) => {
-			if (fetchedPosts) {
-				currentPosts.value = fetchedPosts;
-				// console.log(currentPosts.value.slice(0, 3));
-			}
-			loading.value = false;
-		})
-		.catch((err) => {
-			error.value = err.message || "Failed to fetch Bluesky posts";
-			loading.value = false;
-		});
-};
+import { contentSourceUrl } from "@/lib/signals";
+import { fetchPosts } from "@/lib/posts";
 
 export function ManualFetchButton() {
 	return (
 		<button
 			className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-800/40 text-green-700 dark:text-green-300 rounded-md text-sm font-medium transition-colors"
-			onClick={handleFetch}
+			onClick={() => fetchPosts(contentSourceUrl.value)}
 			aria-label="Search for Bluesky posts"
 		>
 			<Icon name="magnifying" className="h-4 w-4" />
