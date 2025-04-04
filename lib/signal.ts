@@ -1,5 +1,5 @@
-import type { Signal } from "@preact/signals-react";
-import { effect, signal } from "@preact/signals-react";
+import type { Signal } from "@preact/signals";
+import { effect, signal } from "@preact/signals";
 
 export const STORAGE_PREFIX = "site-annotations-";
 

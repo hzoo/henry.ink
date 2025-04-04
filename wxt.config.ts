@@ -3,7 +3,6 @@ import tailwindcss from "@tailwindcss/vite";
 import preact from "@preact/preset-vite";
 import svgr from 'vite-plugin-svgr'
 import { version } from './package.json';
-// import react from "@vitejs/plugin-react-swc";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({

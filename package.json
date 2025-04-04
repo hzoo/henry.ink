@@ -17,21 +17,15 @@
     "release": "bun scripts/release.ts"
   },
   "dependencies": {
-    "@atproto/api": "^0.14.19",
-    "@preact/signals": "^2.0.2",
-    "@preact/signals-react": "^3.0.1",
-    "@tailwindcss/vite": "^4.1.1",
-    "preact": "^10.26.4",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "@atproto/api": "^0.14.20",
+    "@preact/signals": "^2.0.3",
+    "@tailwindcss/vite": "^4.1.2",
+    "preact": "^10.26.4"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
     "@types/bun": "^1.2.8",
     "@types/chrome": "^0.0.313",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.1",
-    "@wxt-dev/module-react": "^1.1.2",
     "typescript": "^5.6.3",
     "vite-plugin-svgr": "^4.3.0",
     "wxt": "^0.20.0"

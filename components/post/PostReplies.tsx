@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import type { ThreadViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import { AppBskyFeedDefs } from "@atproto/api";
 import { getPostThread } from "@/lib/bsky";
