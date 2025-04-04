@@ -1,5 +1,5 @@
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
-import type { Signal } from "@preact/signals-react";
+import type { Signal } from "@preact/signals";
 
 export interface ThreadReply {
   post: PostView;

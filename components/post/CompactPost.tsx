@@ -1,6 +1,6 @@
 import { PostText } from "../PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
