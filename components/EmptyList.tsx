@@ -25,14 +25,27 @@ export function EmptyList() {
           ) : (
             <>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                To protect your privacy, auto-search needs to be enabled for this site ({currentDomain.value}).
+                To protect your privacy, auto-search needs to be enabled for 
+                <span className="font-semibold font-mono text-gray-700 dark:text-gray-300 ml-1">{currentDomain.value}</span>
               </p>
-              <div className="space-y-2 flex flex-col items-center">
-                <WhitelistButton />
-                <div className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                  Or search manually without whitelisting:
+              <div className="space-y-3 flex flex-col items-center">
+                <div className="relative group">
+                  <WhitelistButton />
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-max">
+                    Permanently save {currentDomain.value} to whitelist
+                  </div>
                 </div>
-                <ManualFetchButton />
+                
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Or search manually:
+                </div>
+                
+                <div className="relative group">
+                  <ManualFetchButton />
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-max">
+                    One-time search only
+                  </div>
+                </div>
               </div>
             </>
           )}
