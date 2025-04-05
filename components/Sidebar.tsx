@@ -36,7 +36,7 @@ function SidebarBody() {
 
 		// Cleanup function to abort any in-flight request when URL changes
 		return () => {
-			controller.abort();
+			controller.abort('URL changed');
 		};
 	});
 
