@@ -1,5 +1,5 @@
 import { useSignalEffect } from "@preact/signals";
-import { currentUrl, isWhitelisted } from "@/lib/messaging";
+import { currentUrl, isWhitelisted, isSearchableUrl } from "@/lib/messaging";
 import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
@@ -15,7 +15,7 @@ function SidebarBody() {
 		const controller = new AbortController();
 		const newUrl = currentUrl.value;
 		
-		if (newUrl) {
+		if (newUrl && isSearchableUrl.value) {
 			// Update content source URL
 			contentSourceUrl.value = newUrl;
 			
@@ -42,7 +42,7 @@ function SidebarBody() {
 
 	return (
 		<div className="flex-1 overflow-y-auto">
-			{loading.value ? (
+		{loading.value ? (
 				<LoadingItemList />
 			) : error.value ? (
 				<ErrorMessage message={error.value} />

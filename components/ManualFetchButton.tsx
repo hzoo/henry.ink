@@ -1,5 +1,6 @@
 import { contentSourceUrl } from "@/lib/signals";
 import { fetchPosts } from "@/lib/posts";
+import { Icon } from "@/components/Icon";
 
 export function ManualFetchButton() {
 	return (
