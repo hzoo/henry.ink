@@ -31,7 +31,7 @@ export async function fetchPosts(url: string, options: FetchOptions = {}) {
   } catch (err) {
     // Don't show error if it was just aborted
     const fetchError = err as FetchError;
-    if (fetchError.name !== 'AbortError') {
+    if (fetchError.cause !== 'URL changed') {
       error.value = fetchError.message || "Failed to fetch Bluesky posts";
     }
     loading.value = false;
