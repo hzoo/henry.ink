@@ -8,10 +8,11 @@ export function PostList() {
 
   return (
     <>
-      {currentPosts.value.map((post: PostView) => (
+      {currentPosts.value.map((post: PostView, index: number) => (
         <PostComponent
           key={post.cid}
           post={post}
+          expanded={index === 0}
         />
       ))}
     </>
