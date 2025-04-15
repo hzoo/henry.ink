@@ -1,7 +1,7 @@
 import { computed, signal } from "@preact/signals";
 import { whitelistedDomains } from "./settings";
 
-function extractBaseDomain(url: string): string {
+export function extractBaseDomain(url: string): string {
 	try {
 		const { hostname } = new URL(url);
 		return hostname;
