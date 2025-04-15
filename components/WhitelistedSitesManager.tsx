@@ -1,5 +1,5 @@
 import { createPortal } from "preact/compat";
-
+import { Icon } from "@/components/Icon";
 import { whitelistedDomains, removeDomainFromWhitelist } from "@/lib/settings";
 
 interface Props {

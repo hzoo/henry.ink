@@ -6,6 +6,7 @@ import {
 } from "@/lib/settings";
 import { WhitelistedSitesManager } from "./WhitelistedSitesManager";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
+import { Icon } from "@/components/Icon";
 
 const handleAutoFetchToggle = () => {
 	autoFetchEnabled.value = !autoFetchEnabled.value;

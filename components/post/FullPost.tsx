@@ -2,7 +2,7 @@ import { formatCount } from "@/lib/utils/count";
 import { PostText } from "../PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { getTimeAgo } from "@/lib/utils/time";
-import { Icon } from "../Icon";
+import { Icon } from "@/components/Icon";
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 
 interface FullPostProps {

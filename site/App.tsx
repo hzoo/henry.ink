@@ -97,7 +97,8 @@ export function App() {
 
 			<div class="flex flex-1 overflow-hidden">
 				<main class="flex-1 flex flex-col p-3 gap-3">
-					{/* Address Bar */}
+                <span class="text-xs text-gray-500 dark:text-gray-400 self-center italic">↓ Simulated Browser Window ↓</span>
+                {/* Address Bar */}
 					<form onSubmit={handleSubmit} class="flex">
 						<input
 							type="text"
@@ -119,7 +120,7 @@ export function App() {
 								key={url}
 								onClick={() => loadUrl(url)}
 								title={`Load ${url}`}
-								class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500/50 transition-colors duration-150"
+								class="px-2 py-1 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500/50 transition-colors duration-150"
 							>
 								{name}
 							</button>
@@ -127,16 +128,19 @@ export function App() {
 					</div>
 
 					{/* Iframe container - simplified */}
-					<div class="flex-1 border rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden">
-						<iframe
-							src={iframeUrl}
-							title="Website Content"
-							class="w-full h-full border-0"
-							sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-						/>
-					</div>
+                    <div class="flex-1 border rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <iframe
+                            src={iframeUrl}
+                            title="Website Content"
+                            class="w-full h-full border-0"
+                            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                        />
+                    </div>
 				</main>
 				<aside class="w-80 border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50">
+					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
+						<span class="text-xs text-gray-500 dark:text-gray-400 italic">↓ Extension Sidebar (Actual Bluesky Posts) ↓</span>
+					</div>
 					<Sidebar />
 				</aside>
 			</div>
