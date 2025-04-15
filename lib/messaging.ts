@@ -43,24 +43,24 @@ export async function setupTabListener() {
 	// Initial setup - get current window and active tab
 	try {
 		// Get the current window this extension instance is in
-		const currentWindow = await chrome.windows.getCurrent();
+		const currentWindow = await browser.windows.getCurrent();
 		extensionWindowId = currentWindow.id;
 		
 		// Get the active tab in this window
-		const [tab] = await chrome.tabs.query({ active: true, windowId: extensionWindowId });
+		const [tab] = await browser.tabs.query({ active: true, windowId: extensionWindowId });
 		if (tab?.id && tab.url) {
 			activeTabId = tab.id;
 			currentUrl.value = tab.url;
 		}
 		
 		// Listen for tab changes - only in our window
-		chrome.tabs.onActivated.addListener(async (activeInfo) => {
+		browser.tabs.onActivated.addListener(async (activeInfo) => {
 			// Only process if this is in our window
 			if (activeInfo.windowId === extensionWindowId) {
 				activeTabId = activeInfo.tabId;
 				
 				// Get the tab details
-				const tab = await chrome.tabs.get(activeInfo.tabId);
+				const tab = await browser.tabs.get(activeInfo.tabId);
 				if (tab.url) {
 					currentUrl.value = tab.url;
 				} else if (tab.pendingUrl) {
@@ -72,7 +72,7 @@ export async function setupTabListener() {
 		});
 		
 		// Listen for URL changes
-		chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+		browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 			// Only update if this is the active tab in our window and there's a URL change
 			if (tabId === activeTabId && changeInfo.url) {
 				currentUrl.value = changeInfo.url;
