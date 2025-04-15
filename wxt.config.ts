@@ -14,6 +14,15 @@ export default defineConfig({
     permissions: ['storage', 'tabs', 'sidePanel'],
     // host_permissions: ["<all_urls>"],
     action: {}, // Required for sidepanel to open on action click
+    commands: {
+      "_execute_sidebar_action": {
+        suggested_key: {
+          default: "Ctrl+Shift+Space",
+          mac: "Command+Shift+Space",
+        },
+        description: "Toggle the Bluesky Sidebar",
+      },
+    },
   },
   vite: () => ({
     plugins: [preact(), tailwindcss(), svgr()],
