@@ -2,7 +2,7 @@ import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { BlueskySettings } from "./BlueskySettings";
 import { autoFetchEnabled } from "@/lib/settings";
-
+import { Icon } from "@/components/Icon";
 export function SettingsToggle() {
   const isOpen = useSignal(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
