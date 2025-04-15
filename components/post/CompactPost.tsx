@@ -1,4 +1,4 @@
-import { PostText } from "../PostText";
+import { PostText } from "@/components/PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";

@@ -2,21 +2,17 @@ import { SettingsToggle } from "@/components/SettingsToggle";
 import { mode, cacheTimeAgo, contentSourceUrl } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
-import { useSignal } from "@preact/signals";
 import { getTimeAgo } from "@/lib/utils/time";
 import { fetchPosts } from "@/lib/posts";
 import { Icon } from "@/components/Icon";
 
+const handleRefresh = () => {
+	if (contentSourceUrl.value) {
+		fetchPosts(contentSourceUrl.value);
+	}
+};
+
 export function SidebarHeader() {
-	const showFilters = useSignal(false);
-
-
-	const handleRefresh = () => {
-		if (contentSourceUrl.value) {
-			fetchPosts(contentSourceUrl.value);
-		}
-	};
-
 	return (
 		<div class="sticky top-0 z-10 p-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
 			<div class="flex items-center justify-between gap-1">
