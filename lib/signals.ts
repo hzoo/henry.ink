@@ -10,6 +10,3 @@ export const contentSourceUrl = signal<string>("");
 
 export const mode = signalBrowserLocal<"full" | "compact">("mode", "full");
 
-// Search parameters
-export const searchSort = signal<'top' | 'latest'>('top');
-export const searchAuthor = signal<string | null>(null);
