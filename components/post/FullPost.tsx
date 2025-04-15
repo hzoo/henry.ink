@@ -17,7 +17,7 @@ export function FullPost({ post }: FullPostProps) {
 
   return (
     <article 
-      className="border-b p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      className="border-b border-gray-300 dark:border-gray-600 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center">
