@@ -64,6 +64,7 @@ export function SidebarHeader() {
 						onClick={() => mode.value = mode.value === 'full' ? 'compact' : 'full'}
 						class="p-1 rounded-full text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700"
 						aria-label="Toggle view mode"
+						title="Toggle view mode"
 					>
 						{mode.value === 'full' ? (
 							<Icon name="rectangleStack" className="h-4 w-4" />
