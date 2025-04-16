@@ -1,7 +1,8 @@
-import { AtpAgent } from '@atproto/api';
-import type { QueryParams } from '@atproto/api/dist/client/types/app/bsky/feed/searchPosts';
+import { XRPC, CredentialManager } from '@atcute/client';
+import type { At } from '@atcute/client/lexicons';
 
-const agent = new AtpAgent({ service: 'https://public.api.bsky.app' });
+const manager = new CredentialManager({ service: 'https://public.api.bsky.app' });
+const rpc = new XRPC({ handler: manager });
 
 // Calculate engagement score for a post
 function getEngagementScore(post: { likeCount?: number; repostCount?: number; replyCount?: number }) {
@@ -15,13 +16,12 @@ function getEngagementScore(post: { likeCount?: number; repostCount?: number; re
 
 export async function searchBskyPosts(url: string, signal?: AbortSignal) {
   try {
-    const params: QueryParams = {
+    const params = {
       q: url,
       sort: 'top',
     };
 
-    const response = await agent.app.bsky.feed.searchPosts(params, { signal });
-    
+    const response = await rpc.get('app.bsky.feed.searchPosts', { params, signal });
     if (response.data.posts) {
       // Apply our own sorting for 'top' mode
       return response.data.posts.sort((a, b) => {
@@ -43,11 +43,11 @@ export async function searchBskyPosts(url: string, signal?: AbortSignal) {
 
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
-    const response = await agent.app.bsky.feed.getPostThread(
-      { uri, depth: options?.depth ?? 1 },
-      { signal: options?.signal }
-    );
-    if (!response.success) throw new Error("Could not fetch thread");
+    const response = await rpc.get('app.bsky.feed.getPostThread', { 
+      params: { uri: uri as At.ResourceUri, depth: options?.depth ?? 1 },
+      signal: options?.signal,
+    });
+
     return response.data.thread;
   } catch (error: unknown) {
     if (error instanceof Error && error.name !== 'AbortError') {

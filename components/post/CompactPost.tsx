@@ -4,18 +4,18 @@ import { useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import type { Signal } from "@preact/signals-core";
 import type { ThreadReply } from "@/lib/types";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 
 interface CompactPostProps {
-	post: PostView;
+	post: AppBskyFeedDefs.PostView;
 	depth?: number;
 	expanded?: boolean;
 	replies?: ThreadReply[];
 }
 
-function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post: PostView }) {
+function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post: AppBskyFeedDefs.PostView }) {
 	return (<button
 		onClick={(e) => {
 			e.stopPropagation();

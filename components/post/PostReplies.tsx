@@ -1,19 +1,24 @@
 import { useEffect, useRef } from "react";
 import { useSignal } from "@preact/signals";
-import type { ThreadViewPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
-import { AppBskyFeedDefs } from "@atproto/api";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { getPostThread } from "@/lib/bsky";
 import { CompactPost } from "./CompactPost";
 import type { PostRepliesProps, ThreadReply } from "@/lib/types";
 
-function processThreadReplies(thread: ThreadViewPost): ThreadReply[] {
+export function isThreadViewPost(v: unknown): v is AppBskyFeedDefs.ThreadViewPost {
+  return typeof v === 'object' && v !== null &&
+         '$type' in v &&
+         v.$type === 'app.bsky.feed.defs#threadViewPost';
+}
+
+function processThreadReplies(thread: AppBskyFeedDefs.ThreadViewPost): ThreadReply[] {
   if (!thread.replies) return [];
 
   return thread.replies
-    .filter(AppBskyFeedDefs.isThreadViewPost)
+    .filter(isThreadViewPost)
     .map(reply => ({
-      post: reply.post,
-      replies: reply.replies ? processThreadReplies(reply as ThreadViewPost) : undefined
+      post: (reply as AppBskyFeedDefs.ThreadViewPost).post,
+      replies: (reply as AppBskyFeedDefs.ThreadViewPost).replies ? processThreadReplies(reply as AppBskyFeedDefs.ThreadViewPost) : undefined
     }));
 }
 
@@ -45,8 +50,8 @@ export function PostReplies({
         abortController = new AbortController();
         try {
           const thread = await getPostThread(post.uri, { depth: maxDepth, signal: abortController.signal });
-          if (thread && AppBskyFeedDefs.isThreadViewPost(thread)) {
-            replies.value = processThreadReplies(thread as ThreadViewPost);
+          if (thread && isThreadViewPost(thread)) {
+            replies.value = processThreadReplies(thread);
             hasFetched.current = true;
           }
         } catch (error) {
@@ -82,7 +87,7 @@ export function PostReplies({
         replies.value.map((reply) => (
           <CompactPost
             key={reply.post.cid}
-            post={reply.post}
+            post={reply.post as AppBskyFeedDefs.PostView}
             depth={depth}
             expanded={isExpanded.value}
             replies={reply.replies}

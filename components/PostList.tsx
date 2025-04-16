@@ -1,5 +1,6 @@
 import { currentPosts, mode } from "@/lib/signals";
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+
 import { FullPost } from "./post/FullPost";
 import { CompactPost } from "./post/CompactPost";
 
@@ -8,7 +9,7 @@ export function PostList() {
 
   return (
     <>
-      {currentPosts.value.map((post: PostView, index: number) => (
+      {currentPosts.value.map((post: AppBskyFeedDefs.PostView, index: number) => (
         <PostComponent
           key={post.cid}
           post={post}
