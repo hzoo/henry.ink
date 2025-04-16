@@ -5,11 +5,13 @@ Discover what people are saying about any webpage (Bluesky only atm) - a sidebar
 [link-chrome]: https://chromewebstore.google.com/detail/bluesky-sidebar/lbbbgodnfjcndohnhdjkomcckekjpjni 'Version published on Chrome Web Store'
 [link-firefox]: https://addons.mozilla.org/en-US/firefox/addon/bluesky-sidebar/ 'Version published on Mozilla Add-ons'
 
+> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no need to install an extension)
+
 [<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/chrome/chrome.svg" width="48" alt="Chrome" valign="middle">][link-chrome] [<img valign="middle" src="https://img.shields.io/chrome-web-store/v/lbbbgodnfjcndohnhdjkomcckekjpjni.svg?label=%20">][link-chrome] and other Chromium browsers ([not Arc](https://www.reddit.com/r/ArcBrowser/comments/1fb1gm3/chromesidepanel_api_for_extensions_in_arc_browser/))
 
 [<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/firefox/firefox.svg" width="48" alt="Firefox" valign="middle">][link-firefox] [<img valign="middle" src="https://img.shields.io/amo/v/bluesky-sidebar.svg?label=%20">][link-firefox]
 
-![example on neal.fun](https://github.com/user-attachments/assets/afc834a4-1d17-4b1d-843c-2e58f857f247)
+[![example on neal.fun](https://github.com/user-attachments/assets/afc834a4-1d17-4b1d-843c-2e58f857f247)](https://annotation-sidebar-demo.pages.dev)
 
 ## What it does
 
@@ -52,3 +54,6 @@ bun run dev
 bun run build
 bun run build:firefox
 ```
+
+## Previously
+- I made an older repo that does a similar thing for [Community Archive](https://www.community-archive.org/) (since Twitter API is not exactly open): https://github.com/hzoo/extension-find-annotations
