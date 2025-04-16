@@ -1,0 +1,19 @@
+{
+    "client_id": "https://annotation-sidebar-demo.pages.dev/oauth/client-metadata.json",
+    "client_uri": "https://annotation-sidebar-demo.pages.dev",
+    "redirect_uris": [
+        "https://annotation-sidebar-demo.pages.dev"
+    ],
+    "application_type": "web",
+    "client_name": "Annotation Sidebar Extension",
+    "dpop_bound_access_tokens": true,
+    "grant_types": [
+        "authorization_code",
+        "refresh_token"
+    ],
+    "response_types": [
+        "code"
+    ],
+    "scope": "atproto transition:generic",
+    "token_endpoint_auth_method": "none"
+}

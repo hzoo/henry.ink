@@ -94,7 +94,7 @@ export const signalBrowserLocal = <T>(key: string, initialValue: T): Signal<T> =
     return persistBrowserSignal(key, initialValue, browser.storage.local);
   }
   // Fallback to localStorage if browser.storage.local is not available (web context)
-  console.warn(`browser.storage.local not available for key '${key}'. Falling back to localStorage.`);
+  // console.warn(`browser.storage.local not available for key '${key}'. Falling back to localStorage.`);
   return persistSignal(key, initialValue, window.localStorage);
 };
 
@@ -104,6 +104,6 @@ export const signalBrowserSync = <T>(key: string, initialValue: T): Signal<T> =>
     return persistBrowserSignal(key, initialValue, browser.storage.sync);
   }
   // Fallback to localStorage if browser.storage.sync is not available (web context)
-  console.warn(`browser.storage.sync not available for key '${key}'. Falling back to localStorage (syncing disabled).`);
+  // console.warn(`browser.storage.sync not available for key '${key}'. Falling back to localStorage (syncing disabled).`);
   return persistSignal(key, initialValue, window.localStorage);
 };
