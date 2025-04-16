@@ -1,4 +1,4 @@
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 
 const CACHE_PREFIX = "bsky-posts-";
 const CACHE_VERSION = "v1";
@@ -9,7 +9,7 @@ const memoryCache = new Map<string, CacheEntry>();
 const MAX_MEMORY_ENTRIES = 50;
 
 interface CacheEntry {
-  posts: PostView[];
+  posts: AppBskyFeedDefs.PostView[];
   lastAccessed: number;
   lastFetched: number; // When the data was last fetched from API
   version: string;
@@ -19,7 +19,7 @@ function getCacheKey(url: string): string {
   return `${CACHE_PREFIX}${CACHE_VERSION}-${url}`;
 }
 
-export function updatePostsCache(url: string, posts: PostView[]) {
+export function updatePostsCache(url: string, posts: AppBskyFeedDefs.PostView[]) {
   const entry: CacheEntry = {
     posts,
     lastAccessed: Date.now(),
@@ -59,7 +59,7 @@ export function updatePostsCache(url: string, posts: PostView[]) {
 }
 
 export interface CacheInfo {
-  posts: PostView[] | null;
+  posts: AppBskyFeedDefs.PostView[] | null;
   lastFetched: number | null;
 }
 

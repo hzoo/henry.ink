@@ -1,7 +1,11 @@
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
-import { RichText as RichTextHelper, AppBskyFeedPost, type AppBskyRichtextFacet } from "@atproto/api";
+import type { AppBskyFeedDefs, AppBskyFeedPost } from "@atcute/client/lexicons";
+import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmenter";
 import { Fragment, type JSX } from "preact";
 import { currentUrl } from "@/lib/messaging";
+
+function isRecord(record: unknown): record is AppBskyFeedPost.Record {
+  return typeof record === 'object' && record !== null && '$type' in record && record.$type === 'app.bsky.feed.post';
+}
 
 function normalizeUrl(url: string): string {
   try {
@@ -16,7 +20,7 @@ function normalizeUrl(url: string): string {
 }
 
 interface Props {
-  record: PostView["record"];
+  record: AppBskyFeedDefs.PostView["record"];
   truncate?: boolean;
 }
 
@@ -26,25 +30,24 @@ export function getHandle(mention: string) {
 
 export function PostText(props: Props) {
   const { record, truncate } = props;
-  const postRecord = AppBskyFeedPost.isRecord(record) ? record : null;
-  const text = postRecord?.text as string || "";
-  const facets = postRecord?.facets as AppBskyRichtextFacet.Main[] || [];
-  const tags = postRecord?.tags as string[] || [];
+  const postRecord = isRecord(record) ? record : null;
+  const text = postRecord?.text ?? "";
+  const facets = postRecord?.facets ?? [];
+  const tags = postRecord?.tags ?? [];
 
-  const richText = new RichTextHelper({
-    text: text.toString(),
-    facets: facets as AppBskyRichtextFacet.Main[],
-  });
+  const segments = segmentize(text, facets);
 
   const content: { text: string; component: JSX.Element }[] = [];
 
-  for (const segment of richText.segments()) {
-    if (segment.isMention()) {
+  for (const segment of segments) {
+    const feature = segment.features?.[0] as FacetFeature | undefined; // Assuming one feature per segment for simplicity based on context
+
+    if (feature && feature.$type === 'app.bsky.richtext.facet#mention') {
       content.push({
         text: segment.text,
         component: (
           <>
-            {segment.mention?.did && (
+            {feature.did && (
               <a
                 className="text-blue-500 hover:text-blue-500 hover:underline break-after-auto"
                 target="_blank"
@@ -58,8 +61,8 @@ export function PostText(props: Props) {
           </>
         ),
       });
-    } else if (segment.isLink()) {
-      const url = segment.link?.uri;
+    } else if (feature && feature.$type === 'app.bsky.richtext.facet#link') {
+      const url = feature.uri;
       if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
         content.push({
           text: "",
@@ -72,7 +75,7 @@ export function PostText(props: Props) {
         component: (
           <a
             className="text-blue-500 hover:text-blue-500 hover:underline break-all"
-            href={segment.link?.uri!}
+            href={feature.uri}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e: MouseEvent) => e.stopPropagation()}
@@ -81,8 +84,8 @@ export function PostText(props: Props) {
           </a>
         ),
       });
-    } else if (segment.isTag()) {
-      const encodedTag = encodeURIComponent(segment.tag?.tag!);
+    } else if (feature && feature.$type === 'app.bsky.richtext.facet#tag') {
+      const encodedTag = encodeURIComponent(feature.tag);
       content.push({
         text: segment.text,
         component: (

@@ -3,10 +3,10 @@ import { PostText } from "../PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { getTimeAgo } from "@/lib/utils/time";
 import { Icon } from "@/components/Icon";
-import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 
 interface FullPostProps {
-  post: PostView;
+  post: AppBskyFeedDefs.PostView;
 }
 
 export function FullPost({ post }: FullPostProps) {

@@ -18,7 +18,9 @@
     "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo"
   },
   "dependencies": {
-    "@atproto/api": "^0.14.22",
+    "@atcute/bluesky": "^2.0.1",
+    "@atcute/bluesky-richtext-segmenter": "^2.0.0",
+    "@atcute/client": "^3.0.1",
     "@preact/signals": "^2.0.3",
     "@tailwindcss/vite": "^4.1.4",
     "preact": "^10.26.5"
