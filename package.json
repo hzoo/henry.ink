@@ -21,6 +21,7 @@
     "@atcute/bluesky": "^2.0.1",
     "@atcute/bluesky-richtext-segmenter": "^2.0.0",
     "@atcute/client": "^3.0.1",
+    "@atcute/oauth-browser-client": "^1.0.17",
     "@preact/signals": "^2.0.3",
     "@tailwindcss/vite": "^4.1.4",
     "preact": "^10.26.5"
