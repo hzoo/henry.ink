@@ -10,6 +10,9 @@ import FunnelIcon from '@/assets/funnel.svg?react';
 import RectangleStackIcon from '@/assets/rectangle-stack.svg?react';
 import QueueListIcon from '@/assets/queue-list.svg?react';
 import CircleIcon from '@/assets/circle.svg?react';
+import FirefoxIcon from '@/assets/firefox.svg?react';
+import ChromeIcon from '@/assets/chrome.svg?react';
+import GithubIcon from '@/assets/github.svg?react';
 
 const icons = {
   heart: HeartIcon,
@@ -23,6 +26,9 @@ const icons = {
   rectangleStack: RectangleStackIcon,
   queueList: QueueListIcon,
   circle: CircleIcon,
+  firefox: FirefoxIcon,
+  chrome: ChromeIcon,
+  github: GithubIcon,
 } as const;
 
 export type IconName = keyof typeof icons;
