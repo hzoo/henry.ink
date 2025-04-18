@@ -7,9 +7,11 @@ Discover what people are saying about any webpage (Bluesky only atm) - a sidebar
 
 > i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no need to install an extension)
 
+### Install Links
+
 [<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/chrome/chrome.svg" width="48" alt="Chrome" valign="middle">][link-chrome] [<img valign="middle" src="https://img.shields.io/chrome-web-store/v/lbbbgodnfjcndohnhdjkomcckekjpjni.svg?label=%20">][link-chrome] and other Chromium browsers ([not Arc](https://www.reddit.com/r/ArcBrowser/comments/1fb1gm3/chromesidepanel_api_for_extensions_in_arc_browser/))
 
-[<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/firefox/firefox.svg" width="48" alt="Firefox" valign="middle">][link-firefox] [<img valign="middle" src="https://img.shields.io/amo/v/bluesky-sidebar.svg?label=%20">][link-firefox]
+[<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/firefox/firefox.svg" width="48" alt="Firefox" valign="middle">][link-firefox] [<img valign="middle" src="https://img.shields.io/amo/v/bluesky-sidebar.svg?label=%20">][link-firefox] and friends
 
 [![example on neal.fun](https://github.com/user-attachments/assets/afc834a4-1d17-4b1d-843c-2e58f857f247)](https://annotation-sidebar-demo.pages.dev)
 
@@ -33,26 +35,22 @@ Discover what people are saying about any webpage (Bluesky only atm) - a sidebar
 - **Authentication**: Log in to like, repost, and reply to posts directly
 - **Smart Filtering**: Filter posts from your follows??
 
-## Local Chrome/Edge/Brave/Opera
+## Local Download
 
-- Download the `zip` from [releases](https://github.com/hzoo/extension-annotation-sidebar/releases)
-- Go to `chrome://extensions/`
-- Enable "Developer mode" in the top-right corner
-- Click "Load unpacked", open the folder
+> You may need to build the extension yourself if the zip (not source code) isn't there (see below)
 
-## Local Firefox
+- Download the corresponding `zip` from [releases](https://github.com/hzoo/extension-annotation-sidebar/releases)
+  - Chorme: go to `chrome://extensions/` and click "Load unpacked" (enable Developer Mode)
+  - Firefox: go to `about:debugging#/runtime/this-firefox` and click "Load Temporary Add-on…"
 
-1. Download the `zip` from [releases](https://github.com/hzoo/extension-annotation-sidebar/releases)
-2. Go to `about:debugging#/runtime/this-firefox`
-3. Click "Load Temporary Add-on…"
-
-## Dev
+## Local Dev
 
 ```sh
 bun install
 bun run dev
+# check /.output folder
 bun run build
-bun run build:firefox
+bun run build:ff
 ```
 
 ## Previously
