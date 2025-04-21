@@ -3,19 +3,17 @@ import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
-import { Icon } from "@/components/Icon";
 import type { Signal } from "@preact/signals-core";
-import type { ThreadReply } from "@/lib/types";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import { CompactPostActions } from "./CompactPostActions";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
 	depth?: number;
 	expanded?: boolean;
-	replies?: ThreadReply[];
 }
 
-function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post: AppBskyFeedDefs.PostView }) {
+function ExpandButton({ isExpanded }: { isExpanded: Signal<boolean> }) {
 	return (<button
 		onClick={(e) => {
 			e.stopPropagation();
@@ -25,8 +23,6 @@ function ExpandButton({ isExpanded, post }: { isExpanded: Signal<boolean>, post:
 	>
 		<span className="flex items-center gap-0.5 text-xs">
 			{isExpanded.value ? "[-]" : "[+]"}
-			<Icon name="comment" className="w-3 h-3" />
-			{post.replyCount}
 		</span>
 	</button>)
 }
@@ -35,7 +31,6 @@ export function CompactPost({
 	post,
 	depth = 0,
 	expanded = false,
-	replies,
 }: CompactPostProps) {
 	const isExpanded = useSignal(expanded);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
@@ -73,24 +68,21 @@ export function CompactPost({
 							{timeAgo}
 						</a>
 						{post.replyCount !== undefined && post.replyCount > 0 && (
-							<ExpandButton isExpanded={isExpanded} post={post} />
+							<ExpandButton isExpanded={isExpanded} />
 						)}
 					</div>
-
 					{/* Post content */}
 					<div className="text-sm break-words text-gray-900 dark:text-gray-100">
-						<PostText record={post.record} truncate={true} />
+						<PostText record={post.record} />
 					</div>
+					<CompactPostActions post={post} />
 				</div>
 			</div>
-			{post.replyCount !== undefined && post.replyCount > 0 && (
-				<PostReplies 
-					post={post} 
-					depth={depth + 1} 
-					isExpanded={isExpanded} 
-					prefetchedReplies={replies}
-				/>
-			)}
+			<PostReplies 
+				post={post} 
+				depth={depth + 1} 
+				isExpanded={isExpanded} 
+			/>
 		</article>
 	);
 }

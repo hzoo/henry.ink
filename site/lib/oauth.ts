@@ -29,7 +29,7 @@ export function initializeOAuth() {
 type AtCuteSessionData = Awaited<ReturnType<typeof finalizeAuthorization>>;
 
 // --- State Management ---
-interface AtCuteState {
+export interface AtCuteState {
 	agent: OAuthUserAgent;
 	xrpc: XRPC;
 	session: AtCuteSessionData; // Use the inferred type
@@ -77,26 +77,42 @@ export const useAtCute = () => {
 			const persistedDid = localStorage.getItem("atcute-oauth:did");
 			if (persistedDid) {
 				try {
-					// allowStale: true can speed up initial load but might use expired tokens.
-					// Set to false if you always need a fresh check, but it will be slower.
-					const session = await getSession(persistedDid as `did:${string}:${string}`, { allowStale: true });
+                    console.log(`Attempting to load session for persisted DID: ${persistedDid}`);
+					const session = await getSession(persistedDid as `did:${string}:${string}`, { allowStale: false });
 					if (session && isMounted) {
+                        console.log("Successfully loaded/refreshed session:", session.info);
 						const agent = new OAuthUserAgent(session);
 						const xrpc = new XRPC({ handler: agent });
 						atCuteState.value = { agent, xrpc, session };
 					} else if (!session) {
-                        // Session might be invalid or expired and couldn't be refreshed
-                        localStorage.removeItem("atcute-oauth:did");
-                        if (isMounted) atCuteState.value = null;
-                    }
+						// Session might be invalid or expired and couldn't be refreshed
+                        console.warn("getSession returned null (likely refresh failure), clearing potentially invalid session for DID:", persistedDid);
+						localStorage.removeItem("atcute-oauth:did");
+                        // Also try clearing the library's internal storage for this DID
+                        try {
+                            deleteStoredSession(persistedDid as `did:${string}:${string}`);
+                            console.log("Called deleteStoredSession for potentially invalid DID:", persistedDid);
+                        } catch (deleteErr) {
+                            console.error("Error calling deleteStoredSession:", deleteErr);
+                        }
+						if (isMounted) atCuteState.value = null;
+					}
 				} catch (error) {
-					console.error("Error loading persisted session:", error);
+					console.error(`Error during getSession for DID ${persistedDid}:`, error);
 					localStorage.removeItem("atcute-oauth:did"); // Clear invalid state
+                    // Also try clearing the library's internal storage for this DID
+                    try {
+                        deleteStoredSession(persistedDid as `did:${string}:${string}`);
+                        console.log("Called deleteStoredSession after getSession threw error for DID:", persistedDid);
+                    } catch (deleteErr) {
+                        console.error("Error calling deleteStoredSession after getSession error:", deleteErr);
+                    }
 					if (isMounted) atCuteState.value = null;
 				}
 			} else {
-                if (isMounted) atCuteState.value = null; // No persisted session
-            }
+                console.log("No persisted DID found in localStorage.");
+				if (isMounted) atCuteState.value = null; // No persisted session
+			}
 
 			if (isMounted) isLoadingSession.value = false;
 		};

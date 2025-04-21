@@ -8,5 +8,5 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["wxt.config.ts", "server.ts"]
+  "include": ["wxt.config.ts"]
 }

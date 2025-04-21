@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'preact';
 import HeartIcon from '@/assets/heart.svg?react';
+import HeartFilledIcon from '@/assets/heart-filled.svg?react';
 import ArrowPathIcon from '@/assets/arrow-path.svg?react';
 import CommentIcon from '@/assets/comment.svg?react';
 import RightArrowIcon from '@/assets/right-arrow.svg?react';
@@ -16,6 +17,7 @@ import GithubIcon from '@/assets/github.svg?react';
 
 const icons = {
   heart: HeartIcon,
+  heartFilled: HeartFilledIcon,
   arrowPath: ArrowPathIcon,
   comment: CommentIcon,
   rightArrow: RightArrowIcon,

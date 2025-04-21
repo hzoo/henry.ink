@@ -1,3 +1,4 @@
+import { atCuteState } from '@/site/lib/oauth';
 import { XRPC, CredentialManager } from '@atcute/client';
 import type { At } from '@atcute/client/lexicons';
 
@@ -14,14 +15,14 @@ function getEngagementScore(post: { likeCount?: number; repostCount?: number; re
   return likes + reposts + replies;
 }
 
-export async function searchBskyPosts(url: string, signal?: AbortSignal) {
+export async function searchBskyPosts(url: string, options?: { signal?: AbortSignal }) {
   try {
     const params = {
       q: url,
       sort: 'top',
     };
 
-    const response = await rpc.get('app.bsky.feed.searchPosts', { params, signal });
+    const response = await (atCuteState.value?.xrpc ?? rpc).get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
     if (response.data.posts) {
       // Apply our own sorting for 'top' mode
       return response.data.posts.sort((a, b) => {
@@ -43,7 +44,7 @@ export async function searchBskyPosts(url: string, signal?: AbortSignal) {
 
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
-    const response = await rpc.get('app.bsky.feed.getPostThread', { 
+    const response = await (atCuteState.value?.xrpc ?? rpc).get('app.bsky.feed.getPostThread', { 
       params: { uri: uri as At.ResourceUri, depth: options?.depth ?? 1 },
       signal: options?.signal,
     });
