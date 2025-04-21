@@ -21,7 +21,7 @@ export async function fetchPosts(url: string, options: FetchOptions = {}) {
   error.value = "";
 
   try {
-    const fetchedPosts = await searchBskyPosts(url, signal);
+    const fetchedPosts = await searchBskyPosts(url, {signal});
     if (fetchedPosts) {
       updatePostsCache(url, fetchedPosts);
       currentPosts.value = fetchedPosts;
@@ -52,7 +52,7 @@ export async function loadFromCacheAndUpdate(url: string, signal?: AbortSignal) 
     if (shouldRefresh) {
       // Fetch fresh data in the background
       try {
-        const fetchedPosts = await searchBskyPosts(url, signal);
+        const fetchedPosts = await searchBskyPosts(url, {signal});
         const now = Date.now();
         
         if (fetchedPosts && fetchedPosts.length > (posts?.length || 0)) {

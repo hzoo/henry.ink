@@ -23,7 +23,7 @@ export function LoginButton() {
 				} catch (error) {
 					console.error("Failed to fetch user profile handle:", error);
 					if (error instanceof Error && error.message.includes('invalid_token')) {
-						console.log("Authentication error detected during profile fetch, logging out.");
+						console.error("Authentication error detected during profile fetch, logging out.");
 						logout();
 					}
 				} finally {

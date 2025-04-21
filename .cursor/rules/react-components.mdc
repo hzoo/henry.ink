@@ -9,6 +9,7 @@ alwaysApply: false
   - hooks (useEffect, useSignal, etc.) must be inside components
   - prefer preact signals over useState
   - split up large files into multiple components.
+  - avoid passing props unless it's a local signal
 
 ```ts
 // ❌ BAD - hooks outside component  
