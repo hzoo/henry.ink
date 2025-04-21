@@ -2,10 +2,7 @@ import type { AppBskyFeedDefs, AppBskyFeedPost } from "@atcute/client/lexicons";
 import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmenter";
 import { Fragment, type JSX } from "preact";
 import { currentUrl } from "@/lib/messaging";
-
-function isRecord(record: unknown): record is AppBskyFeedPost.Record {
-  return typeof record === 'object' && record !== null && '$type' in record && record.$type === 'app.bsky.feed.post';
-}
+import { isRecord } from "@/lib/postActions";
 
 function normalizeUrl(url: string): string {
   try {
@@ -21,7 +18,6 @@ function normalizeUrl(url: string): string {
 
 interface Props {
   record: AppBskyFeedDefs.PostView["record"];
-  truncate?: boolean;
 }
 
 export function getHandle(mention: string) {
@@ -29,7 +25,7 @@ export function getHandle(mention: string) {
 }
 
 export function PostText(props: Props) {
-  const { record, truncate } = props;
+  const { record } = props;
   const postRecord = isRecord(record) ? record : null;
   const text = postRecord?.text ?? "";
   const facets = postRecord?.facets ?? [];
@@ -115,9 +111,7 @@ export function PostText(props: Props) {
   return (
     <div
       dir="auto"
-      className={`text-gray-900 dark:text-gray-100 whitespace-pre-wrap [overflow-wrap:break-word] flex-1 ${
-        truncate && "line-clamp-6"
-      } text-sm`}
+      className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap [overflow-wrap:break-word] flex-1 text-sm"
     >
       {content.map((segment, i) => (
         <Fragment key={`${segment.text}-${i}`}>{segment.component}</Fragment>
