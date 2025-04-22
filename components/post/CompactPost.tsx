@@ -1,11 +1,12 @@
 import { PostText } from "@/components/PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
-import { useSignal } from "@preact/signals";
+import { useComputed, useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import type { Signal } from "@preact/signals-core";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { CompactPostActions } from "./CompactPostActions";
+import { getThreadSignal } from "@/lib/signals";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -13,7 +14,14 @@ interface CompactPostProps {
 	expanded?: boolean;
 }
 
-function ExpandButton({ isExpanded }: { isExpanded: Signal<boolean> }) {
+function ExpandButton({ post, isExpanded }: { post: AppBskyFeedDefs.PostView, isExpanded: Signal<boolean> }) {
+	const threadSignal = getThreadSignal(post.uri);
+	const displayedReplyCount = useComputed(() => {
+		const signalData = threadSignal.value.data;
+		return Array.isArray(signalData) ? signalData.length : post.replyCount ?? 0;
+	  });
+
+	  
 	return (<button
 		onClick={(e) => {
 			e.stopPropagation();
@@ -22,7 +30,7 @@ function ExpandButton({ isExpanded }: { isExpanded: Signal<boolean> }) {
 		className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono"
 	>
 		<span className="flex items-center gap-0.5 text-xs">
-			{isExpanded.value ? "[-]" : "[+]"}
+			{isExpanded.value ? "[-]" : `[+${displayedReplyCount.value}]`}
 		</span>
 	</button>)
 }
@@ -68,7 +76,7 @@ export function CompactPost({
 							{timeAgo}
 						</a>
 						{post.replyCount !== undefined && post.replyCount > 0 && (
-							<ExpandButton isExpanded={isExpanded} />
+							<ExpandButton post={post} isExpanded={isExpanded} />
 						)}
 					</div>
 					{/* Post content */}
