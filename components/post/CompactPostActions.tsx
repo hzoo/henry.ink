@@ -3,9 +3,6 @@ import { Icon } from "@/components/Icon";
 import { formatCount } from "@/lib/utils/count";
 import type {
     AppBskyFeedDefs,
-    AppBskyFeedPost,
-    AppBskyFeedLike,
-    AppBskyFeedRepost
 } from "@atcute/client/lexicons";
 import { ReplyInput } from "@/components/post/ReplyInput";
 import { atCuteState } from "@/site/lib/oauth";

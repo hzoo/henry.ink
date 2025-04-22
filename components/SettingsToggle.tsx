@@ -3,6 +3,8 @@ import { useEffect, useRef } from "preact/hooks";
 import { BlueskySettings } from "./BlueskySettings";
 import { autoFetchEnabled } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
+import { lastSeenVersion } from "@/lib/signals";
+
 export function SettingsToggle() {
   const isOpen = useSignal(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -11,7 +13,7 @@ export function SettingsToggle() {
     isOpen.value = !isOpen.value;
   };
 
-  useEffect(() => {
+    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         isOpen.value = false;
@@ -57,16 +59,30 @@ export function SettingsToggle() {
           </div>
           <BlueskySettings />
           
-          {/* GitHub Repository Link */}
-          <div className="border-t border-gray-200 dark:border-gray-700 py-3 px-4">
+          {/* GitHub Repository Link & Welcome Button - Styled as setting rows */}
+          <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+            {/* Source Code Row */}
             <a 
               href="https://github.com/hzoo/extension-annotation-sidebar" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-block px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors duration-150 ease-in-out"
+              className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
             >
-              Source on GitHub
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Source Code (GitHub)
+              </span>
+              <Icon name="github" className="h-4 w-4 text-gray-400 dark:text-gray-500" />
             </a>
+            {/* Show Welcome Message Row */}
+            <button
+              onClick={() => { lastSeenVersion.value = "0.0.0"; isOpen.value = false; }}
+              className="flex items-center justify-between w-full px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer text-left"
+            >
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Show Welcome
+              </span>
+              <Icon name="arrowPath" className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+            </button>
           </div>
         </div>
       )}
