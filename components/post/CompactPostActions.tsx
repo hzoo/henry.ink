@@ -11,7 +11,7 @@ import { ReplyInput } from "@/components/post/ReplyInput";
 import { atCuteState } from "@/site/lib/oauth";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
 import { getThreadSignal } from "@/lib/signals";
-import { submitReply, likePost, unlikePost, repostPost, deleteRepost } from "@/lib/postActions";
+import { submitReply, likePost, unlikePost, repostPost, deleteRepost, isRecord } from "@/lib/postActions";
 import { findAndUpdatePostInSignal } from "@/lib/signalUtils";
 
 interface CompactPostActionsProps {
@@ -71,28 +71,17 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 
     try {
       await submitReply(post, text, currentState);
-
       handleCancelReply();
 
       let rootUri = post.uri;
       const record = post.record;
-      if (
-          record &&
-          typeof record === 'object' &&
-          '$type' in record &&
-          typeof record.$type === 'string' &&
-          record.$type === 'app.bsky.feed.post' &&
-          'reply' in record
-      ) {
-          const feedPostRecord = record as AppBskyFeedPost.Record;
-          if (feedPostRecord.reply?.root?.uri) {
-              rootUri = feedPostRecord.reply.root.uri;
-          }
-      }
-      if (rootUri) {
-        fetchAndUpdateThreadSignal(rootUri).catch(err => {
-          console.error(`Error refreshing thread ${rootUri} after reply:`, err);
-        });
+      if (isRecord(record) && record.reply?.root?.uri) {
+        rootUri = record.reply.root.uri;
+        if (rootUri) {
+          fetchAndUpdateThreadSignal(rootUri).catch(err => {
+            console.error(`Error refreshing thread ${rootUri} after reply:`, err);
+          });
+        }
       }
 
     } catch (error: unknown) {
