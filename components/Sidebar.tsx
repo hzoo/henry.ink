@@ -4,10 +4,14 @@ import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
-import { currentPosts, loading, error, contentSourceUrl, cacheTimeAgo } from "@/lib/signals";
+import { currentPosts, loading, error, contentSourceUrl, cacheTimeAgo, lastSeenVersion } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { PostList } from "@/components/PostList";
 import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";
+import { FirstTimePopup } from "@/components/FirstTimePopup";
+import { version } from "../package.json";
+
+const currentVersion = version;
 
 function SidebarBody() {
 	// Load content when URL changes
@@ -53,10 +57,11 @@ function SidebarBody() {
 
 export function Sidebar() {
 	return (
-		<div className="flex flex-col h-full">
+		<div className="flex flex-col h-full relative">
 			<SidebarHeader />
 			{currentPosts.value.length === 0 && !loading.value && !error.value && <EmptyList />}
 			<SidebarBody />
+			{lastSeenVersion.value !== currentVersion && <FirstTimePopup />}
 		</div>
 	);
 }
