@@ -7,8 +7,9 @@ export interface ChangelogEntry {
     {
       version: "0.0.6",
       changes: [
-        "Added a welcome message for first-time users.",
-        "Added support for logging in to Bluesky to fetch posts, like, repost, reply",
+        "welcome message for first-time users",
+        "support for showing changelog since last version",
+        "login to Bluesky (like, repost, reply)",
       ],
     },
   ];
