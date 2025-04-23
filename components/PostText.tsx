@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs, AppBskyFeedPost } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmenter";
 import { Fragment, type JSX } from "preact";
 import { currentUrl } from "@/lib/messaging";
@@ -20,7 +20,7 @@ interface Props {
   record: AppBskyFeedDefs.PostView["record"];
 }
 
-export function getHandle(mention: string) {
+function getHandle(mention: string) {
   return mention.slice(1);
 }
 

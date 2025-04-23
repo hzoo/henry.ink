@@ -1,8 +1,9 @@
 {
-    "client_id": "https://annotation-sidebar-demo.pages.dev/oauth/client-metadata.json",
-    "client_uri": "https://annotation-sidebar-demo.pages.dev",
+    "client_id": "https://annotation-demo.henryzoo.com/oauth/client-metadata.json",
+    "client_uri": "https://annotation-demo.henryzoo.com",
     "redirect_uris": [
-        "https://annotation-sidebar-demo.pages.dev"
+        "https://annotation-demo.henryzoo.com",
+        "https://annotation-demo.henryzoo.com/extension/oauth/callback"
     ],
     "application_type": "web",
     "client_name": "Annotation Sidebar Extension",
