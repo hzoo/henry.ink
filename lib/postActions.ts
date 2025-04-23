@@ -7,7 +7,12 @@ import type {
 } from "@atcute/client/lexicons";
 
 export function isRecord(record: unknown): record is AppBskyFeedPost.Record {
-  return typeof record === 'object' && record !== null && '$type' in record && record.$type === 'app.bsky.feed.post';
+	return (
+		typeof record === "object" &&
+		record !== null &&
+		"$type" in record &&
+		record.$type === "app.bsky.feed.post"
+	);
 }
 
 /**
@@ -17,7 +22,7 @@ export function isRecord(record: unknown): record is AppBskyFeedPost.Record {
 export async function submitReply(
 	post: AppBskyFeedDefs.PostView,
 	text: string,
-	state: AtCuteState // Pass the entire state for convenience
+	state: AtCuteState, // Pass the entire state for convenience
 ) {
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
@@ -30,7 +35,7 @@ export async function submitReply(
 
 	const parentRef = { uri: post.uri, cid: post.cid };
 	const replyRecord: AppBskyFeedPost.Record = {
-		$type: 'app.bsky.feed.post',
+		$type: "app.bsky.feed.post",
 		text: text,
 		reply: {
 			root: (post.record as AppBskyFeedPost.Record).reply?.root || parentRef,
@@ -41,14 +46,14 @@ export async function submitReply(
 
 	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
 		repo: session.info.sub,
-		collection: 'app.bsky.feed.post',
-		record: replyRecord as ComAtprotoRepoCreateRecord.Input['record'],
+		collection: "app.bsky.feed.post",
+		record: replyRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
 	// Use the xrpc instance from the global state with the 2-argument pattern
 	return xrpc.call(
-		'com.atproto.repo.createRecord', // nsid
-		{ data: createRecordInput }
+		"com.atproto.repo.createRecord", // nsid
+		{ data: createRecordInput },
 	);
 }
 
@@ -57,7 +62,10 @@ export async function submitReply(
  * Returns the URI of the like record.
  * Throws an error if liking fails.
  */
-export async function likePost(post: AppBskyFeedDefs.PostView, state: AtCuteState) {
+export async function likePost(
+	post: AppBskyFeedDefs.PostView,
+	state: AtCuteState,
+) {
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
@@ -67,7 +75,7 @@ export async function likePost(post: AppBskyFeedDefs.PostView, state: AtCuteStat
 	const { session, xrpc } = state;
 
 	const likeRecord = {
-		$type: 'app.bsky.feed.like',
+		$type: "app.bsky.feed.like",
 		subject: {
 			uri: post.uri,
 			cid: post.cid,
@@ -77,14 +85,13 @@ export async function likePost(post: AppBskyFeedDefs.PostView, state: AtCuteStat
 
 	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
 		repo: session.info.sub,
-		collection: 'app.bsky.feed.like',
-		record: likeRecord as ComAtprotoRepoCreateRecord.Input['record'],
+		collection: "app.bsky.feed.like",
+		record: likeRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
-	const response = await xrpc.call(
-		'com.atproto.repo.createRecord',
-		{ data: createRecordInput }
-	);
+	const response = await xrpc.call("com.atproto.repo.createRecord", {
+		data: createRecordInput,
+	});
 
 	// Return the URI of the created like record, useful for unliking
 	return response.data.uri;
@@ -109,21 +116,20 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
 	}
 
 	// Extract rkey from the like URI (e.g., at://did:plc:xyz/app.bsky.feed.like/3kxyzabc)
-	const rkey = likeUri.split('/').pop();
+	const rkey = likeUri.split("/").pop();
 	if (!rkey) {
 		throw new Error("Could not extract rkey from like URI.");
 	}
 
 	const deleteRecordInput: ComAtprotoRepoDeleteRecord.Input = {
 		repo: session.info.sub,
-		collection: 'app.bsky.feed.like',
+		collection: "app.bsky.feed.like",
 		rkey: rkey,
 	};
 
-	return xrpc.call(
-		'com.atproto.repo.deleteRecord',
-		{ data: deleteRecordInput }
-	);
+	return xrpc.call("com.atproto.repo.deleteRecord", {
+		data: deleteRecordInput,
+	});
 }
 
 /**
@@ -131,7 +137,10 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
  * Returns the URI of the repost record.
  * Throws an error if reposting fails.
  */
-export async function repostPost(post: AppBskyFeedDefs.PostView, state: AtCuteState) {
+export async function repostPost(
+	post: AppBskyFeedDefs.PostView,
+	state: AtCuteState,
+) {
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
@@ -141,7 +150,7 @@ export async function repostPost(post: AppBskyFeedDefs.PostView, state: AtCuteSt
 	const { session, xrpc } = state;
 
 	const repostRecord = {
-		$type: 'app.bsky.feed.repost',
+		$type: "app.bsky.feed.repost",
 		subject: {
 			uri: post.uri,
 			cid: post.cid,
@@ -151,14 +160,13 @@ export async function repostPost(post: AppBskyFeedDefs.PostView, state: AtCuteSt
 
 	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
 		repo: session.info.sub,
-		collection: 'app.bsky.feed.repost',
-		record: repostRecord as ComAtprotoRepoCreateRecord.Input['record'],
+		collection: "app.bsky.feed.repost",
+		record: repostRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
-	const response = await xrpc.call(
-		'com.atproto.repo.createRecord',
-		{ data: createRecordInput }
-	);
+	const response = await xrpc.call("com.atproto.repo.createRecord", {
+		data: createRecordInput,
+	});
 
 	// Return the URI of the created repost record, useful for deleting the repost
 	return response.data.uri;
@@ -182,19 +190,18 @@ export async function deleteRepost(repostUri: string, state: AtCuteState) {
 		throw new Error("Repost URI is required to delete a repost.");
 	}
 
-	const rkey = repostUri.split('/').pop();
+	const rkey = repostUri.split("/").pop();
 	if (!rkey) {
 		throw new Error("Could not extract rkey from repost URI.");
 	}
 
 	const deleteRecordInput: ComAtprotoRepoDeleteRecord.Input = {
 		repo: session.info.sub,
-		collection: 'app.bsky.feed.repost',
+		collection: "app.bsky.feed.repost",
 		rkey: rkey,
 	};
 
-	return xrpc.call(
-		'com.atproto.repo.deleteRecord',
-		{ data: deleteRecordInput }
-	);
+	return xrpc.call("com.atproto.repo.deleteRecord", {
+		data: deleteRecordInput,
+	});
 }

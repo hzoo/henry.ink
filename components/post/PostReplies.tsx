@@ -2,25 +2,8 @@ import { useSignalEffect } from "@preact/signals-react/runtime";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { getThreadSignal } from "@/lib/signals";
 import { CompactPost } from "./CompactPost";
-import type { PostRepliesProps, ThreadReply } from "@/lib/types";
+import type { PostRepliesProps } from "@/lib/types";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
-
-export function isThreadViewPost(v: unknown): v is AppBskyFeedDefs.ThreadViewPost {
-  return typeof v === 'object' && v !== null &&
-         '$type' in v &&
-         v.$type === 'app.bsky.feed.defs#threadViewPost';
-}
-
-export function processThreadReplies(thread: AppBskyFeedDefs.ThreadViewPost): ThreadReply[] {
-  if (!thread.replies) return [];
-
-  return thread.replies
-    .filter(isThreadViewPost)
-    .map(reply => ({
-      post: (reply as AppBskyFeedDefs.ThreadViewPost).post,
-      replies: (reply as AppBskyFeedDefs.ThreadViewPost).replies ? processThreadReplies(reply as AppBskyFeedDefs.ThreadViewPost) : undefined
-    }));
-}
 
 const MAX_DEPTH = 6;
 

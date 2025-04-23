@@ -18,20 +18,20 @@
     "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo"
   },
   "dependencies": {
-    "@atcute/bluesky": "^2.0.1",
+    "@atcute/bluesky": "^2.0.3",
     "@atcute/bluesky-richtext-segmenter": "^2.0.0",
     "@atcute/client": "^3.0.1",
     "@atcute/oauth-browser-client": "^1.0.17",
-    "@preact/signals": "^2.0.3",
+    "@preact/signals": "^2.0.4",
     "@tailwindcss/vite": "^4.1.4",
     "preact": "^10.26.5"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
     "@types/bun": "^1.2.10",
-    "@types/chrome": "^0.0.315",
+    "@types/chrome": "^0.0.316",
     "typescript": "^5.8.3",
     "vite-plugin-svgr": "^4.3.0",
-    "wxt": "^0.20.1"
+    "wxt": "^0.20.3"
   }
 }

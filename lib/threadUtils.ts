@@ -5,15 +5,13 @@ import { getThreadSignal } from "@/lib/signals";
 import type { ThreadReply } from "@/lib/types";
 import { updateThreadCache } from "@/lib/postCache";
 
-// Moved from PostReplies.tsx
-export function isThreadViewPost(v: unknown): v is AppBskyFeedDefs.ThreadViewPost {
+function isThreadViewPost(v: unknown): v is AppBskyFeedDefs.ThreadViewPost {
   return typeof v === 'object' && v !== null &&
          '$type' in v &&
          v.$type === 'app.bsky.feed.defs#threadViewPost';
 }
 
-// Moved from PostReplies.tsx
-export function processThreadReplies(thread: AppBskyFeedDefs.ThreadViewPost): ThreadReply[] {
+function processThreadReplies(thread: AppBskyFeedDefs.ThreadViewPost): ThreadReply[] {
   if (!thread.replies) return [];
 
   return thread.replies

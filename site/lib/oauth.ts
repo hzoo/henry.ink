@@ -10,35 +10,34 @@ import {
   resolveFromIdentity,
 } from "@atcute/oauth-browser-client";
 import { useEffect, useState } from "preact/hooks";
+import { sleep } from "@/lib/utils/sleep";
 
-// --- Utils ---
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const isChromeExtension = typeof browser !== 'undefined' && !!browser.runtime?.id;
 
 export function initializeOAuth() {
 	if (typeof window !== "undefined") {
+		const clientId = import.meta.env.VITE_OAUTH_CLIENT_ID;
+		const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI;
+		console.log(`[initializeOAuth] Configuring with Client ID: ${clientId}`);
 		configureOAuth({
 			metadata: {
-				client_id: import.meta.env.VITE_OAUTH_CLIENT_ID,
-				redirect_uri: import.meta.env.VITE_OAUTH_REDIRECT_URI,
+				client_id: clientId,
+				redirect_uri: redirectUri,
 			},
 		});
 	}
 }
 
-// Infer the session type from the function's return type
 type AtCuteSessionData = Awaited<ReturnType<typeof finalizeAuthorization>>;
-
-// --- State Management ---
 export interface AtCuteState {
 	agent: OAuthUserAgent;
 	xrpc: XRPC;
-	session: AtCuteSessionData; // Use the inferred type
+	session: AtCuteSessionData;
 }
 
 export const atCuteState = signal<AtCuteState | null>(null);
-export const isLoadingSession = signal(true); // Track loading state
+export const isLoadingSession = signal(true);
 
-// --- Hooks ---
 export const useAtCute = () => {
 	const [isProcessingLogin, setIsProcessingLogin] = useState(false);
 
@@ -47,23 +46,27 @@ export const useAtCute = () => {
 		isLoadingSession.value = true;
 
 		const processLoginOrLoadSession = async () => {
-			// 1. Check if returning from OAuth provider
-            if (location.hash.includes("state=") || location.search.includes("code=")) {
+			initializeOAuth(); // Ensure config is set before getSession/finalize
+
+			// 1. Check if returning from OAuth provider (standard web flow)
+            if (!isChromeExtension && (location.hash.includes("state=") || location.search.includes("code="))) {
                 setIsProcessingLogin(true);
                 try {
+                    console.log("Handling web OAuth callback...");
                     const params = new URLSearchParams(location.hash ? location.hash.slice(1) : location.search);
-                    history.replaceState(null, "", location.pathname);
+                    history.replaceState(null, "", location.pathname); // Clean URL
                     const session = await finalizeAuthorization(params);
                     const agent = new OAuthUserAgent(session);
                     const xrpc = new XRPC({ handler: agent });
                     if (isMounted) {
                         atCuteState.value = { agent, xrpc, session };
                         localStorage.setItem("atcute-oauth:did", session.info.sub);
+                        console.log("Web OAuth successful, session established.");
                     }
                 } catch (error) {
-                    // This log is already here, make sure it's not firing silently
-                    console.error("OAuth finalization error:", error);
+                    console.error("OAuth finalization error (Web Flow):", error);
                     localStorage.removeItem("atcute-oauth:did");
+                    if (isMounted) atCuteState.value = null;
                 } finally {
                      if (isMounted) {
                         setIsProcessingLogin(false);
@@ -73,22 +76,22 @@ export const useAtCute = () => {
                 return;
             }
 
-			// 2. Check for existing persisted session
+			// 2. Check for existing persisted session (common logic)
 			const persistedDid = localStorage.getItem("atcute-oauth:did");
 			if (persistedDid) {
 				try {
                     console.log(`Attempting to load session for persisted DID: ${persistedDid}`);
-					const session = await getSession(persistedDid as `did:${string}:${string}`, { allowStale: false });
+					const session = await getSession(persistedDid as `did:${string}:${string}`, {
+						allowStale: false,
+					 });
 					if (session && isMounted) {
-                        console.log("Successfully loaded/refreshed session:", session.info);
+                        console.log("Successfully loaded/refreshed session:", session.info.sub); // Log only sub for brevity
 						const agent = new OAuthUserAgent(session);
 						const xrpc = new XRPC({ handler: agent });
 						atCuteState.value = { agent, xrpc, session };
 					} else if (!session) {
-						// Session might be invalid or expired and couldn't be refreshed
                         console.warn("getSession returned null (likely refresh failure), clearing potentially invalid session for DID:", persistedDid);
 						localStorage.removeItem("atcute-oauth:did");
-                        // Also try clearing the library's internal storage for this DID
                         try {
                             deleteStoredSession(persistedDid as `did:${string}:${string}`);
                             console.log("Called deleteStoredSession for potentially invalid DID:", persistedDid);
@@ -98,19 +101,25 @@ export const useAtCute = () => {
 						if (isMounted) atCuteState.value = null;
 					}
 				} catch (error) {
-					console.error(`Error during getSession for DID ${persistedDid}:`, error);
-					localStorage.removeItem("atcute-oauth:did"); // Clear invalid state
-                    // Also try clearing the library's internal storage for this DID
+					// Don't log full error if it's just 'no session found' or similar benign cases
+                    if (!(error instanceof Error && error.message.toLowerCase().includes("no session found"))) {
+                        console.error(`Error during getSession for DID ${persistedDid}:`, error);
+                    } else {
+                         console.log(`No valid session found via getSession for DID ${persistedDid}.`);
+                    }
+					localStorage.removeItem("atcute-oauth:did");
                     try {
+                        // Still try to delete in case of error
                         deleteStoredSession(persistedDid as `did:${string}:${string}`);
-                        console.log("Called deleteStoredSession after getSession threw error for DID:", persistedDid);
+                         console.log("Called deleteStoredSession after getSession check for DID:", persistedDid);
                     } catch (deleteErr) {
-                        console.error("Error calling deleteStoredSession after getSession error:", deleteErr);
+                        // Ignore error if delete fails here, already logged primary error
                     }
 					if (isMounted) atCuteState.value = null;
 				}
 			} else {
-                console.log("No persisted DID found in localStorage.");
+                // This is normal, no need to log usually unless debugging first load
+                // console.log("No persisted DID found in localStorage.");
 				if (isMounted) atCuteState.value = null; // No persisted session
 			}
 
@@ -143,95 +152,104 @@ export const startLoginProcess = async (handleOrDid: string) => {
 		return;
 	}
 	try {
-        console.log(`Resolving identity for: ${handleOrDid}`);
+        console.log(`Starting login process for: ${handleOrDid}`);
 		const { identity, metadata } = await resolveFromIdentity(handleOrDid);
-        console.log("Identity resolved:", identity, "Metadata:", metadata);
-        
+        // Removed detailed metadata log
+        console.log("Resolved Identity (DID):", identity);
+
 		const authUrl = await createAuthorizationUrl({
-			metadata: metadata, // PDS details
-			identity: identity, // User's DID
-			scope: import.meta.env.VITE_OAUTH_SCOPE, // Use scope from env var
+			metadata: metadata,
+			identity: identity,
+			scope: import.meta.env.VITE_OAUTH_SCOPE,
 		});
-        console.log("Redirecting to auth URL:", authUrl);
 
-        // Wait briefly for storage persistence as recommended
-		await sleep(200);
+        if (isChromeExtension) {
+            console.log("Launching web auth flow for extension...");
+            const finalRedirectUrl = await browser.identity.launchWebAuthFlow({
+                url: authUrl.toString(),
+                interactive: true,
+            });
+            // Keep this log, useful for debugging the final intercept
+            console.log("launchWebAuthFlow successful, final callback URL:", finalRedirectUrl);
 
-		// Add listener to detect if user navigates back before redirect happens
-		let didAbort = false;
-		const abortListener = () => {
-			didAbort = true;
-			console.warn("Login aborted by user (pageshow event).");
-			// Optionally: Provide UI feedback that login was cancelled
-		};
-		window.addEventListener('pageshow', abortListener, { once: true });
+            if (!finalRedirectUrl) {
+                if (chrome.runtime.lastError?.message?.includes('user closed')) {
+                    throw new LoginAbortError("Login cancelled by user.");
+                }
+                throw new Error("Authentication flow did not return a callback URL.");
+            }
 
-		window.location.assign(authUrl);
+            console.log("Finalizing authorization with callback URL...");
+            const callbackUrlObj = new URL(finalRedirectUrl);
+            const params = new URLSearchParams(callbackUrlObj.search || callbackUrlObj.hash.slice(1));
 
-		// This part of the code should ideally not be reached if the redirect succeeds.
-		// If it does, it might be due to the pageshow listener firing or some other interruption.
-		// We'll wait a moment and then clean up the listener if we weren't redirected.
-		await sleep(500); // Give redirect a moment
+            const session = await finalizeAuthorization(params);
+            const agent = new OAuthUserAgent(session);
+            const xrpc = new XRPC({ handler: agent });
+            atCuteState.value = { agent, xrpc, session };
+            localStorage.setItem("atcute-oauth:did", session.info.sub);
+            console.log("Extension login successful, session established.");
+            if (isLoadingSession.peek()) isLoadingSession.value = false; // Ensure loading state is false
 
-		window.removeEventListener('pageshow', abortListener);
-
-		if (didAbort) {
-			// Throw a specific error if we detected the abort via pageshow
-			throw new LoginAbortError("User aborted the login request.");
-		}
-
-		// If we reach here and didn't detect 'pageshow', something else prevented the redirect.
-		console.error("Redirect did not occur as expected after login initiation.");
-		throw new Error("Failed to redirect for login.");
+        } else {
+            // Standard web flow
+            console.log("Redirecting for standard web flow...");
+            await sleep(200);
+            window.location.assign(authUrl.toString());
+        }
 
 	} catch (error) {
-        // Catch the specific abort error type
-		if (error instanceof LoginAbortError) {
-			// Handle abort specifically (e.g., show a message) - currently just logs
-			console.log(error.message);
-			// Optionally re-enable UI elements if they were disabled
-			return; // Don't show the generic error alert
-		}
-		console.error("Login initiation error:", error);
-		alert(`Failed to start login process: ${error instanceof Error ? error.message : String(error)}`);
+        if (error instanceof LoginAbortError) {
+             console.log(error.message); // Just log cancellation
+             if (isLoadingSession.peek()) isLoadingSession.value = false;
+             return;
+        }
+		console.error("Login initiation or finalization error:", error);
+        const errorMsg = error instanceof Error ? error.message.toLowerCase() : "";
+        // Don't alert for cancellations
+        if (!(errorMsg.includes("cancelled") || errorMsg.includes("user closed")))
+        {
+            alert(`Failed to complete login process: ${error instanceof Error ? error.message : String(error)}`);
+        } else {
+             console.log("Login process cancelled or popup closed.");
+        }
+        if (isLoadingSession.peek()) isLoadingSession.value = false;
 	}
 };
+
 
 export const logout = async () => {
 	const currentAgent = atCuteState.value?.agent;
     const did = atCuteState.value?.session.info.sub;
+     console.log(`Starting logout process for DID: ${did || 'N/A'}`);
 
-    // Clear local state immediately for responsiveness
     if (did) {
         localStorage.removeItem("atcute-oauth:did");
     }
-    atCuteState.value = null;
+    atCuteState.value = null; // Update UI immediately
 
-    // Attempt to sign out using the agent (handles library's internal storage and potential revocation)
     if (currentAgent) {
         try {
             await currentAgent.signOut();
+             console.log("Agent signOut successful.");
         } catch (error) {
             console.error("Agent signOut failed:", error);
-            // As a fallback if signOut fails, ensure the library's storage is cleared
             if (did) {
                 try {
                     deleteStoredSession(did);
+                     console.log("Fallback deleteStoredSession successful after signOut error.");
                 } catch (deleteError) {
                     console.error("Fallback deleteStoredSession failed:", deleteError);
                 }
             }
         }
     } else if (did) {
-        // If there was a DID but no agent (e.g., state cleared before async call completed),
-        // still try to clear the library's storage as a best effort.
          try {
             deleteStoredSession(did);
+             console.log("deleteStoredSession successful (no agent available).");
         } catch (deleteError) {
             console.error("deleteStoredSession failed (no agent available):", deleteError);
         }
     }
-
-	// Optionally reload or redirect after logout actions are attempted
-	// window.location.reload();
-}; 
+     console.log("Logout process complete.");
+};

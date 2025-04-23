@@ -1,23 +1,21 @@
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
-import { LoginButton } from "@/site/components/LoginButton";
-import { initializeOAuth } from "@/site/lib/oauth";
+import { LoginButton } from "@/components/LoginButton";
 import { currentUrl, extractBaseDomain } from "@/lib/messaging";
 import { whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 
-// Initialize OAuth once when the module loads or app starts
-initializeOAuth();
-
 // Sample URLs for badges
 const sampleUrls = [
-	{ name: "Attention is All You Need", url: "https://arxiv.org/abs/1706.03762", blocksEmbedding: true },
-	{ name: "example.com", url: "https://example.com", blocksEmbedding: false },
-	{ name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Main_Page", blocksEmbedding: false },
-    { name: "this website lol", url: "https://annotation-sidebar-demo.pages.dev", blocksEmbedding: false },
-    { name: "this github", url: "https://github.com/hzoo/extension-annotation-sidebar", blocksEmbedding: true },
+    { name: "this website", category: "unblocked", url: "https://annotation-demo.henryzoo.com", blocksEmbedding: false },
+	{ name: "example.com", category: "unblocked", url: "https://example.com", blocksEmbedding: false },
+	{ name: "Wikipedia", category: "unblocked", url: "https://en.wikipedia.org/wiki/Main_Page", blocksEmbedding: false },
+	{ name: "Blog",  category: "blog", url: "https://overreacted.io/impossible-components/", blocksEmbedding: false },
+	{ name: "ArXiv", "title": "Attention is All You Need", category: "paper", url: "https://arxiv.org/abs/1706.03762", blocksEmbedding: true },
+    { name: "YouTube", "title": "Surface-Stable Fractal Dithering Explained", category: "video", url: "https://www.youtube.com/watch?v=HPqGaIMVuLs", blocksEmbedding: true },
+    { name: "GitHub", "title": "Extension Annotation Sidebar", category: "repo", url: "https://github.com/hzoo/extension-annotation-sidebar", blocksEmbedding: true },
 ];
 
 // Helper function to manage whitelist for the demo
@@ -133,9 +131,7 @@ export function App() {
 						</a>
 					</div>
 				</div>
-				<div>
-					<LoginButton />
-				</div>
+				<LoginButton />
 			</header>
 
 			<div class="flex flex-1 overflow-hidden">
@@ -172,17 +168,30 @@ export function App() {
 
                     {/* Content Area: Either Iframe or Blocking Message */}
                     <div class="flex-1 border rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
-                        {showEmbeddingBlockMessage.value ? (
-                            <div class="absolute inset-0 flex flex-col items-center justify-center bg-yellow-50 dark:bg-yellow-900/50 p-4 text-center">
-                                <p class="text-yellow-700 dark:text-yellow-300 font-semibold mb-2">Embedding Blocked by Website</p>
-                                <p class="text-sm text-yellow-600 dark:text-yellow-400">
-                                    The website <code class="text-xs bg-yellow-100 dark:bg-yellow-800 px-1 py-0.5 rounded">{new URL(currentUrl.value).hostname}</code> likely prevents being displayed in iframes.
-                                </p>
-                                <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                                    You can still view and add annotations using the sidebar on the right.
-                                </p>
-                            </div>
-                        ) : (
+                        {showEmbeddingBlockMessage.value ? (() => {
+                            // Find the current sample object to get the title
+                            const currentSample = sampleUrls.find(s => s.url === currentUrl.value);
+                            const title = currentSample?.title || 'This website'; // Fallback title
+                            const hostname = new URL(currentUrl.value).hostname;
+
+                            return (
+                                <div class="absolute inset-0 flex flex-col items-center justify-center bg-yellow-50 dark:bg-yellow-900/50 p-4 text-center">
+                                    <p class="text-yellow-700 dark:text-yellow-300 font-semibold mb-2">Embedding Blocked</p>
+                                    <p class="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                                        Title: "{title}"
+                                    </p>
+                                    <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                                        URL: <code class="text-xs bg-yellow-100 dark:bg-yellow-800 px-1 py-0.5 rounded">{currentUrl.value}</code>
+                                    </p>
+                                    <p class="text-xs text-yellow-500 dark:text-yellow-500 mt-2">
+                                        ({hostname} likely prevents being displayed in iframes)
+                                    </p>
+                                    <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-3">
+                                        You can still view and add annotations using the sidebar on the right.
+                                    </p>
+                                </div>
+                            );
+                        })() : (
                             // Render the iframe normally if not blocked
                             <iframe
                                 key={iframeUrl.value} // Use iframeUrl here for re-render trigger
