@@ -13,7 +13,7 @@ Discover what people are saying about any webpage (Bluesky only atm) - a sidebar
 
 [<img src="https://raw.githubusercontent.com/alrra/browser-logos/90fdf03c/src/firefox/firefox.svg" width="48" alt="Firefox" valign="middle">][link-firefox] [<img valign="middle" src="https://img.shields.io/amo/v/bluesky-sidebar.svg?label=%20">][link-firefox] and friends
 
-[![example on neal.fun](https://github.com/user-attachments/assets/afc834a4-1d17-4b1d-843c-2e58f857f247)](https://annotation-sidebar-demo.pages.dev)
+[![example on neal.fun](https://github.com/user-attachments/assets/6abc83f9-8a87-4468-9763-8c1b007ddf7d)](https://annotation-sidebar-demo.pages.dev)
 
 ## What it does
 
