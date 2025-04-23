@@ -81,7 +81,7 @@ export function CompactPost({
 					</div>
 					{/* Post content */}
 					<div className="text-sm break-words text-gray-900 dark:text-gray-100">
-						<PostText record={post.record} />
+						<PostText post={post} />
 					</div>
 					<CompactPostActions post={post} />
 				</div>
