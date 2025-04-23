@@ -3,6 +3,7 @@ import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmente
 import { Fragment, type JSX } from "preact";
 import { currentUrl } from "@/lib/messaging";
 import { isRecord } from "@/lib/postActions";
+import { getPostUrl } from "@/lib/utils/postUrls";
 
 function normalizeUrl(url: string): string {
   try {
@@ -16,8 +17,9 @@ function normalizeUrl(url: string): string {
   }
 }
 
+
 interface Props {
-  record: AppBskyFeedDefs.PostView["record"];
+  post: AppBskyFeedDefs.PostView;
 }
 
 function getHandle(mention: string) {
@@ -25,7 +27,8 @@ function getHandle(mention: string) {
 }
 
 export function PostText(props: Props) {
-  const { record } = props;
+  const { post } = props;
+  const { record, author, uri } = post;
   const postRecord = isRecord(record) ? record : null;
   const text = postRecord?.text ?? "";
   const facets = postRecord?.facets ?? [];
@@ -60,9 +63,20 @@ export function PostText(props: Props) {
     } else if (feature && feature.$type === 'app.bsky.richtext.facet#link') {
       const url = feature.uri;
       if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
+        const postUrl = getPostUrl(author.handle, uri);
         content.push({
           text: "",
-          component: <span className="text-gray-400 text-xs">[↗]</span>
+          component: (
+            <a
+              href={postUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-500 hover:underline text-xs"
+              onClick={(e: MouseEvent) => e.stopPropagation()}
+            >
+              [↗]
+            </a>
+          )
         });
         continue;
       }

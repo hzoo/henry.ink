@@ -10,6 +10,7 @@ import { PostList } from "@/components/PostList";
 import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";
 import { FirstTimePopup } from "@/components/FirstTimePopup";
 import { version } from "../package.json";
+import { useAtCute } from "@/site/lib/oauth";
 
 const currentVersion = version;
 
@@ -56,6 +57,8 @@ function SidebarBody() {
 }
 
 export function Sidebar() {
+	useAtCute();
+
 	return (
 		<div className="flex flex-col h-full relative">
 			<SidebarHeader />

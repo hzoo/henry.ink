@@ -42,7 +42,7 @@ export function FullPost({ post }: FullPostProps) {
             </a>
           </div>
         </div>
-        <PostText record={post.record} truncate={false} />
+        <PostText post={post} />
         <div className="flex items-center gap-4 text-gray-500 text-sm">
           {post.replyCount !== undefined && (
             <span className="flex items-center gap-1">
