@@ -5,7 +5,7 @@ import { CompactPost } from "./CompactPost";
 import type { PostRepliesProps } from "@/lib/types";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
 
-const MAX_DEPTH = 6;
+const MAX_DEPTH = 8;
 
 export function PostReplies({ 
   post,
