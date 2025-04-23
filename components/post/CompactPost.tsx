@@ -49,7 +49,7 @@ export function CompactPost({
 		<article className={`relative min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
 			{/* Thread line */}
 			{depth > 0 && (
-				<div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
+				<div className="absolute left-2 top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-700" />
 			)}
 
 			<div className="flex items-start gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-800">
