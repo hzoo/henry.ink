@@ -16,6 +16,7 @@ export function PostList() {
           expanded={index === 0}
         />
       ))}
+      <div className="pb-96" />
     </>
   );
 } 
