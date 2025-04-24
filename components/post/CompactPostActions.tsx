@@ -15,16 +15,13 @@ import {
 	isRecord,
 } from "@/lib/postActions";
 import { findAndUpdatePostInSignal } from "@/lib/signalUtils";
-import { ExpandButton } from "@/components/post/ExpandButton";
 
 interface CompactPostActionsProps {
 	post: AppBskyFeedDefs.PostView;
-	isExpanded: Signal<boolean>;
 }
 
 export function CompactPostActions({
 	post,
-	isExpanded,
 }: CompactPostActionsProps) {
 	const isReplying = useSignal(false);
 	const isSubmitting = useSignal(false);
@@ -250,9 +247,6 @@ export function CompactPostActions({
 	return (
 		<div className="mt-1">
 			<div className="flex items-center gap-4 text-gray-500 text-sm">
-				{post.replyCount !== undefined && post.replyCount > 0 && (
-					<ExpandButton post={post} isExpanded={isExpanded} />
-				)}
 				{post.replyCount !== undefined && (
 					<button
 						onClick={handleReplyClick}

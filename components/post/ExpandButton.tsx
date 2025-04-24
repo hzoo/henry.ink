@@ -1,5 +1,5 @@
 import type { Signal } from "@preact/signals-core";
-import { getThreadSignal, hoveredCollapsePostUri } from "@/lib/signals";
+import { hoveredCollapsePostUri } from "@/lib/signals";
 import { useComputed } from "@preact/signals-react";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 
@@ -8,36 +8,39 @@ interface ExpandButtonProps {
 	isExpanded: Signal<boolean>;
 }
 
-export function ExpandButton({
-	post,
-	isExpanded,
-}: ExpandButtonProps) {
-	const threadSignal = getThreadSignal(post.uri);
-	const displayedReplyCount = useComputed(() => {
-		const signalData = threadSignal.value.data;
-		return Array.isArray(signalData)
-			? signalData.length
-			: post.replyCount ?? 0;
-	});
-	const isHoveringThisPost = useComputed(() => hoveredCollapsePostUri.value === post.uri);
+export function ExpandButton({ post, isExpanded }: ExpandButtonProps) {
+	const isHoveringThisPost = useComputed(
+		() => hoveredCollapsePostUri.value === post.uri,
+	);
 
 	return (
-		<button
+		<div
+			className="absolute left-0 top-1 bottom-1 w-max flex flex-col items-center cursor-pointer"
+			onMouseEnter={() => (hoveredCollapsePostUri.value = post.uri)}
+			onMouseLeave={() => (hoveredCollapsePostUri.value = null)}
 			onClick={(e) => {
 				e.stopPropagation();
 				isExpanded.value = !isExpanded.value;
 			}}
-			onMouseEnter={() => (hoveredCollapsePostUri.value = post.uri)}
-			onMouseLeave={() => (hoveredCollapsePostUri.value = null)}
-			className={`font-mono ${
-				isHoveringThisPost.value
-					? "text-slate-950 dark:text-slate-50"
-					: "text-gray-500"
-			}`}
+			title={isExpanded.value ? "Collapse thread" : "Expand thread"}
 		>
-			<span className="flex items-center gap-0.5 text-xs">
-				{isExpanded.value ? "[-]" : `[+${displayedReplyCount.value}]`}
+			<div
+				className={`w-[2px] h-0 transition-colors duration-150 ${
+					isHoveringThisPost.value
+						? "bg-slate-950 dark:bg-slate-50"
+						: "bg-gray-200 dark:bg-gray-700"
+				}`}
+			/>
+			<span className="font-mono flex items-center gap-0.5 text-xs">
+				[{isExpanded.value ? "-" : "+"}]
 			</span>
-		</button>
+			<div
+				className={`w-[2px] flex-grow transition-colors duration-150 ${
+					isHoveringThisPost.value
+						? "bg-slate-950 dark:bg-slate-50"
+						: "bg-gray-200 dark:bg-gray-700"
+				}`}
+			/>
+		</div>
 	);
 }
