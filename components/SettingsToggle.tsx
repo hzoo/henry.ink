@@ -49,14 +49,14 @@ export function SettingsToggle() {
 
       {isOpen.value && (
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-20 border border-gray-200 dark:border-gray-700 animate-slideDown">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <LoginButton />
+          </div>
+          
           <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 py-2 px-4 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
               Privacy & Settings
             </h3>
-          </div>
-
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <LoginButton />
           </div>
           <BlueskySettings />
           
