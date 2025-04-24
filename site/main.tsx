@@ -1,6 +1,6 @@
 import { render } from "preact";
 import { App } from "@/site/App";
-import "./index.css";
+import "@/lib/styles.css";
 
 render(
     <App />, document.getElementById("app")!

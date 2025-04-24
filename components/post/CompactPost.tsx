@@ -55,7 +55,7 @@ export function CompactPost({
 			<div className="flex items-start gap-2 py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800">
 				<div className="flex-1 min-w-0">
 					{/* Post metadata row */}
-					<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500">
+					<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500 text-sm">
 						<a
 							href={postAuthorUrl}
 							target="_blank"
