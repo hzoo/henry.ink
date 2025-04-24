@@ -2,7 +2,6 @@ import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { signal } from "@preact/signals";
 import type { Signal } from "@preact/signals";
 import { signalBrowserLocal } from "@/lib/signal";
-import type { AtpSessionData } from "@atcute/client";
 import type { ThreadReply } from "@/lib/types"; // Assuming ThreadReply is defined here
 
 export const currentPosts = signal<AppBskyFeedDefs.PostView[]>([]);
@@ -11,12 +10,8 @@ export const loading = signal(false);
 export const error = signal<string | null>(null);
 export const contentSourceUrl = signal<string>("");
 
-export const mode = signalBrowserLocal<"full" | "compact">("mode", "full");
-
-// --- Thread State Store ---
-
 export interface ThreadState {
-  data: ThreadReply[] | null;
+  data: ThreadReply[] | null; 
   lastFetched: number | null;
   isLoading: boolean;
   error: string | null;
@@ -46,4 +41,3 @@ export function getThreadSignal(uri: string): Signal<ThreadState> {
 
 // Signal to track the last version the user has seen the intro/update popup for
 export const lastSeenVersion = signalBrowserLocal<string>("last-seen-version", "0.0.0");
-

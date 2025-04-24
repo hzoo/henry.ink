@@ -1,38 +1,16 @@
 import { PostText } from "@/components/PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
-import { useComputed, useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
-import type { Signal } from "@preact/signals-core";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
-import { CompactPostActions } from "./CompactPostActions";
-import { getThreadSignal } from "@/lib/signals";
+import { CompactPostActions } from "@/components/post/CompactPostActions";
+import { ExpandButton } from "@/components/post/ExpandButton";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
 	depth?: number;
 	expanded?: boolean;
-}
-
-function ExpandButton({ post, isExpanded }: { post: AppBskyFeedDefs.PostView, isExpanded: Signal<boolean> }) {
-	const threadSignal = getThreadSignal(post.uri);
-	const displayedReplyCount = useComputed(() => {
-		const signalData = threadSignal.value.data;
-		return Array.isArray(signalData) ? signalData.length : post.replyCount ?? 0;
-	  });
-
-	  
-	return (<button
-		onClick={(e) => {
-			e.stopPropagation();
-			isExpanded.value = !isExpanded.value;
-		}}
-		className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono"
-	>
-		<span className="flex items-center gap-0.5 text-xs">
-			{isExpanded.value ? "[-]" : `[+${displayedReplyCount.value}]`}
-		</span>
-	</button>)
 }
 
 export function CompactPost({
@@ -54,7 +32,6 @@ export function CompactPost({
 
 			<div className="flex items-start gap-2 py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800">
 				<div className="flex-1 min-w-0">
-					{/* Post metadata row */}
 					<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500 text-sm">
 						<a
 							href={postAuthorUrl}
@@ -79,7 +56,6 @@ export function CompactPost({
 							<ExpandButton post={post} isExpanded={isExpanded} />
 						)}
 					</div>
-					{/* Post content */}
 					<div className="text-sm break-words text-gray-900 dark:text-gray-100">
 						<PostText post={post} />
 					</div>
