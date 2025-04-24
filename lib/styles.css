@@ -7,14 +7,6 @@
   --color-text-dark: #fff;
 }
 
-html, body, #app {
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-}
-
 #app {
   background-color: var(--color-bg);
   color: var(--color-text);
