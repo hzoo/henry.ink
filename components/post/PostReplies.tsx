@@ -18,7 +18,7 @@ export function PostReplies({
   useSignalEffect(() => {
     const state = threadStateSignal.peek();
     
-    if (depth === 1 && isExpanded.value && !state.data && !state.isLoading) {
+    if (depth === 0 && isExpanded.value && !state.data && !state.isLoading) {
        fetchAndUpdateThreadSignal(post.uri);
     }
   });
