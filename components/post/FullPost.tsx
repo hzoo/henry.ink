@@ -56,13 +56,10 @@ export function FullPost({ post }: FullPostProps) {
 							>
 								{timeAgo}
 							</a>
-              {post.replyCount !== undefined && post.replyCount > 0 && (
-                <ExpandButton post={post} isExpanded={isExpanded} />
-              )}
 						</div>
 					</div>
 					<PostText post={post} />
-					<CompactPostActions post={post} />
+					<CompactPostActions post={post} isExpanded={isExpanded} />
 				</div>
 			</div>
 			<PostReplies post={post} depth={0} isExpanded={isExpanded} />

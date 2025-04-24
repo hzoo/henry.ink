@@ -1,11 +1,11 @@
 import { PostText } from "@/components/PostText";
 import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
-import { useSignal } from "@preact/signals";
+import { useSignal, useComputed } from "@preact/signals";
 import { PostReplies } from "@/components/post/PostReplies";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
-import { ExpandButton } from "@/components/post/ExpandButton";
+import { hoveredCollapsePostUri } from "@/lib/signals";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -19,15 +19,28 @@ export function CompactPost({
 	expanded = false,
 }: CompactPostProps) {
 	const isExpanded = useSignal(expanded);
+	const isHoveringThisPost = useComputed(() => hoveredCollapsePostUri.value === post.uri);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
 
 	return (
-		<article className={`relative min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
-			{/* Thread line */}
-			{depth > 0 && (
-				<div className="absolute left-2 top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-700" />
+		<article className={"relative min-w-0 pl-5"}>
+			{isExpanded.value && (
+				<div
+					className={`absolute left-4 top-0 bottom-0 w-[2px] cursor-pointer transition-colors duration-150 ${
+						isHoveringThisPost.value
+							? "bg-slate-950 dark:bg-slate-50"
+							: "bg-gray-200 dark:bg-gray-700"
+					}`}
+					onClick={(e) => {
+						e.stopPropagation();
+						isExpanded.value = false;
+					}}
+					onMouseEnter={() => (hoveredCollapsePostUri.value = post.uri)}
+					onMouseLeave={() => (hoveredCollapsePostUri.value = null)}
+					title="Collapse thread"
+				/>
 			)}
 
 			<div className="flex items-start gap-2 py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -52,14 +65,11 @@ export function CompactPost({
 						>
 							{timeAgo}
 						</a>
-						{post.replyCount !== undefined && post.replyCount > 0 && (
-							<ExpandButton post={post} isExpanded={isExpanded} />
-						)}
 					</div>
 					<div className="text-sm break-words text-gray-900 dark:text-gray-100">
 						<PostText post={post} />
 					</div>
-					<CompactPostActions post={post} />
+					<CompactPostActions post={post} isExpanded={isExpanded}  />
 				</div>
 			</div>
 			<PostReplies 

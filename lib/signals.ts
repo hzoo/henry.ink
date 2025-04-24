@@ -37,6 +37,9 @@ export function getThreadSignal(uri: string): Signal<ThreadState> {
   return store.get(uri)!;
 }
 
+// Signal to track which post's collapse controls (line/button) are hovered
+export const hoveredCollapsePostUri = signal<string | null>(null);
+
 // -------------------------
 
 // Signal to track the last version the user has seen the intro/update popup for
