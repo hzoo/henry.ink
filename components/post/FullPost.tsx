@@ -19,7 +19,7 @@ export function FullPost({ post }: FullPostProps) {
 	const isExpanded = useSignal(true);
 
 	return (
-		<article className="border-b border-gray-300 dark:border-gray-600 pb-2">
+		<article className="border-b border-gray-300 dark:border-gray-600">
 			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors p-2 rounded-md">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
@@ -59,7 +59,7 @@ export function FullPost({ post }: FullPostProps) {
 						</div>
 					</div>
 					<PostText post={post} />
-					<CompactPostActions post={post} isExpanded={isExpanded} />
+					<CompactPostActions post={post} />
 				</div>
 			</div>
 			<PostReplies post={post} depth={0} isExpanded={isExpanded} />
