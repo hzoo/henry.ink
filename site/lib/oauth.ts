@@ -173,7 +173,7 @@ export const startLoginProcess = async (handleOrDid: string) => {
             console.log("launchWebAuthFlow successful, final callback URL:", finalRedirectUrl);
 
             if (!finalRedirectUrl) {
-                if (chrome.runtime.lastError?.message?.includes('user closed')) {
+                if (browser.runtime.lastError?.message?.includes('user closed')) {
                     throw new LoginAbortError("Login cancelled by user.");
                 }
                 throw new Error("Authentication flow did not return a callback URL.");
