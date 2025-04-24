@@ -19,8 +19,8 @@ export function FullPost({ post }: FullPostProps) {
 	const isExpanded = useSignal(true);
 
 	return (
-		<article className="border-b border-gray-300 dark:border-gray-600">
-			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors p-2 rounded-md">
+		<article className="border-b border-gray-300 dark:border-gray-600 p-2">
+			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
 						{post.author.avatar && (
