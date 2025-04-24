@@ -52,7 +52,7 @@ export function CompactPost({
 				<div className="absolute left-2 top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-700" />
 			)}
 
-			<div className="flex items-start gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-800">
+			<div className="flex items-start gap-2 py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800">
 				<div className="flex-1 min-w-0">
 					{/* Post metadata row */}
 					<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500">
@@ -61,7 +61,7 @@ export function CompactPost({
 							target="_blank"
 							rel="noopener noreferrer"
 							className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[100px]"
-							title={post.author.handle}
+							title={post.author.displayName}
 						>
 							@{post.author.handle}
 						</a>

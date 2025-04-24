@@ -3,7 +3,8 @@
     "client_uri": "https://annotation-demo.henryzoo.com",
     "redirect_uris": [
         "https://annotation-demo.henryzoo.com",
-        "https://annotation-demo.henryzoo.com/extension/oauth/callback"
+        "https://annotation-demo.henryzoo.com/extension/oauth/callback",
+        "https://annotation-demo.henryzoo.com/extension/ff/oauth/callback"
     ],
     "application_type": "web",
     "client_name": "Annotation Sidebar Extension",
