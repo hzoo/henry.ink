@@ -25,9 +25,7 @@ export function CompactPost({
 
 	return (
 		<article className={"relative min-w-0 pl-7"}>
-			{post.replyCount !== undefined && post.replyCount > 0 && (
-				<ExpandButton post={post} isExpanded={isExpanded} />
-			)}
+			<ExpandButton post={post} isExpanded={isExpanded} />
 			<div className="flex-1 min-w-0 pb-1">
 				<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500 text-sm">
 					<a
@@ -50,16 +48,18 @@ export function CompactPost({
 						{timeAgo}
 					</a>
 				</div>
-				<div className="text-sm break-words text-gray-900 dark:text-gray-100">
-					<PostText post={post} />
-				</div>
-				<CompactPostActions post={post} />
+				{isExpanded.value && (
+					<>
+						<div className="text-sm break-words text-gray-900 dark:text-gray-100">
+							<PostText post={post} />
+						</div>
+						<CompactPostActions post={post} />
+					</>
+				)}
 			</div>
-			<PostReplies 
-				post={post} 
-				depth={depth + 1} 
-				isExpanded={isExpanded} 
-			/>
+			{isExpanded.value && (
+				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} />
+			)}
 		</article>
 	);
 }
