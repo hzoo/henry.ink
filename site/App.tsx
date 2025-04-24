@@ -135,7 +135,7 @@ export function App() {
 			</header>
 
 			<div class="flex flex-1 overflow-hidden">
-				<main class="flex-1 flex flex-col p-3 gap-3">
+				<main class="flex flex-col p-3 gap-3">
                 <span class="text-xs text-gray-500 dark:text-gray-400 self-center italic">↓ Simulated Browser Window ↓</span>
                 {/* Address Bar */}
 					<form onSubmit={handleSubmit} class="flex">
@@ -197,7 +197,7 @@ export function App() {
                                 key={iframeUrl.value} // Use iframeUrl here for re-render trigger
                                 src={iframeUrl.value}
                                 title="Website Content"
-                                class="w-full h-full border-0"
+                                class="h-full border-0"
                                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                                 // We might not need onLoad/onError if we trust the flag
                                 // onLoad={...} 
@@ -208,7 +208,7 @@ export function App() {
                         )}
                     </div>
 				</main>
-				<aside class="w-80 border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
+				<aside class="min-w-[360px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
 						<span class="text-xs text-gray-500 dark:text-gray-400 italic">↓ Extension Sidebar (Actual Bluesky Posts) ↓</span>
 					</div>
