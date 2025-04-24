@@ -16,8 +16,12 @@ if (!WEB_PROD_REDIRECT_URI) {
 if (!EXT_CALLBACK_REDIRECT_URI) {
   throw new Error("Could not find the extension callback redirect URI (.../oauth/callback) in client-metadata.json");
 }
+const FF_EXT_CALLBACK_REDIRECT_URI = metadata.redirect_uris.find(uri => uri.endsWith('/ff/oauth/callback'));
+if (!FF_EXT_CALLBACK_REDIRECT_URI) {
+  throw new Error("Could not find the Firefox extension callback redirect URI (.../ff/oauth/callback) in client-metadata.json");
+}
 
-export function injectOauthEnv(isForExtension: boolean): PluginOption {
+export function injectOauthEnv(isForExtension: boolean, browser?: string): PluginOption {
   return {
     name: 'inject-oauth-env',
     config: (_config: UserConfig, { command }: { command: string }) => {
@@ -26,7 +30,14 @@ export function injectOauthEnv(isForExtension: boolean): PluginOption {
       let redirectUri: string;
 
       if (isForExtension) {
-        redirectUri = EXT_CALLBACK_REDIRECT_URI;
+        if (browser === 'firefox') {
+          redirectUri = FF_EXT_CALLBACK_REDIRECT_URI;
+        } else if (browser === 'chrome' || browser === 'edge' || browser === 'opera') {
+          redirectUri = EXT_CALLBACK_REDIRECT_URI;
+        } else {
+          console.warn(`[injectOauthEnv] Unknown browser target "${browser}" for extension build. Falling back to default callback URI.`);
+          redirectUri = EXT_CALLBACK_REDIRECT_URI;
+        }
       } else {
         if (command === 'build') {
           redirectUri = WEB_PROD_REDIRECT_URI;
