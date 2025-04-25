@@ -7,13 +7,13 @@
   --color-text-dark: #fff;
 }
 
-#app {
+html {
   background-color: var(--color-bg);
   color: var(--color-text);
 }
 
 @media (prefers-color-scheme: dark) {
-  #app {
+  html {
     background-color: var(--color-bg-dark);
     color: var(--color-text-dark);
   }
