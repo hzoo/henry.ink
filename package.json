@@ -29,9 +29,9 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
     "@types/bun": "^1.2.10",
-    "@types/chrome": "^0.0.316",
+    "@types/chrome": "^0.0.317",
     "typescript": "^5.8.3",
     "vite-plugin-svgr": "^4.3.0",
-    "wxt": "^0.20.3"
+    "wxt": "^0.20.4"
   }
 }
