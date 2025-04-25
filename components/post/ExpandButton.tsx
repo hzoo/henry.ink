@@ -27,7 +27,7 @@ export function ExpandButton({ post, isExpanded }: ExpandButtonProps) {
 			<div
 				className={`w-[2px] h-0 transition-colors duration-150 ${
 					isHoveringThisPost.value
-						? "bg-slate-950 dark:bg-slate-50"
+						? "bg-slate-800 dark:bg-slate-50"
 						: "bg-gray-200 dark:bg-gray-700"
 				}`}
 			/>
@@ -37,7 +37,7 @@ export function ExpandButton({ post, isExpanded }: ExpandButtonProps) {
 			<div
 				className={`w-[2px] flex-grow transition-colors duration-150 ${
 					isHoveringThisPost.value
-						? "bg-slate-950 dark:bg-slate-50"
+						? "bg-slate-800 dark:bg-slate-50"
 						: "bg-gray-200 dark:bg-gray-700"
 				}`}
 			/>
