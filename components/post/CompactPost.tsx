@@ -37,7 +37,7 @@ export function CompactPost({
 						className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[100px]"
 						title={post.author.displayName}
 					>
-						{`@${post.author.handle}`}
+						{post.author.handle}
 					</a>
 					{op === post.author.handle && (
 						<span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">
@@ -65,7 +65,7 @@ export function CompactPost({
 				)}
 			</div>
 			{isExpanded.value && (
-				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} />
+				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} op={op} />
 			)}
 		</article>
 	);

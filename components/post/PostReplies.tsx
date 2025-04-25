@@ -11,7 +11,8 @@ export function PostReplies({
   post,
   isExpanded,
   depth = 0,
-}: Omit<PostRepliesProps, 'prefetchedReplies'>) {
+  op,
+}: PostRepliesProps) {
   const threadStateSignal = getThreadSignal(post.uri);
   const { data: replies, isLoading, error } = threadStateSignal.value;
 
@@ -50,7 +51,7 @@ export function PostReplies({
             post={reply.post as AppBskyFeedDefs.PostView}
             depth={depth}
             expanded={isExpanded.value}
-            op={post.author.handle}
+            op={op}
           />
         ))
       )}

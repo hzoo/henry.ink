@@ -12,4 +12,5 @@ export interface PostRepliesProps {
   depth?: number;
   maxDepth?: number;
   prefetchedReplies?: ThreadReply[];
+  op?: string;
 }
