@@ -4,7 +4,6 @@ import { getTimeAgo } from "@/lib/utils/time";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { PostReplies } from "./PostReplies";
 import { useSignal } from "@preact/signals";
-import { ExpandButton } from "@/components/post/ExpandButton";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 
 interface FullPostProps {
@@ -19,8 +18,8 @@ export function FullPost({ post }: FullPostProps) {
 	const isExpanded = useSignal(true);
 
 	return (
-		<article className="border-b border-gray-300 dark:border-gray-600 p-2">
-			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md">
+		<article className="border-b border-gray-300 dark:border-gray-600">
+			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md p-2">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
 						{post.author.avatar && (
