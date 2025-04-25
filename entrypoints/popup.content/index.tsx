@@ -9,6 +9,8 @@ import "./style.css";
 
 const POPUP_OFFSET_Y_ABOVE = 40;
 const POPUP_OFFSET_Y_BELOW = 10;
+const POPUP_ESTIMATED_HALF_WIDTH = 80; // Adjust if needed
+const HORIZONTAL_PADDING = 10;
 
 const ContentScriptRoot = () => {
 	const isVisible = useSignal(false);
@@ -67,11 +69,16 @@ const ContentScriptRoot = () => {
 						finalTop = (selectionRect.bottom > window.innerHeight - bottomClearance) ? topAbove : topBelow;
 					}
 
-					// Center horizontally based on the chosen anchor rect's width
-					const left = anchorRect.left + window.scrollX + anchorRect.width / 2;
+					// Calculate ideal horizontal center
+					const idealLeft = anchorRect.left + window.scrollX + anchorRect.width / 2;
+
+					// Clamp horizontal position to keep popup within viewport
+					const minAllowedLeft = window.scrollX + POPUP_ESTIMATED_HALF_WIDTH + HORIZONTAL_PADDING;
+					const maxAllowedLeft = window.scrollX + window.innerWidth - POPUP_ESTIMATED_HALF_WIDTH - HORIZONTAL_PADDING;
+					const finalLeft = Math.max(minAllowedLeft, Math.min(idealLeft, maxAllowedLeft));
 
 					// Ensure top doesn't go negative
-					position.value = { top: Math.max(0, finalTop), left };
+					position.value = { top: Math.max(0, finalTop), left: finalLeft };
 					if (!isVisible.value) isVisible.value = true;
 				} else {
 					// Fallback or if no rects found, hide
