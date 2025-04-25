@@ -50,6 +50,7 @@ export function PostReplies({
             post={reply.post as AppBskyFeedDefs.PostView}
             depth={depth}
             expanded={isExpanded.value}
+            op={post.author.handle}
           />
         ))
       )}

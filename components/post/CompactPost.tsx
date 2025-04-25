@@ -11,12 +11,14 @@ interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
 	depth?: number;
 	expanded?: boolean;
+	op?: string;
 }
 
 export function CompactPost({
 	post,
 	depth = 0,
 	expanded = false,
+	op,
 }: CompactPostProps) {
 	const isExpanded = useSignal(expanded);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
@@ -35,8 +37,13 @@ export function CompactPost({
 						className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[100px]"
 						title={post.author.displayName}
 					>
-						@{post.author.handle}
+						{`@${post.author.handle}`}
 					</a>
+					{op === post.author.handle && (
+						<span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">
+							OP
+						</span>
+					)}
 					<span className="text-gray-400">·</span>
 					<a
 						href={postUrl}
