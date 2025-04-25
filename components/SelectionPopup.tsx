@@ -12,7 +12,7 @@ const SelectionPopup = ({ visible, position }: SelectionPopupProps) => {
 
   return (
     <div
-      className="absolute z-50 flex items-center gap-1 rounded-lg border border-blue-200 p-1 bg-white shadow-xl whitespace-nowrap min-w-max 
+      className="font-sans leading-normal text-[12px] absolute z-50 flex items-center gap-1 rounded-lg border border-blue-200 p-1 bg-white shadow-xl whitespace-nowrap min-w-max 
 						 dark:bg-gray-800 dark:border-blue-300/30"
       style={{
         top: 0,
@@ -23,19 +23,19 @@ const SelectionPopup = ({ visible, position }: SelectionPopupProps) => {
         userSelect: "none",
       }}
     >
-      <button className="inline-flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-sm text-gray-700 hover:bg-blue-100 
+      <button className="inline-flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-gray-700 hover:bg-blue-100 
 							 dark:text-gray-300 dark:hover:bg-blue-700/50">
         Annotate
-        <kbd className="font-mono pointer-events-none flex select-none items-center justify-center rounded-sm bg-gray-200 px-1 text-xs text-gray-900 
+        <kbd className="font-mono pointer-events-none flex select-none items-center justify-center rounded-sm bg-gray-200 px-1 text-gray-900 
 								 dark:bg-gray-600 dark:text-gray-100">
           A
         </kbd>
       </button>
       <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
-      <button className="inline-flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-sm text-gray-700 hover:bg-blue-100 
+      <button className="inline-flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-gray-700 hover:bg-blue-100 
 							 dark:text-gray-300 dark:hover:bg-blue-700/50">
         Quote
-        <kbd className="font-mono pointer-events-none flex select-none items-center justify-center rounded-sm bg-gray-200 px-1 text-xs text-gray-900 
+        <kbd className="font-mono pointer-events-none flex select-none items-center justify-center rounded-sm bg-gray-200 px-1 text-gray-900 
 								 dark:bg-gray-600 dark:text-gray-100">
           Q
         </kbd>
