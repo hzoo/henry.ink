@@ -246,7 +246,7 @@ export function CompactPostActions({
 
 	return (
 		<div className="mt-1">
-			<div className="flex items-center gap-4 text-gray-500 text-sm">
+			<div className="flex justify-between gap-4 text-gray-500 text-sm">
 				{post.replyCount !== undefined && (
 					<button
 						onClick={handleReplyClick}
@@ -256,7 +256,9 @@ export function CompactPostActions({
 						disabled={!isLoggedIn}
 					>
 						<Icon name="comment" className="w-3.5 h-3.5" />
-						{formatCount(displayedReplyCount.value)}
+						<span style={{ visibility: displayedReplyCount.value === 0 ? 'hidden' : 'visible' }}>
+							{formatCount(displayedReplyCount.value)}
+						</span>
 					</button>
 				)}
 				{post.repostCount !== undefined && (
@@ -268,7 +270,9 @@ export function CompactPostActions({
 						disabled={!isLoggedIn || isReposting.value}
 					>
 						<Icon name="arrowPath" className="w-3.5 h-3.5" />
-						{formatCount(localRepostCount.value)}
+						<span style={{ visibility: localRepostCount.value === 0 ? 'hidden' : 'visible' }}>
+							{formatCount(localRepostCount.value)}
+						</span>
 					</button>
 				)}
 				{post.likeCount !== undefined && (
@@ -283,9 +287,12 @@ export function CompactPostActions({
 							name={localLikeUri.value ? "heartFilled" : "heart"}
 							className={"w-3.5 h-3.5"}
 						/>
-						{formatCount(localLikeCount.value)}
+						<span style={{ visibility: localLikeCount.value === 0 ? 'hidden' : 'visible' }}>
+							{formatCount(localLikeCount.value)}
+						</span>
 					</button>
 				)}
+				<div/>
 			</div>
 			{isLoggedIn && isReplying.value && (
 				<ReplyInput
