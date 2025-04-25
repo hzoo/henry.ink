@@ -34,7 +34,7 @@ export function FirstTimePopup() {
 		const lastVersion = lastSeenVersion.peek();
 
 		if (lastVersion === "0.0.0") {
-			return [];
+			return [changelogData[changelogData.length - 1]];
 		}
 
 		const changesToShow: ChangelogEntry[] = [];
