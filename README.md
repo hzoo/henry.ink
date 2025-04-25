@@ -1,11 +1,19 @@
 # extension-annotation-sidebar
 
-Discover what people are saying about any webpage (Bluesky only atm) - a sidebar browser extension that shows you real-time discussions about the sites you visit.
+Discover what people are saying about any webpage: a sidebar browser extension that shows you real-time discussions about the sites you visit (bsky atm).
 
 [link-chrome]: https://chromewebstore.google.com/detail/bluesky-sidebar/lbbbgodnfjcndohnhdjkomcckekjpjni 'Version published on Chrome Web Store'
 [link-firefox]: https://addons.mozilla.org/en-US/firefox/addon/bluesky-sidebar/ 'Version published on Mozilla Add-ons'
 
-> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no need to install an extension)
+> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no installation required)
+
+### pondering
+
+> on my mind, a north star to move towards. please check these out
+- [Chatting with Glue, 2020](https://a9.io/glue-comic/)
+- [The Garden of Forking Memes, 2020](https://aaronzlewis.com/blog/2020/07/07/the-garden-of-forking-memes/)
+- [Loom: interface to the multiverse, 2021](https://generative.ink/posts/loom-interface-to-the-multiverse/)
+- [Bible references, footnotes, commentaries, concordance](https://en.wikipedia.org/wiki/Bible_citation)
 
 ### Install Links
 
@@ -58,3 +66,5 @@ bun run build:ff
 - https://emilyliu.me/blog/comments
 - https://github.com/joneslloyd/bluniversal-comments
 - https://github.com/czue/bluesky-comments
+- Hypothesis annotation: https://web.hypothes.is/start
+- History of annotation: https://en.wikipedia.org/wiki/Web_annotation
