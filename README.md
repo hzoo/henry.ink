@@ -53,5 +53,8 @@ bun run build
 bun run build:ff
 ```
 
-## Previously
+## Related
 - I made an older repo that does a similar thing for [Community Archive](https://www.community-archive.org/) (since Twitter API is not exactly open): https://github.com/hzoo/extension-find-annotations
+- https://emilyliu.me/blog/comments
+- https://github.com/joneslloyd/bluniversal-comments
+- https://github.com/czue/bluesky-comments
