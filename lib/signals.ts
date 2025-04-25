@@ -18,29 +18,24 @@ export interface ThreadState {
 }
 
 // Map where key is the root post URI, value is the signal for that thread's state
-export const threadsStore = signal(new Map<string, Signal<ThreadState>>());
+export const threadsStore = new Map<string, Signal<ThreadState>>();
 
 // Helper function to get or initialize a thread signal
 export function getThreadSignal(uri: string): Signal<ThreadState> {
-  const store = threadsStore.peek(); // Use peek to avoid subscribing components that just need the signal instance
-  if (!store.has(uri)) {
+  if (!threadsStore.has(uri)) {
     const newSignal = signal<ThreadState>({
       data: null,
       lastFetched: null,
       isLoading: false,
       error: null,
     });
-    // Create a new map to trigger updates for components observing the map itself (if any)
-    threadsStore.value = new Map(store.set(uri, newSignal));
+    threadsStore.set(uri, newSignal);
     return newSignal;
   }
-  return store.get(uri)!;
+  return threadsStore.get(uri)!;
 }
 
 // Signal to track which post's collapse controls (line/button) are hovered
 export const hoveredCollapsePostUri = signal<string | null>(null);
-
-// -------------------------
-
 // Signal to track the last version the user has seen the intro/update popup for
 export const lastSeenVersion = signalBrowserLocal<string>("last-seen-version", "0.0.0");
