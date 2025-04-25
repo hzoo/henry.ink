@@ -61,7 +61,7 @@ export function FullPost({ post }: FullPostProps) {
 					<CompactPostActions post={post} />
 				</div>
 			</div>
-			<PostReplies post={post} depth={0} isExpanded={isExpanded} />
+			<PostReplies post={post} depth={0} isExpanded={isExpanded} op={post.author.handle} />
 		</article>
 	);
 }
