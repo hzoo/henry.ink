@@ -31,7 +31,7 @@ export function ExpandButton({ post, isExpanded }: ExpandButtonProps) {
 						: "bg-gray-200 dark:bg-gray-700"
 				}`}
 			/>
-			<span className="font-mono flex items-center gap-0.5 text-xs">
+			<span className="font-mono flex items-center gap-0.5 text-[10px]">
 				[{isExpanded.value ? "-" : "+"}]
 			</span>
 			<div

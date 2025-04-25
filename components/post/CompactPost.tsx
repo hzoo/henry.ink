@@ -24,7 +24,7 @@ export function CompactPost({
 	const timeAgo = getTimeAgo(post.indexedAt);
 
 	return (
-		<article className={"relative min-w-0 pl-7"}>
+		<article className="relative min-w-0 pl-5">
 			<ExpandButton post={post} isExpanded={isExpanded} />
 			<div className="flex-1 min-w-0 pb-1">
 				<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500 text-sm">
