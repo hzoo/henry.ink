@@ -2,7 +2,7 @@
   "name": "extension-annotation-sidebar",
   "description": "see annotations on your current page",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "scripts": {
     "site": "vite",
