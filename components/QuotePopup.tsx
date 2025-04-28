@@ -42,7 +42,7 @@ export function QuotePopup() {
 			// Selection exists, format the text
 			const url = currentUrl.value;
 			const quoteLines = currentSelection.split('\n').map(line => `> ${line}`).join('\n');
-			const newInitialText = `${quoteLines}\n\n${url}\n\n`;
+			const newInitialText = `${quoteLines}\n\n\+++\n\n${url}`;
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
@@ -184,15 +184,16 @@ export function QuotePopup() {
 					<div className="flex-grow text-sm text-gray-900 dark:text-gray-100">
 						<textarea
 							id="quote-reply-textarea"
-							className="w-full bg-transparent outline-none resize-none placeholder-gray-500 dark:placeholder-gray-400"
+							className="w-full bg-transparent outline-none resize-none placeholder-gray-500 dark:placeholder-gray-400 break-all"
 							rows={7}
+							style={{ fieldSizing: 'content', maxHeight: '500px' }}
 							placeholder="Add your comment..."
 							value={userText.value}
 							onInput={(e) => {
 								userText.value = (e.target as HTMLTextAreaElement).value;
 								postError.value = null;
 							}}
-							maxLength={MAX_CHARS}
+							maxLength={MAX_CHARS*2}
 							disabled={isPosting.value}
 						/>
 					</div>
