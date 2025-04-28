@@ -1,8 +1,16 @@
 export default defineBackground({
-  main() {
-    // Configure the side panel to open when clicking the extension action button
-    if (browser.sidePanel) {
-      browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-    }
-  },
-}); 
+	main() {
+		try {
+			if (
+				browser.sidePanel &&
+				typeof browser.sidePanel.setPanelBehavior === "function"
+			) {
+				browser.sidePanel
+					.setPanelBehavior({ openPanelOnActionClick: true })
+					.catch(console.error);
+			}
+		} catch (err) {
+			console.warn("Could not set side panel behavior:", err);
+		}
+	},
+});

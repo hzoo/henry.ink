@@ -10,9 +10,8 @@ import { PostList } from "@/components/PostList";
 import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";
 import { FirstTimePopup } from "@/components/FirstTimePopup";
 import { version } from "../package.json";
-import { useAtCute } from "@/site/lib/oauth";
-
-const currentVersion = version;
+import { QuotePopup } from "./QuotePopup";
+import { quotedSelection } from "@/lib/messaging";
 
 function SidebarBody() {
 	// Load content when URL changes
@@ -57,14 +56,13 @@ function SidebarBody() {
 }
 
 export function Sidebar() {
-	useAtCute();
-
 	return (
 		<div className="flex flex-col h-full relative">
 			<SidebarHeader />
-			{currentPosts.value.length === 0 && !loading.value && !error.value && <EmptyList />}
+			<EmptyList />
 			<SidebarBody />
-			{lastSeenVersion.value !== currentVersion && <FirstTimePopup />}
+			<FirstTimePopup />
+			{quotedSelection.value && <QuotePopup />}
 		</div>
 	);
 }

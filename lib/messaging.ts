@@ -1,6 +1,15 @@
 import { computed, signal } from "@preact/signals";
 import { whitelistedDomains } from "./settings";
 
+// Message from Content Script (SelectionPopup)
+export interface ContentScriptMessage {
+	type: "QUOTE_SELECTION";
+	from: "content";
+	data: { selection: string };
+}
+
+export type ExtensionMessage = ContentScriptMessage;
+
 export function extractBaseDomain(url: string): string {
 	try {
 		const { hostname } = new URL(url);
@@ -10,6 +19,8 @@ export function extractBaseDomain(url: string): string {
 	}
 }
 
+// --- Signals for Sidepanel State ---
+
 export const currentUrl = signal<string>("");
 export const currentDomain = computed(() =>
 	currentUrl.value ? extractBaseDomain(currentUrl.value) : "",
@@ -17,6 +28,8 @@ export const currentDomain = computed(() =>
 export const isWhitelisted = computed(() =>
 	whitelistedDomains.value.includes(currentDomain.value),
 );
+// Signal to hold the latest selection action data received from the sidepanel
+export const quotedSelection = signal<string | null>(null);
 
 // Check if URL is valid for searching (not browser internal, etc)
 export const isSearchableUrl = computed(() => {
@@ -25,12 +38,13 @@ export const isSearchableUrl = computed(() => {
 	
 	try {
 		const parsedUrl = new URL(url);
-		// Only allow http and https protocols, which are what would be shared on Bluesky
+		// Only allow http and https protocols
 		return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
 	} catch {
 		return false;
 	}
 });
+
 
 // Track the active tab and the extension's current window
 let activeTabId: number | undefined;
@@ -76,6 +90,13 @@ export async function setupTabListener() {
 			// Only update if this is the active tab in our window and there's a URL change
 			if (tabId === activeTabId && changeInfo.url) {
 				currentUrl.value = changeInfo.url;
+			}
+		});
+
+		// Listen for messages from the content script
+		browser.runtime.onMessage.addListener((message: ContentScriptMessage) => {
+			if (message.from === "content") {
+				quotedSelection.value = message.data.selection || null; 
 			}
 		});
 	} catch (error) {

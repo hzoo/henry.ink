@@ -22,7 +22,7 @@ export function WhitelistedSitesManager({ onClose }: Props) {
       }}
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm mx-4 flex flex-col max-h-[min(32rem,90vh)]"
+        className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-sm mx-4 flex flex-col max-h-[min(32rem,90vh)]"
       >
         {/* Fixed Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
