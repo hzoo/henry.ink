@@ -22,7 +22,7 @@ export default defineBackground({
 				console.log("Background received message:", message);
 
 				switch (message.type) {
-					case "QUOTE_SELECTION": {
+					case "SELECTION": {
 						console.log("Received quote selection, attempting to forward:", message.data.selection);
 						browser.runtime.sendMessage(message).catch(() => {
 							console.warn("Sidepanel not found, cannot forward QUOTE_SELECTION");
