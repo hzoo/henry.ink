@@ -32,7 +32,17 @@ export async function fetchPosts(url: string, options: FetchOptions = {}) {
     // Don't show error if it was just aborted
     const fetchError = err as FetchError;
     if (fetchError.cause !== 'URL changed') {
-      error.value = fetchError.message || "Failed to fetch Bluesky posts";
+      const authErrorMessage = 'Bluesky search sometimes requires login due to high load. See:';
+      const authErrorLink = 'https://github.com/hzoo/extension-annotation-sidebar/issues/8';
+      
+      // Check for the specific authentication error message pattern
+      if (fetchError.message.startsWith(authErrorMessage)) { 
+        // Set the error as an object with message and link
+        error.value = { message: authErrorMessage, link: authErrorLink };
+      } else {
+        // Otherwise, set the error as just the string message
+        error.value = fetchError.message || "Failed to fetch Bluesky posts";
+      }
     }
     loading.value = false;
   }
@@ -65,7 +75,15 @@ export async function loadFromCacheAndUpdate(url: string, signal?: AbortSignal) 
         }
         cacheTimeAgo.value = now;
       } catch (err) {
-        console.warn('Background refresh failed:', err);
+        const fetchError = err as FetchError;
+        // Also handle potential auth error during background refresh
+        const authErrorMessage = 'Bluesky search sometimes requires login due to high load. See:';
+        if (fetchError.message.startsWith(authErrorMessage)) {
+            // Don't show error in UI for background refresh, but log it
+            console.warn('Background refresh failed due to auth:', fetchError.message);
+        } else {
+            console.warn('Background refresh failed:', err);
+        }
       }
     }
     return true;

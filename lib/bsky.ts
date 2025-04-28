@@ -34,8 +34,18 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
     
     return response.data.posts;
   } catch (error: unknown) {
+    // Log the full error object for inspection
+    console.error('Caught bsky search error:', JSON.stringify(error, null, 2));
+    
     // Only rethrow if it's not an abort error
     if (error instanceof Error && error.name !== 'AbortError') {
+      // Check for specific AuthMissing error
+      if (error.message.includes('AuthMissing') || error.message.includes('Authentication Required') || error.message.includes('403')) {
+        console.error('Authentication required:', error);
+        // Throw the new, simpler error message
+        throw new Error('Bluesky search sometimes requires login due to high load. See:');
+      }
+      // If it wasn't the AuthMissing error, log and rethrow the original error
       console.error('Error searching Bluesky posts:', error);
       throw error;
     }

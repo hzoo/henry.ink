@@ -4,10 +4,17 @@ import type { Signal } from "@preact/signals";
 import { signalBrowserLocal } from "@/lib/signal";
 import type { ThreadReply } from "@/lib/types"; // Assuming ThreadReply is defined here
 
+// Define a type for the error state
+export interface ErrorState {
+  message: string;
+  link?: string;
+}
+
 export const currentPosts = signal<AppBskyFeedDefs.PostView[]>([]);
 export const cacheTimeAgo = signal<number | null>(null);
 export const loading = signal(false);
-export const error = signal<string | null>(null);
+// Update error signal to use the ErrorState type or string for simpler errors
+export const error = signal<ErrorState | string | null>(null);
 export const contentSourceUrl = signal<string>("");
 
 export interface ThreadState {

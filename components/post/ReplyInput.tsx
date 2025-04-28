@@ -1,5 +1,5 @@
 import { useSignal, type Signal } from "@preact/signals";
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren, JSX, h } from "preact";
 
 interface ReplyInputProps {
   onCancel: () => void;
