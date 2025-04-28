@@ -10,24 +10,10 @@ import type {
 } from "@/lib/messagingTypes";
 import "@/lib/styles.css";
 
-// --- Simple Throttle Utility (Specific for no args, void return) ---
-function throttleVoid(func: () => void, limit: number): () => void {
-	let inThrottle: boolean;
-	return (): void => {
-		if (!inThrottle) {
-			inThrottle = true;
-			func();
-			setTimeout(() => (inThrottle = false), limit);
-		}
-	};
-}
-
 const POPUP_ESTIMATED_WIDTH = 75; // Rough width for positioning/clamping
 const HORIZONTAL_PADDING = 10;
-const MIN_SELECTION_SPACES = 1; // Required spaces in selection
-const THROTTLE_LIMIT_MS = 50;
-const POPUP_VERTICAL_OFFSET = 20; // Pixels above/below selection
-const POPUP_ESTIMATED_HEIGHT = 20; // Rough height for vertical clamping
+const POPUP_VERTICAL_OFFSET = 15; // Pixels above/below selection
+const POPUP_ESTIMATED_HEIGHT = 38; // Rough height for vertical clamping
 const VERTICAL_PADDING = 5; // Padding from top/bottom viewport edges
 
 const checkSidepanelOpen = async () => {
@@ -50,23 +36,18 @@ const ContentScriptRoot = () => {
 	const position = useSignal({ top: 0, left: 0 });
 	const popupRef = useRef<HTMLDivElement>(null);
 	const isMouseDown = useSignal(false);
-	const latestMousePos = useSignal({ x: 0, y: 0 });
 
 	useSignalEffect(() => {
 		const controller = new AbortController();
 		const { signal } = controller;
 
-		const handleMouseMove = (event: MouseEvent) => {
-			latestMousePos.value = { x: event.clientX, y: event.clientY };
-		};
-
-		const updatePositionThrottled = throttleVoid(() => {
+		const handleSelectionChange = () => {
+			// console.log("Selection change, updating position");
 			const selection = window.getSelection();
 			const selectedText = selection ? selection.toString().trim() : "";
-			const spaceCount = (selectedText.match(/ /g) || []).length;
 
 			// Check if selection is valid
-			if (selection && selection.rangeCount > 0 && selectedText.length > 0 && spaceCount >= MIN_SELECTION_SPACES) {
+			if (selection && selection.rangeCount > 0 && selectedText.length > 0) {
 				const range = selection.getRangeAt(0);
 				const rect = range.getBoundingClientRect();
 
@@ -91,7 +72,7 @@ const ContentScriptRoot = () => {
 
 				// 1. Calculate Ideal Position
 				let idealTop: number;
-				if (isSelectingUpward) {
+				if (!isSelectingUpward) {
 					idealTop = rect.top + currentScrollY - POPUP_ESTIMATED_HEIGHT - POPUP_VERTICAL_OFFSET;
 				} else {
 					idealTop = rect.bottom + currentScrollY + POPUP_VERTICAL_OFFSET;
@@ -114,11 +95,6 @@ const ContentScriptRoot = () => {
 				// Hide popup if selection is invalid or cleared
 				if (isVisible.value) isVisible.value = false;
 			}
-		}, THROTTLE_LIMIT_MS);
-
-		const handleSelectionChange = () => {
-			// console.log("Selection change, updating position");
-			updatePositionThrottled();
 		};
 
 		const handleMouseDown = async (event: MouseEvent) => {
@@ -139,19 +115,15 @@ const ContentScriptRoot = () => {
 			// console.log("Mousedown check: Sidepanel open, starting selection tracking.");
 			batch(() => {
 				isMouseDown.value = true;
-				latestMousePos.value = { x: event.clientX, y: event.clientY };
 				isVisible.value = false;
 			});
 
-
-			document.addEventListener("mousemove", handleMouseMove, { signal });
 			document.addEventListener("selectionchange", handleSelectionChange, { signal });
 
 		};
 
 		const handleMouseUp = (event: MouseEvent) => {
 			isMouseDown.value = false;
-			document.removeEventListener("mousemove", handleMouseMove);
 			document.removeEventListener("selectionchange", handleSelectionChange);
 		};
 
