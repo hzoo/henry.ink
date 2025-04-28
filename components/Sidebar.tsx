@@ -9,7 +9,6 @@ import { autoFetchEnabled } from "@/lib/settings";
 import { PostList } from "@/components/PostList";
 import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";
 import { FirstTimePopup } from "@/components/FirstTimePopup";
-import { version } from "../package.json";
 import { QuotePopup } from "./QuotePopup";
 import { quotedSelection } from "@/lib/messaging";
 
