@@ -16,6 +16,65 @@ const POPUP_VERTICAL_OFFSET = 15; // Pixels above/below selection
 const POPUP_ESTIMATED_HEIGHT = 38; // Rough height for vertical clamping
 const VERTICAL_PADDING = 5; // Padding from top/bottom viewport edges
 
+const calculatePopupPosition = (
+	selection: Selection,
+	positionAtEnd: boolean // True for mouseup (end of selection), False for selectionchange (start of selection)
+): { top: number; left: number } | null => {
+	if (!(selection && selection.rangeCount > 0 && selection.toString().trim().length > 0)) {
+		return null; // Invalid selection
+	}
+
+	const range = selection.getRangeAt(0);
+	const rect = range.getBoundingClientRect();
+
+	// Determine selection direction
+	let isSelectingUpward = false;
+	const { anchorNode, anchorOffset, focusNode, focusOffset } = selection;
+	if (anchorNode && focusNode) {
+		if (anchorNode === focusNode) {
+			isSelectingUpward = focusOffset < anchorOffset;
+		} else {
+			const positionComparison = anchorNode.compareDocumentPosition(focusNode);
+			isSelectingUpward = Boolean(positionComparison & Node.DOCUMENT_POSITION_PRECEDING);
+		}
+	}
+
+	const currentScrollX = window.scrollX;
+	const currentScrollY = window.scrollY;
+	const viewportWidth = window.innerWidth;
+	const viewportHeight = window.innerHeight;
+
+	// Calculate Ideal Position based on flag
+	let idealTop: number;
+	if (positionAtEnd) {
+		// Position relative to the END of the selection
+		if (isSelectingUpward) {
+			idealTop = rect.top + currentScrollY - POPUP_ESTIMATED_HEIGHT - POPUP_VERTICAL_OFFSET;
+		} else {
+			idealTop = rect.bottom + currentScrollY + POPUP_VERTICAL_OFFSET;
+		}
+	} else {
+		// Position relative to the START of the selection (opposite of end)
+		if (!isSelectingUpward) { // Start is top when selecting down
+			idealTop = rect.top + currentScrollY - POPUP_ESTIMATED_HEIGHT - POPUP_VERTICAL_OFFSET;
+		} else { // Start is bottom when selecting up
+			idealTop = rect.bottom + currentScrollY + POPUP_VERTICAL_OFFSET;
+		}
+	}
+	const idealLeft = rect.left + currentScrollX + (rect.width / 2) - (POPUP_ESTIMATED_WIDTH / 2);
+
+	// Clamp Position Horizontally & Vertically
+	const minAllowedLeft = currentScrollX + HORIZONTAL_PADDING;
+	const maxAllowedLeft = currentScrollX + viewportWidth - POPUP_ESTIMATED_WIDTH - HORIZONTAL_PADDING;
+	const finalLeft = Math.max(minAllowedLeft, Math.min(idealLeft, maxAllowedLeft));
+
+	const minAllowedTop = currentScrollY + VERTICAL_PADDING;
+	const maxAllowedTop = currentScrollY + viewportHeight - POPUP_ESTIMATED_HEIGHT - VERTICAL_PADDING;
+	const finalTop = Math.max(minAllowedTop, Math.min(idealTop, maxAllowedTop));
+
+	return { top: finalTop, left: finalLeft };
+};
+
 const checkSidepanelOpen = async () => {
 	const pingMessage: ContentScriptPingMessage = {
 		type: "PING_SIDEPANEL",
@@ -37,62 +96,21 @@ const ContentScriptRoot = () => {
 	const popupRef = useRef<HTMLDivElement>(null);
 	const isMouseDown = useSignal(false);
 
+	// --- Effects and Handlers ---
 	useSignalEffect(() => {
 		const controller = new AbortController();
 		const { signal } = controller;
 
 		const handleSelectionChange = () => {
-			// console.log("Selection change, updating position");
 			const selection = window.getSelection();
-			const selectedText = selection ? selection.toString().trim() : "";
+			if (!selection) return;
 
-			// Check if selection is valid
-			if (selection && selection.rangeCount > 0 && selectedText.length > 0) {
-				const range = selection.getRangeAt(0);
-				const rect = range.getBoundingClientRect();
+			const newPos = calculatePopupPosition(selection, false); // Position at START during selection
 
-				// Determine selection direction
-				let isSelectingUpward = false;
-				const { anchorNode, anchorOffset, focusNode, focusOffset } = selection;
-				if (anchorNode && focusNode) {
-					if (anchorNode === focusNode) {
-						isSelectingUpward = focusOffset < anchorOffset;
-					} else {
-						const positionComparison = anchorNode.compareDocumentPosition(focusNode);
-						isSelectingUpward = Boolean(positionComparison & Node.DOCUMENT_POSITION_PRECEDING);
-					}
-				}
-
-				const currentScrollX = window.scrollX;
-				const currentScrollY = window.scrollY;
-				const viewportWidth = window.innerWidth;
-				const viewportHeight = window.innerHeight;
-
-				// --- Position Calculation based on Selection Rect ---
-
-				// 1. Calculate Ideal Position
-				let idealTop: number;
-				if (!isSelectingUpward) {
-					idealTop = rect.top + currentScrollY - POPUP_ESTIMATED_HEIGHT - POPUP_VERTICAL_OFFSET;
-				} else {
-					idealTop = rect.bottom + currentScrollY + POPUP_VERTICAL_OFFSET;
-				}
-				const idealLeft = rect.left + currentScrollX + (rect.width / 2) - (POPUP_ESTIMATED_WIDTH / 2);
-
-				// 2. Clamp Position Horizontally & Vertically
-				const minAllowedLeft = currentScrollX + HORIZONTAL_PADDING;
-				const maxAllowedLeft = currentScrollX + viewportWidth - POPUP_ESTIMATED_WIDTH - HORIZONTAL_PADDING;
-				const finalLeft = Math.max(minAllowedLeft, Math.min(idealLeft, maxAllowedLeft));
-
-				const minAllowedTop = currentScrollY + VERTICAL_PADDING;
-				const maxAllowedTop = currentScrollY + viewportHeight - POPUP_ESTIMATED_HEIGHT - VERTICAL_PADDING;
-				const finalTop = Math.max(minAllowedTop, Math.min(idealTop, maxAllowedTop));
-
-				// --- Final Assignment ---
-				position.value = { top: finalTop, left: finalLeft };
+			if (newPos) {
+				position.value = newPos;
 				if (!isVisible.value) isVisible.value = true;
 			} else {
-				// Hide popup if selection is invalid or cleared
 				if (isVisible.value) isVisible.value = false;
 			}
 		};
@@ -104,7 +122,6 @@ const ContentScriptRoot = () => {
 
 			const isOpen = await checkSidepanelOpen();
 			if (!isOpen) {
-				// console.log("Mousedown check: Sidepanel closed, aborting selection start.");
 				batch(() => {
 					isMouseDown.value = false;
 					if (isVisible.value) isVisible.value = false;
@@ -112,19 +129,34 @@ const ContentScriptRoot = () => {
 				return;
 			}
 
-			// console.log("Mousedown check: Sidepanel open, starting selection tracking.");
 			batch(() => {
 				isMouseDown.value = true;
-				isVisible.value = false;
+				isVisible.value = false; // Hide initially on mousedown
 			});
 
 			document.addEventListener("selectionchange", handleSelectionChange, { signal });
-
+			// Add a small delay to ensure selectionchange has fired before mouseup
+			await new Promise(resolve => setTimeout(resolve, 10)); 
 		};
 
 		const handleMouseUp = (event: MouseEvent) => {
 			isMouseDown.value = false;
 			document.removeEventListener("selectionchange", handleSelectionChange);
+
+			const selection = window.getSelection();
+			if (!selection) return;
+
+			// Reposition based on the final selection state ENDPOINT
+			const finalPos = calculatePopupPosition(selection, true); // Position at END on mouseup
+
+			if (finalPos) {
+				position.value = finalPos;
+				// Ensure visibility is on if it wasn't already (e.g., very fast click didn't trigger selectionchange)
+				if (!isVisible.peek()) isVisible.value = true;
+			} else {
+				// If selection became invalid by mouseup time, hide it
+				if (isVisible.peek()) isVisible.value = false;
+			}
 		};
 
 		document.addEventListener("mousedown", handleMouseDown, { signal });
