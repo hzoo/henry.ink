@@ -22,13 +22,13 @@ function throttleVoid(func: () => void, limit: number): () => void {
 	};
 }
 
-const MOUSE_OFFSET_Y_UPWARD = -60;  // Pixels above cursor when selecting UP
-const MOUSE_OFFSET_Y_DOWNWARD = 60; // Pixels below cursor when selecting DOWN
-const MOUSE_OFFSET_X = 20;  // Pixels left/right of cursor
 const POPUP_ESTIMATED_WIDTH = 75; // Rough width for positioning/clamping
 const HORIZONTAL_PADDING = 10;
 const MIN_SELECTION_SPACES = 1; // Required spaces in selection
 const THROTTLE_LIMIT_MS = 50;
+const POPUP_VERTICAL_OFFSET = 20; // Pixels above/below selection
+const POPUP_ESTIMATED_HEIGHT = 20; // Rough height for vertical clamping
+const VERTICAL_PADDING = 5; // Padding from top/bottom viewport edges
 
 const checkSidepanelOpen = async () => {
 	const pingMessage: ContentScriptPingMessage = {
@@ -65,7 +65,11 @@ const ContentScriptRoot = () => {
 			const selectedText = selection ? selection.toString().trim() : "";
 			const spaceCount = (selectedText.match(/ /g) || []).length;
 
-			if (selection && selectedText.length > 0 && spaceCount >= MIN_SELECTION_SPACES) {
+			// Check if selection is valid
+			if (selection && selection.rangeCount > 0 && selectedText.length > 0 && spaceCount >= MIN_SELECTION_SPACES) {
+				const range = selection.getRangeAt(0);
+				const rect = range.getBoundingClientRect();
+
 				// Determine selection direction
 				let isSelectingUpward = false;
 				const { anchorNode, anchorOffset, focusNode, focusOffset } = selection;
@@ -78,28 +82,37 @@ const ContentScriptRoot = () => {
 					}
 				}
 
-				const { x: clientX, y: clientY } = latestMousePos.value;
 				const currentScrollX = window.scrollX;
 				const currentScrollY = window.scrollY;
 				const viewportWidth = window.innerWidth;
+				const viewportHeight = window.innerHeight;
 
-				const verticalOffset = isSelectingUpward ? MOUSE_OFFSET_Y_UPWARD : MOUSE_OFFSET_Y_DOWNWARD;
-				const idealTop = clientY + currentScrollY + verticalOffset;
+				// --- Position Calculation based on Selection Rect ---
 
-				let idealLeft: number;
-				if (clientX < viewportWidth / 2) {
-					idealLeft = clientX + currentScrollX + MOUSE_OFFSET_X;
+				// 1. Calculate Ideal Position
+				let idealTop: number;
+				if (isSelectingUpward) {
+					idealTop = rect.top + currentScrollY - POPUP_ESTIMATED_HEIGHT - POPUP_VERTICAL_OFFSET;
 				} else {
-					idealLeft = clientX + currentScrollX - MOUSE_OFFSET_X - POPUP_ESTIMATED_WIDTH;
+					idealTop = rect.bottom + currentScrollY + POPUP_VERTICAL_OFFSET;
 				}
+				const idealLeft = rect.left + currentScrollX + (rect.width / 2) - (POPUP_ESTIMATED_WIDTH / 2);
 
+				// 2. Clamp Position Horizontally & Vertically
 				const minAllowedLeft = currentScrollX + HORIZONTAL_PADDING;
 				const maxAllowedLeft = currentScrollX + viewportWidth - POPUP_ESTIMATED_WIDTH - HORIZONTAL_PADDING;
 				const finalLeft = Math.max(minAllowedLeft, Math.min(idealLeft, maxAllowedLeft));
-				const finalTop = Math.max(currentScrollY + HORIZONTAL_PADDING, idealTop);
 
+				const minAllowedTop = currentScrollY + VERTICAL_PADDING;
+				const maxAllowedTop = currentScrollY + viewportHeight - POPUP_ESTIMATED_HEIGHT - VERTICAL_PADDING;
+				const finalTop = Math.max(minAllowedTop, Math.min(idealTop, maxAllowedTop));
+
+				// --- Final Assignment ---
 				position.value = { top: finalTop, left: finalLeft };
 				if (!isVisible.value) isVisible.value = true;
+			} else {
+				// Hide popup if selection is invalid or cleared
+				if (isVisible.value) isVisible.value = false;
 			}
 		}, THROTTLE_LIMIT_MS);
 
