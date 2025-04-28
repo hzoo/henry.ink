@@ -3,7 +3,7 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { useSignal } from "@preact/signals-react/runtime";
 import { useRef } from "preact/hooks";
 import { render } from "preact";
-import { useSignalEffect } from "@preact/signals";
+import { batch, useSignalEffect } from "@preact/signals";
 import SelectionPopup from "~/components/SelectionPopup";
 import type {
 	ContentScriptPingMessage,
@@ -25,10 +25,10 @@ function throttleVoid(func: () => void, limit: number): () => void {
 const MOUSE_OFFSET_Y_UPWARD = -60;  // Pixels above cursor when selecting UP
 const MOUSE_OFFSET_Y_DOWNWARD = 60; // Pixels below cursor when selecting DOWN
 const MOUSE_OFFSET_X = 20;  // Pixels left/right of cursor
-const POPUP_ESTIMATED_WIDTH = 160; // Rough width for positioning/clamping
+const POPUP_ESTIMATED_WIDTH = 75; // Rough width for positioning/clamping
 const HORIZONTAL_PADDING = 10;
 const MIN_SELECTION_SPACES = 1; // Required spaces in selection
-const THROTTLE_LIMIT_MS = 100;
+const THROTTLE_LIMIT_MS = 50;
 
 const checkSidepanelOpen = async () => {
 	const pingMessage: ContentScriptPingMessage = {
@@ -104,15 +104,7 @@ const ContentScriptRoot = () => {
 		}, THROTTLE_LIMIT_MS);
 
 		const handleSelectionChange = () => {
-			// Only update during active selection (mouse down was successful)
-			if (!isMouseDown.value) {
-				const selection = window.getSelection();
-				const selectedText = selection ? selection.toString().trim() : "";
-				if (isVisible.value && selectedText.length === 0) {
-					isVisible.value = false;
-				}
-				return;
-			}
+			console.log("Selection change, updating position");
 			updatePositionThrottled();
 		};
 
@@ -124,15 +116,20 @@ const ContentScriptRoot = () => {
 			const isOpen = await checkSidepanelOpen();
 			if (!isOpen) {
 				// console.log("Mousedown check: Sidepanel closed, aborting selection start.");
-				isMouseDown.value = false;
-				if (isVisible.value) isVisible.value = false;
+				batch(() => {
+					isMouseDown.value = false;
+					if (isVisible.value) isVisible.value = false;
+				});
 				return;
 			}
 
 			// console.log("Mousedown check: Sidepanel open, starting selection tracking.");
-			isMouseDown.value = true;
-			latestMousePos.value = { x: event.clientX, y: event.clientY };
-			isVisible.value = false;
+			batch(() => {
+				isMouseDown.value = true;
+				latestMousePos.value = { x: event.clientX, y: event.clientY };
+				isVisible.value = false;
+			});
+
 
 			document.addEventListener("mousemove", handleMouseMove, { signal });
 			document.addEventListener("selectionchange", handleSelectionChange, { signal });
@@ -156,7 +153,7 @@ const ContentScriptRoot = () => {
 	return (
 		<div ref={popupRef}>
 			{isVisible.value && (
-				<SelectionPopup position={position.value} />
+				<SelectionPopup position={position.value} title="Quote" />
 			)}
 		</div>
 	);

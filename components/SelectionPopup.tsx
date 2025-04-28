@@ -1,54 +1,63 @@
 import { useEffect } from "preact/hooks";
-import type { ContentScriptQuoteMessage } from "@/lib/messagingTypes";
+import type { ContentScriptSelectionMessage } from "@/lib/messagingTypes";
+import { signal } from "@preact/signals";
 
 interface SelectionPopupProps {
 	position: { top: number; left: number };
+	title: string;
 }
 
-function handleQuote() {
+const isAnimating = signal(false);
+
+const handleSelection = () => {
 	const selection = window.getSelection()?.toString();
 	if (!selection) return;
 
-	const message: ContentScriptQuoteMessage = {
-		type: "QUOTE_SELECTION",
+	isAnimating.value = true;
+	setTimeout(() => {
+		isAnimating.value = false;
+	}, 150);
+
+	const message: ContentScriptSelectionMessage = {
+		type: "SELECTION",
 		from: "content",
 		data: { selection },
 	};
 	browser.runtime.sendMessage(message).catch(console.error);
-}
+};
 
-const SelectionPopup = ({ position }: SelectionPopupProps) => {
+const handleKeyDown = (event: KeyboardEvent, title: string) => {
+	if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+		return;
+	}
+
+	if (event.key.toLowerCase() === title[0].toLowerCase()) {
+		event.preventDefault();
+		event.stopPropagation();
+		handleSelection();
+	}
+};
+
+// dev: shortcut is the first letter of the title
+const SelectionPopup = ({ position, title }: SelectionPopupProps) => {
 	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
-				return;
-			}
-
-			const key = event.key.toLowerCase();
-			if (key === "q") {
-				event.preventDefault();
-				event.stopPropagation();
-            	console.debug("[q] pressed");
-				handleQuote();
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown, { capture: true });
+		if (!title) return;
+		
+		document.addEventListener("keydown", (event) => handleKeyDown(event, title), { capture: true });
 
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown, { capture: true });
+			document.removeEventListener("keydown", (event) => handleKeyDown(event, title), { capture: true });
 		};
-	}, []);
+	}, [title]);
 
 	return (
 		<div
-			className="font-sans leading-normal text-[12px] absolute z-50 flex items-center gap-1 rounded-lg border border-blue-200 p-1 bg-white whitespace-nowrap min-w-max 
-						 dark:bg-gray-800 dark:border-blue-300/30"
+			className={`font-sans leading-normal text-[12px] absolute z-50 flex items-center gap-1 rounded-lg border p-1 whitespace-nowrap min-w-max transition-all duration-150 ease-out
+						 ${isAnimating.value ? 'mt-1 bg-blue-100 dark:bg-blue-700/50' : 'bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-300/30'}`}
 			style={{
 				top: 0,
 				left: 0,
 				transform: `translate(${position.left}px, ${position.top}px)`,
-				transition: "transform 0.1s ease-out",
 				userSelect: "none",
 			}}
 		>
@@ -57,16 +66,15 @@ const SelectionPopup = ({ position }: SelectionPopupProps) => {
 							 dark:text-gray-300 dark:hover:bg-blue-700/50"
 				onMouseDown={(e) => {
 					e.stopPropagation();
-					console.debug("[q] clicked");
-					handleQuote();
+					handleSelection();
 				}}
 			>
-				Quote
+				{title}
 				<kbd
 					className="flex items-center justify-center rounded-sm bg-gray-200 px-1 py-0.5 text-xs text-gray-900 
 								 dark:bg-gray-600 dark:text-gray-100"
 				>
-					Q
+					{title[0].toUpperCase()}
 				</kbd>
 			</button>
 		</div>

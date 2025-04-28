@@ -1,6 +1,6 @@
 // Message from Content Script (SelectionPopup)
-export interface ContentScriptQuoteMessage {
-	type: "QUOTE_SELECTION";
+export interface ContentScriptSelectionMessage {
+	type: "SELECTION";
 	from: "content";
 	data: { selection: string };
 }
@@ -15,5 +15,5 @@ export interface SidepanelPongMessage {
 	from: "sidepanel";
 }
 
-export type BackgroundScriptMessage = ContentScriptQuoteMessage;
+export type BackgroundScriptMessage = ContentScriptSelectionMessage;
 export type SidepanelMessage = ContentScriptPingMessage; 
