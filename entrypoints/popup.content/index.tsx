@@ -159,7 +159,6 @@ export default defineContentScript({
 	async main(ctx) {
 		const ui = await createUi(ctx);
 		ui.mount();
-		console.log("Selection popup content script loaded.");
 	},
 });
 
