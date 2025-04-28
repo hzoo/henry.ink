@@ -5,6 +5,13 @@ export interface ChangelogEntry {
   
   export const changelogData: ChangelogEntry[] = [
     {
+      version: "0.0.7",
+      changes: [
+        "when selecting text, show popup to annotate (when sidebar is open) and post to bsky",
+        "show clearer error message about /search not working when not logged in",
+      ],
+    },
+    {
       version: "0.0.6",
       changes: [
         "welcome popup, show changelog",
