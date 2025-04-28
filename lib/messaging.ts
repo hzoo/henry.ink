@@ -1,14 +1,8 @@
 import { computed, signal } from "@preact/signals";
 import { whitelistedDomains } from "./settings";
-
-// Message from Content Script (SelectionPopup)
-export interface ContentScriptMessage {
-	type: "QUOTE_SELECTION";
-	from: "content";
-	data: { selection: string };
-}
-
-export type ExtensionMessage = ContentScriptMessage;
+import type {
+	BackgroundScriptMessage,
+} from "@/lib/messagingTypes";
 
 export function extractBaseDomain(url: string): string {
 	try {
@@ -94,9 +88,12 @@ export async function setupTabListener() {
 		});
 
 		// Listen for messages from the content script
-		browser.runtime.onMessage.addListener((message: ContentScriptMessage) => {
+		browser.runtime.onMessage.addListener((message: BackgroundScriptMessage) => {
 			if (message.from === "content") {
-				quotedSelection.value = message.data.selection || null; 
+				// Handle QUOTE_SELECTION specifically if needed in background/sidepanel
+				if (message.type === "QUOTE_SELECTION") {
+					quotedSelection.value = message.data.selection || null;
+				}
 			}
 		});
 	} catch (error) {

@@ -1,5 +1,5 @@
 import { useEffect } from "preact/hooks";
-import type { ContentScriptMessage } from "@/lib/messaging";
+import type { ContentScriptQuoteMessage } from "@/lib/messagingTypes";
 
 interface SelectionPopupProps {
 	position: { top: number; left: number };
@@ -9,7 +9,7 @@ function handleQuote() {
 	const selection = window.getSelection()?.toString();
 	if (!selection) return;
 
-    const message: ContentScriptMessage = {
+	const message: ContentScriptQuoteMessage = {
 		type: "QUOTE_SELECTION",
 		from: "content",
 		data: { selection },
