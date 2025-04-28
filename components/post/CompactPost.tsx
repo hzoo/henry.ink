@@ -34,7 +34,7 @@ export function CompactPost({
 						href={postAuthorUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="hover:underline font-medium text-gray-800 dark:text-gray-600 truncate max-w-[100px]"
+						className="hover:underline font-medium text-gray-800 dark:text-gray-100 truncate max-w-[100px]"
 						title={post.author.displayName}
 					>
 						{post.author.handle}

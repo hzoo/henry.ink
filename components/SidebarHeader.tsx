@@ -5,6 +5,7 @@ import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { getTimeAgo } from "@/lib/utils/time";
 import { fetchPosts } from "@/lib/posts";
 import { Icon } from "@/components/Icon";
+import { useAtCute } from "@/site/lib/oauth";
 
 const handleRefresh = () => {
 	if (contentSourceUrl.value) {
@@ -13,6 +14,8 @@ const handleRefresh = () => {
 };
 
 export function SidebarHeader() {
+	useAtCute();
+
 	return (
 		<div class="sticky top-0 z-10 p-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
 			<div class="flex items-center justify-between gap-1">

@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { useAtCute, startLoginProcess, logout } from "@/site/lib/oauth";
+import { startLoginProcess, logout, atCuteState, isLoadingSession  } from "@/site/lib/oauth";
 import type { JSX } from "preact/jsx-runtime";
 import { sleep } from "@/lib/utils/sleep";
 
@@ -8,14 +8,13 @@ const getStorageKey = (did: string) => `bskyUserHandle_${did}`;
 const LAST_ENTERED_HANDLE_KEY = "lastEnteredHandle";
 
 export function LoginButton({ minimal = false }: { minimal?: boolean }) {
-  const { state: atCuteSignal, isLoading } = useAtCute();
   const userHandle = useSignal<string | null>(null);
   const isFetchingProfile = useSignal(false);
   const handleInput = useSignal("");
-  const prevAtCuteValue = useRef(atCuteSignal);
+  const prevAtCuteValue = useRef(atCuteState.value);
+  const currentAtCute = atCuteState.value;
 
   useEffect(() => {
-    const currentAtCute = atCuteSignal;
     if (!currentAtCute) {
       const lastHandle = localStorage.getItem(LAST_ENTERED_HANDLE_KEY);
       if (lastHandle && !handleInput.value) {
@@ -34,10 +33,9 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
       }
     }
     prevAtCuteValue.current = currentAtCute;
-  }, [atCuteSignal, handleInput, userHandle]);
+  }, [currentAtCute, handleInput, userHandle]);
 
   useEffect(() => {
-    const currentAtCute = atCuteSignal;
     if (currentAtCute && !isFetchingProfile.value && !userHandle.value) {
       const did = currentAtCute.session.info.sub;
       const storageKey = getStorageKey(did);
@@ -69,7 +67,7 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
       };
       fetchProfile();
     }
-  }, [atCuteSignal, isFetchingProfile, userHandle]);
+  }, [currentAtCute, isFetchingProfile, userHandle]);
 
 
   const handleSubmit = (e: JSX.TargetedEvent<HTMLFormElement, Event>) => {
@@ -82,21 +80,19 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
   };
 
   const handleLogout = () => {
-    const currentAtCute = atCuteSignal;
     if (currentAtCute) {
       localStorage.removeItem(getStorageKey(currentAtCute.session.info.sub));
     }
     logout();
   };
 
-  const currentAtCute = atCuteSignal;
   const displayName = currentAtCute
     ? userHandle.value || (isFetchingProfile.value ? '...' : currentAtCute.session.info.sub)
     : '';
 
   return (
     <>
-      {isLoading && !currentAtCute && (
+      {isLoadingSession.value && !currentAtCute && (
          <div className="text-xs text-center text-gray-500 dark:text-gray-400 pb-2">Checking login status...</div>
       )}  
       {currentAtCute ? (
@@ -127,12 +123,12 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
                   required
                   className="flex-grow px-2 py-1 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   aria-label="Bluesky Handle"
-                  disabled={isLoading}
+                  disabled={isLoadingSession.value}
               />
               <button
                   type="submit"
                   className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50"
-                  disabled={isLoading}
+                  disabled={isLoadingSession.value}
               >
                   Login
               </button>

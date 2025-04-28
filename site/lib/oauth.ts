@@ -9,7 +9,7 @@ import {
   OAuthUserAgent,
   resolveFromIdentity,
 } from "@atcute/oauth-browser-client";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect } from "preact/hooks";
 import { sleep } from "@/lib/utils/sleep";
 
 const isChromeExtension = typeof browser !== 'undefined' && !!browser.runtime?.id;
@@ -39,8 +39,7 @@ export const atCuteState = signal<AtCuteState | null>(null);
 export const isLoadingSession = signal(true);
 
 export const useAtCute = () => {
-	const [isProcessingLogin, setIsProcessingLogin] = useState(false);
-
+    console.log("RUN ONCE");
 	useEffect(() => {
 		let isMounted = true;
 		isLoadingSession.value = true;
@@ -50,7 +49,6 @@ export const useAtCute = () => {
 
 			// 1. Check if returning from OAuth provider (standard web flow)
             if (!isChromeExtension && (location.hash.includes("state=") || location.search.includes("code="))) {
-                setIsProcessingLogin(true);
                 try {
                     console.log("Handling web OAuth callback...");
                     const params = new URLSearchParams(location.hash ? location.hash.slice(1) : location.search);
@@ -69,7 +67,6 @@ export const useAtCute = () => {
                     if (isMounted) atCuteState.value = null;
                 } finally {
                      if (isMounted) {
-                        setIsProcessingLogin(false);
                         isLoadingSession.value = false;
                      }
                 }
@@ -131,9 +128,7 @@ export const useAtCute = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, []); // Run only on mount
-
-	return { state: atCuteState.value, isLoading: isLoadingSession.value || isProcessingLogin };
+	}, []);
 };
 
 // --- Actions ---
