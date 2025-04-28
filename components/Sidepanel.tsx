@@ -8,7 +8,7 @@ setupTabListener();
 
 browser.runtime.onMessage.addListener((message: SidepanelMessage, sender, sendResponse) => {
 	if (message.type === "PING_SIDEPANEL") {
-		console.log("Sidepanel received PING, sending PONG");
+		// console.log("Sidepanel received PING, sending PONG");
 		sendResponse({ type: "PONG_SIDEPANEL", from: "sidepanel" });
 		return true;
 	}
