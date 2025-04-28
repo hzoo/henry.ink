@@ -4,6 +4,7 @@ import { atCuteState } from "@/site/lib/oauth";
 import type {
 	AppBskyFeedPost,
 	ComAtprotoRepoCreateRecord,
+	AppBskyRichtextFacet,
 } from "@atcute/client/lexicons";
 
 const DRAFT_STORAGE_KEY = "quote_reply_draft";
@@ -87,10 +88,43 @@ export function QuotePopup() {
 		const fullText = userText.value.trim(); // Use userText directly
 
 		try {
+			let facets: AppBskyRichtextFacet.Main[] | undefined;
+			const urlToFacet = currentUrl.value; // Use the current URL at time of posting
+
+			if (urlToFacet) {
+				const urlIndex = fullText.indexOf(urlToFacet);
+				if (urlIndex !== -1) {
+					// Manually create the facet
+					const textEncoder = new TextEncoder();
+					const textBytes = textEncoder.encode(fullText);
+					const urlBytes = textEncoder.encode(urlToFacet);
+
+					// Find byte index (more robust than string index for facets)
+					let byteStartIndex = -1;
+					for (let i = 0; (i = textBytes.indexOf(urlBytes[0], i)) !== -1; i++) {
+						if (textBytes.slice(i, i + urlBytes.length).every((byte, j) => byte === urlBytes[j])) {
+							byteStartIndex = i;
+							break;
+						}
+					}
+
+					if (byteStartIndex !== -1) {
+						const byteEndIndex = byteStartIndex + urlBytes.length;
+						facets = [{
+							index: { byteStart: byteStartIndex, byteEnd: byteEndIndex },
+							features: [{ $type: 'app.bsky.richtext.facet#link', uri: urlToFacet as `${string}:${string}` }]
+						}];
+					} else {
+						console.warn("URL string found, but byte offsets didn't match. Facet not created.")
+					}
+				}
+			}
+
 			const postRecord: Partial<AppBskyFeedPost.Record> = {
 				$type: "app.bsky.feed.post",
 				text: fullText,
 				createdAt: new Date().toISOString(),
+				facets: facets as AppBskyFeedPost.Record['facets'],
 			};
 
 			const createRecordInput: ComAtprotoRepoCreateRecord.Input = {

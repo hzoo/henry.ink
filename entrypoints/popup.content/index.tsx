@@ -117,7 +117,7 @@ const ContentScriptRoot = () => {
 		}, THROTTLE_LIMIT_MS);
 
 		const handleSelectionChange = () => {
-			console.log("Selection change, updating position");
+			// console.log("Selection change, updating position");
 			updatePositionThrottled();
 		};
 

@@ -91,7 +91,7 @@ export async function setupTabListener() {
 		browser.runtime.onMessage.addListener((message: BackgroundScriptMessage) => {
 			if (message.from === "content") {
 				// Handle QUOTE_SELECTION specifically if needed in background/sidepanel
-				if (message.type === "QUOTE_SELECTION") {
+				if (message.type === "SELECTION") {
 					quotedSelection.value = message.data.selection || null;
 				}
 			}
