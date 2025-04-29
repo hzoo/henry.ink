@@ -5,7 +5,8 @@ Discover what people are saying about any webpage: a sidebar browser extension t
 [link-chrome]: https://chromewebstore.google.com/detail/bluesky-sidebar/lbbbgodnfjcndohnhdjkomcckekjpjni 'Version published on Chrome Web Store'
 [link-firefox]: https://addons.mozilla.org/en-US/firefox/addon/bluesky-sidebar/ 'Version published on Mozilla Add-ons'
 
-> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no installation required)
+> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no installation needed)
+> *note*: [bsky](https://bsky.app/profile/bnewbold.net/post/3lnvhcghi6s23) is likely removing unauthenticated `/search` access so will need to login to see posts unless I make a proxy or my own search cluster (comment if you have ideas [#8](https://github.com/hzoo/extension-annotation-sidebar/issues/8))
 
 ### pondering
 
@@ -26,7 +27,8 @@ Discover what people are saying about any webpage: a sidebar browser extension t
 ## What it does
 
 - **Automatic Post Discovery**: As you browse the web, the extension automatically shows posts that mention your current webpage
-- **View Options**: Toggle between compact (reddit-like) and full post views
+- **Actions**: Log in to like, repost, and reply to posts directly
+- **Annotate**: select text on the page to quote and annotate
 
 ## Privacy Considerations
 
@@ -40,7 +42,6 @@ Discover what people are saying about any webpage: a sidebar browser extension t
 ## Future Ideas
 
 - **Cross-Platform Search**: Integration with other "open" social platforms (HN, Arena, local Obsidian?)
-- **Authentication**: Log in to like, repost, and reply to posts directly
 - **Smart Filtering**: Filter posts from your follows??
 
 ## Local Download
