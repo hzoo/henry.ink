@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 ## signals usage
 ```ts
-import { signal } from "@preact/signals";
+import { batch, type Signal, useComputed, useSignal } from "@preact/signals";
 const count = signal(0);
 
 // access with .value, can be used in components

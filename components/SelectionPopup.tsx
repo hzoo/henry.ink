@@ -42,9 +42,7 @@ const handleKeyDown = (event: KeyboardEvent, title: string) => {
 const SelectionPopup = ({ position, title }: SelectionPopupProps) => {
 	useEffect(() => {
 		if (!title) return;
-		
 		document.addEventListener("keydown", (event) => handleKeyDown(event, title), { capture: true });
-
 		return () => {
 			document.removeEventListener("keydown", (event) => handleKeyDown(event, title), { capture: true });
 		};
