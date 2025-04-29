@@ -1,7 +1,7 @@
 import type { ContentScriptContext } from "#imports";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
-import type { ContentScriptPingMessage } from "@/lib/messagingTypes";
+import type { ContentScriptPingMessage, ContentScriptSelectionMessage } from "@/lib/messagingTypes";
 import "@/lib/styles.css";
 import SelectionPopupManager from "./SelectionPopupManager";
 
@@ -10,7 +10,7 @@ const pingMessage: ContentScriptPingMessage = {
 	from: "content",
 };
 
-const checkSidepanelOpen = async () => {
+async function checkSidepanelOpen() {
 	try {
 		const response = await browser.runtime.sendMessage(pingMessage);
 		if (response && response.type === "PONG_SIDEPANEL") {
@@ -21,6 +21,17 @@ const checkSidepanelOpen = async () => {
 	}
 
 	return false;
+}
+
+function sendSelection() {
+	const selection = window.getSelection()?.toString();
+	if (!selection) return;
+	const message: ContentScriptSelectionMessage = {
+		type: "SELECTION",
+		from: "content",
+		data: { selection },
+	};
+	browser.runtime.sendMessage(message).catch(console.error);
 };
 
 export default defineContentScript({
@@ -44,6 +55,7 @@ async function createUi(ctx: ContentScriptContext) {
 				<SelectionPopupManager
 					canShowPopup={checkSidepanelOpen}
 					popupTitle="Quote"
+					sendSelection={sendSelection}
 				/>,
 				container,
 			);

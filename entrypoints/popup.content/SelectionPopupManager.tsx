@@ -1,7 +1,8 @@
-import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals-react/runtime";
 import { batch } from "@preact/signals-core";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import SelectionPopup from "~/components/SelectionPopup";
+import type { ContentScriptSelectionMessage } from "@/lib/messagingTypes";
 
 const POPUP_ESTIMATED_WIDTH = 75;
 const HORIZONTAL_PADDING = 10;
@@ -86,17 +87,20 @@ const calculatePopupPosition = (
 interface SelectionPopupManagerProps {
 	canShowPopup: () => Promise<boolean> | boolean;
 	popupTitle?: string;
+	sendSelection: () => void;
 }
 
 const SelectionPopupManager = ({
 	canShowPopup,
 	popupTitle = "Quote",
+	sendSelection,
 }: SelectionPopupManagerProps) => {
 	const isVisible = useSignal(false);
 	const position = useSignal({ top: 0, left: 0 });
 	const popupRef = useRef<HTMLDivElement>(null);
 
-	useSignalEffect(() => {
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	useEffect(() => {
 		const controller = new AbortController();
 		const { signal } = controller;
 
@@ -115,8 +119,8 @@ const SelectionPopupManager = ({
 				return;
 			}
 
-			isVisible.value = false;
 			if (!(await canShowPopup())) {
+				isVisible.value = false;
 				return;
 			}
 
@@ -152,12 +156,12 @@ const SelectionPopupManager = ({
 		return () => {
 			controller.abort();
 		};
-	});
+	}, []);
 
 	return (
 		<div ref={popupRef}>
 			{isVisible.value && (
-				<SelectionPopup position={position.value} title={popupTitle} />
+				<SelectionPopup position={position} title={popupTitle} sendSelection={sendSelection} />
 			)}
 		</div>
 	);
