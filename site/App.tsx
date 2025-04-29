@@ -2,10 +2,15 @@ import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
-import { currentUrl, extractBaseDomain } from "@/lib/messaging";
+import {
+	currentUrl,
+	extractBaseDomain,
+	quotedSelection,
+} from "@/lib/messaging";
 import { whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
+import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 
 // Sample URLs for badges
 const sampleUrls = [
@@ -175,7 +180,6 @@ export function App() {
 				</div>
 				<LoginButton />
 			</header>
-
 			<div class="flex flex-1 overflow-hidden">
 				<main class="flex flex-1 flex-col p-3 gap-3">
 					<span class="text-xs text-gray-500 dark:text-gray-400 self-center italic">
@@ -276,6 +280,16 @@ export function App() {
 					<Sidebar />
 				</aside>
 			</div>
+			<SelectionPopupManager
+				canShowPopup={() => Promise.resolve(true)}
+				popupTitle="Quote"
+				sendSelection={() => {
+					const selection = window.getSelection()?.toString();
+					if (!selection) return;
+					quotedSelection.value = selection;
+				}}
+			/>
+			,
 		</div>
 	);
 }

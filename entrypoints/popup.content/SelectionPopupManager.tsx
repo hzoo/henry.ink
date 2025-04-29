@@ -1,8 +1,7 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { batch } from "@preact/signals-core";
 import { useEffect, useRef } from "preact/hooks";
-import SelectionPopup from "~/components/SelectionPopup";
-import type { ContentScriptSelectionMessage } from "@/lib/messagingTypes";
+import SelectionPopup from "@/components/SelectionPopup";
 
 const POPUP_ESTIMATED_WIDTH = 75;
 const HORIZONTAL_PADDING = 10;
