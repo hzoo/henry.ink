@@ -289,7 +289,6 @@ export function App() {
 					quotedSelection.value = selection;
 				}}
 			/>
-			,
 		</div>
 	);
 }
