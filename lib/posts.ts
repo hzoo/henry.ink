@@ -12,6 +12,10 @@ interface FetchError extends Error {
   message: string;
 }
 
+const AUTH_ERROR_MESSAGE = "NetworkError when attempting to fetch resource.";
+const MY_AUTH_ERROR_MESSAGE = "Bluesky search sometimes requires login due to high load. See:";
+const AUTH_ERROR_LINK = 'https://github.com/hzoo/extension-annotation-sidebar/issues/8';
+
 export async function fetchPosts(url: string, options: FetchOptions = {}) {
   const { showLoading = true, signal } = options;
 
@@ -32,13 +36,11 @@ export async function fetchPosts(url: string, options: FetchOptions = {}) {
     // Don't show error if it was just aborted
     const fetchError = err as FetchError;
     if (fetchError.cause !== 'URL changed') {
-      const authErrorMessage = 'Bluesky search sometimes requires login due to high load. See:';
-      const authErrorLink = 'https://github.com/hzoo/extension-annotation-sidebar/issues/8';
       
       // Check for the specific authentication error message pattern
-      if (fetchError.message.startsWith(authErrorMessage)) { 
-        // Set the error as an object with message and link
-        error.value = { message: authErrorMessage, link: authErrorLink };
+      if (fetchError.message.startsWith(AUTH_ERROR_MESSAGE)) { 
+        // Set the error as an object with the *actual* message and link
+        error.value = { message: MY_AUTH_ERROR_MESSAGE, link: AUTH_ERROR_LINK };
       } else {
         // Otherwise, set the error as just the string message
         error.value = fetchError.message || "Failed to fetch Bluesky posts";
@@ -77,8 +79,8 @@ export async function loadFromCacheAndUpdate(url: string, signal?: AbortSignal) 
       } catch (err) {
         const fetchError = err as FetchError;
         // Also handle potential auth error during background refresh
-        const authErrorMessage = 'Bluesky search sometimes requires login due to high load. See:';
-        if (fetchError.message.startsWith(authErrorMessage)) {
+        if (fetchError.message.startsWith(AUTH_ERROR_MESSAGE)) {
+            error.value = { message: MY_AUTH_ERROR_MESSAGE, link: AUTH_ERROR_LINK };
             // Don't show error in UI for background refresh, but log it
             console.warn('Background refresh failed due to auth:', fetchError.message);
         } else {
