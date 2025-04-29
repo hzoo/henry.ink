@@ -7,6 +7,8 @@ import { useSignal } from "@preact/signals";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { isRecord } from "@/lib/postActions";
 import { Icon } from "@/components/Icon";
+import { PostEmbed } from "@/components/post/PostEmbed";
+
 interface FullPostProps {
 	post: AppBskyFeedDefs.PostView;
 }
@@ -75,6 +77,7 @@ export function FullPost({ post }: FullPostProps) {
 						</div>
 					</div>
 					<PostText post={post} />
+					<PostEmbed post={post} />
 					<CompactPostActions post={post} />
 				</div>
 			</div>
