@@ -1,16 +1,16 @@
 # extension-annotation-sidebar
 
-Discover what people are saying about any webpage: a sidebar browser extension that shows you real-time discussions about the sites you visit (bsky atm).
+Discover what people are saying about any webpage: a *sidebar* browser extension that shows you real-time discussions about the sites you visit (bsky atm).
 
 [link-chrome]: https://chromewebstore.google.com/detail/bluesky-sidebar/lbbbgodnfjcndohnhdjkomcckekjpjni 'Version published on Chrome Web Store'
 [link-firefox]: https://addons.mozilla.org/en-US/firefox/addon/bluesky-sidebar/ 'Version published on Mozilla Add-ons'
 
-> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no installation needed)
+> i also made a [web app](https://annotation-sidebar-demo.pages.dev/) if you want to test it first (no installation needed)  
 > *note*: [bsky](https://bsky.app/profile/bnewbold.net/post/3lnvhcghi6s23) is likely removing unauthenticated `/search` access so will need to login to see posts unless I make a proxy or my own search cluster (comment if you have ideas [#8](https://github.com/hzoo/extension-annotation-sidebar/issues/8))
 
 ### pondering
 
-> on my mind, a north star to move towards. please check these out
+> what's on my mind; a north star to move towards. please check these out!
 - [Chatting with Glue, 2020](https://a9.io/glue-comic/)
 - [The Garden of Forking Memes, 2020](https://aaronzlewis.com/blog/2020/07/07/the-garden-of-forking-memes/)
 - [Loom: interface to the multiverse, 2021](https://generative.ink/posts/loom-interface-to-the-multiverse/)
