@@ -20,9 +20,8 @@ export default defineConfig({
       'tabs',
       // https://developer.chrome.com/docs/extensions/reference/api/sidePanel
       ...(env.browser === "chrome" ? ['sidePanel'] : []),
-      'identity'
+      'identity',
     ],
-    // host_permissions: ["<all_urls>"],
     action: {}, // Required for sidepanel to open on action click
     commands: {
       "_execute_sidebar_action": {
