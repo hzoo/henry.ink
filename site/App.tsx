@@ -11,6 +11,7 @@ import { whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
+import { SampleQuotes } from '@/components/SampleQuotes';
 
 // Sample URLs for badges
 const sampleUrls = [
@@ -270,6 +271,7 @@ export function App() {
 							// <IframeLoader url={iframeUrl} />
 						)}
 					</div>
+					<SampleQuotes />
 				</main>
 				<aside class="w-[360px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
@@ -287,6 +289,7 @@ export function App() {
 					const selection = window.getSelection()?.toString();
 					if (!selection) return;
 					quotedSelection.value = selection;
+					currentUrl.value = window.location.href;
 				}}
 			/>
 		</div>
