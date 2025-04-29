@@ -6,6 +6,7 @@ import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { ExpandButton } from "@/components/post/ExpandButton";
+import { PostEmbed } from "@/components/post/PostEmbed";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -59,6 +60,7 @@ export function CompactPost({
 					<>
 						<div className="text-sm break-words text-gray-900 dark:text-gray-100">
 							<PostText post={post} />
+							<PostEmbed post={post} />
 						</div>
 						<CompactPostActions post={post} />
 					</>
