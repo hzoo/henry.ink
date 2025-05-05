@@ -1,24 +1,59 @@
-import { PostText } from "../PostText";
-import { getPostUrl, getAuthorUrl, getPost } from "@/lib/utils/postUrls";
+import { getAuthorUrl, getPost, getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { getTimeAgo } from "@/lib/utils/time";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { PostReplies } from "./PostReplies";
-import { useSignal } from "@preact/signals";
+import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { isRecord } from "@/lib/postActions";
 import { Icon } from "@/components/Icon";
 import { PostEmbed } from "@/components/post/PostEmbed";
+import { PostText } from "@/components/PostText";
+import { getThreadSignal } from "@/lib/signals";
+import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
 
 interface FullPostProps {
-	post: AppBskyFeedDefs.PostView;
+	uri?: string
+	postUri: string;
 }
 
-export function FullPost({ post }: FullPostProps) {
+export function FullPost({ postUri, uri }: FullPostProps) {
+let postUrl: string | undefined;
+	if (postUri) {
+		postUrl = postUri;
+	} else if (uri) {
+		postUrl = getAtUriFromUrl(uri);
+	}
+
+	if (!postUrl) {
+		return <div className="p-4 text-center text-red-500">Error: No valid post identifier provided.</div>;
+	}
+
+	const threadStateSignal = getThreadSignal(postUrl);
+	const { data, post, isLoading, error } = threadStateSignal.value;
+	const isExpanded = useSignal(true);
+
+	useSignalEffect(() => {
+		const state = threadStateSignal.peek();
+		if (!state.data && !state.isLoading && !state.error) {
+			// postUrl is guaranteed to be a string here due to the check above
+			fetchAndUpdateThreadSignal(postUrl);
+		}
+	});
+
+	if (isLoading) {
+		return <div className="p-4 text-center text-gray-500">Loading post...</div>;
+	}
+
+	if (error) {
+		return <div className="p-4 text-center text-red-500">Error loading post: {error}</div>;
+	}
+
+	if (!post) {
+		return <div className="p-4 text-center text-gray-500">Post not found.</div>;
+	}
+
 	const authorName = post.author.displayName || post.author.handle;
-	const postUrl = getPostUrl(post.author.handle, post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
-	const isExpanded = useSignal(true);
 	const rootPost =
 		isRecord(post.record) && "reply" in post.record
 			? post.record.reply?.root
@@ -82,7 +117,7 @@ export function FullPost({ post }: FullPostProps) {
 				</div>
 			</div>
 			<PostReplies
-				post={post}
+				replies={data}
 				depth={0}
 				isExpanded={isExpanded}
 				op={post.author.handle}
