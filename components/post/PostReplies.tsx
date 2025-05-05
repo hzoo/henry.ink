@@ -1,4 +1,4 @@
-import { CompactPost } from "./CompactPost";
+import { CompactPost } from "@/components/post/CompactPost";
 import type { PostRepliesProps } from "@/lib/types";
 
 const MAX_DEPTH = 10;

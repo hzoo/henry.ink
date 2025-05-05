@@ -3,7 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { BlueskySettings } from "./BlueskySettings";
 import { autoFetchEnabled } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
-import { lastSeenVersion } from "@/lib/signals";
+import { lastSeenVersion } from "@/lib/extension-signals";
 import { LoginButton } from "@/components/LoginButton";
 
 export function SettingsToggle() {

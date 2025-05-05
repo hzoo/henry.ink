@@ -1,14 +1,16 @@
-import { getAuthorUrl, getPost, getAtUriFromUrl } from "@/lib/utils/postUrls";
-import { getTimeAgo } from "@/lib/utils/time";
-import { PostReplies } from "./PostReplies";
 import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
+
+import { PostReplies } from "@/components/post/PostReplies";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
-import { isRecord } from "@/lib/postActions";
 import { Icon } from "@/components/Icon";
 import { PostEmbed } from "@/components/post/PostEmbed";
-import { PostText } from "@/components/PostText";
+import { PostText } from "@/components/post/PostText";
+
+import { getAuthorUrl, getPost, getAtUriFromUrl } from "@/lib/utils/postUrls";
+import { getTimeAgo } from "@/lib/utils/time";
 import { getThreadSignal } from "@/lib/signals";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
+import { isRecord } from "@/lib/postActions";
 
 interface FullPostProps {
 	uri?: string

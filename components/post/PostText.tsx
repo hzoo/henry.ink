@@ -1,9 +1,10 @@
+import { Fragment, type JSX } from "preact";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmenter";
-import { Fragment, type JSX } from "preact";
-import { currentUrl } from "@/lib/messaging";
+
 import { isRecord } from "@/lib/postActions";
-import { getPostUrl } from "@/lib/utils/postUrls";
+import { getPost } from "@/lib/utils/postUrls";
+import { currentUrl } from "@/lib/messaging";
 
 function normalizeUrl(url: string): string {
   try {
@@ -28,7 +29,7 @@ function getHandle(mention: string) {
 
 export function PostText(props: Props) {
   const { post } = props;
-  const { record, author, uri } = post;
+  const { record } = post;
   const postRecord = isRecord(record) ? record : null;
   const text = postRecord?.text ?? "";
   const facets = postRecord?.facets ?? [];
@@ -63,7 +64,7 @@ export function PostText(props: Props) {
     } else if (feature && feature.$type === 'app.bsky.richtext.facet#link') {
       const url = feature.uri;
       if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
-        const postUrl = getPostUrl(author.handle, uri);
+        const postUrl = getPost(post.uri);
         content.push({
           text: "",
           component: (

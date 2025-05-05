@@ -1,13 +1,15 @@
-import { PostText } from "@/components/PostText";
-import { getPostUrl, getAuthorUrl } from "@/lib/utils/postUrls";
 import { useSignal } from "@preact/signals";
-import { PostReplies } from "@/components/post/PostReplies";
-import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+
+import { PostText } from "@/components/post/PostText";
+import { PostReplies } from "@/components/post/PostReplies";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { ExpandButton } from "@/components/post/ExpandButton";
 import { PostEmbed } from "@/components/post/PostEmbed";
 import { getThreadSignal } from "@/lib/signals";
+
+import { getAuthorUrl, getPost } from "@/lib/utils/postUrls";
+import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -25,7 +27,7 @@ export function CompactPost({
 	const threadStateSignal = getThreadSignal(post.uri);
 	const { data, isLoading, error } = threadStateSignal.value;
 	const isExpanded = useSignal(expanded);
-	const postUrl = getPostUrl(post.author.handle, post.uri);
+	const postUrl = getPost(post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
 
