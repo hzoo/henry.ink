@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals";
+import { FunctionComponent, VNode } from "preact";
 import { useEffect } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
@@ -11,10 +12,24 @@ import { whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
-import { SampleQuotes } from '@/components/SampleQuotes';
+import { MockExampleCom } from "@/site/components/mock-pages/ExampleCom";
+import { MockWikipedia } from "@/site/components/mock-pages/MockWikipedia";
+import { MockArxiv } from "@/site/components/mock-pages/MockArxiv";
+import { MockYouTube } from "@/site/components/mock-pages/MockYouTube";
+import { MockGitHub } from "@/site/components/mock-pages/MockGitHub";
+
+// Define the shape of our sample URLs
+interface SampleUrl {
+	name: string;
+	category: string;
+	url: string;
+	blocksEmbedding: boolean;
+	title?: string;
+	mockComponent?: FunctionComponent;
+}
 
 // Sample URLs for badges
-const sampleUrls = [
+const sampleUrls: SampleUrl[] = [
 	{
 		name: "this website",
 		category: "unblocked",
@@ -26,12 +41,14 @@ const sampleUrls = [
 		category: "unblocked",
 		url: "https://example.com",
 		blocksEmbedding: false,
+		mockComponent: MockExampleCom,
 	},
 	{
 		name: "Wikipedia",
 		category: "unblocked",
 		url: "https://en.wikipedia.org/wiki/Main_Page",
 		blocksEmbedding: false,
+		mockComponent: MockWikipedia,
 	},
 	{
 		name: "Blog",
@@ -45,6 +62,7 @@ const sampleUrls = [
 		category: "paper",
 		url: "https://arxiv.org/abs/1706.03762",
 		blocksEmbedding: true,
+		mockComponent: MockArxiv,
 	},
 	{
 		name: "YouTube",
@@ -52,6 +70,7 @@ const sampleUrls = [
 		category: "video",
 		url: "https://www.youtube.com/watch?v=HPqGaIMVuLs",
 		blocksEmbedding: true,
+		mockComponent: MockYouTube,
 	},
 	{
 		name: "GitHub",
@@ -59,6 +78,7 @@ const sampleUrls = [
 		category: "repo",
 		url: "https://github.com/hzoo/extension-annotation-sidebar",
 		blocksEmbedding: true,
+		mockComponent: MockGitHub,
 	},
 ];
 
@@ -75,21 +95,36 @@ const initialSample = sampleUrls[3];
 const initialUrl = initialSample.url;
 
 export function App() {
-	const inputUrl = useSignal(initialUrl); // Input field state
-	const iframeUrl = useSignal(initialUrl); // iframe src state - may not match input if blocked
-	const showEmbeddingBlockMessage = useSignal(initialSample.blocksEmbedding); // New state signal
+	const inputUrl = useSignal(initialUrl);
+	const iframeUrl = useSignal<string | null>(initialUrl);
+	const showEmbeddingBlockMessage = useSignal(initialSample.blocksEmbedding);
+	const CurrentMockComponent = useSignal<FunctionComponent | null>(null);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		const sample = sampleUrls.find((s) => s.url === initialUrl);
 		showEmbeddingBlockMessage.value = sample?.blocksEmbedding ?? false;
+		iframeUrl.value = initialUrl;
 		currentUrl.value = initialUrl;
 		ensureDomainIsWhitelisted(initialUrl);
+
+		if (sample) {
+			if (sample.blocksEmbedding) {
+				iframeUrl.value = null;
+			}
+			if (sample.mockComponent) {
+				CurrentMockComponent.value = sample.mockComponent;
+				iframeUrl.value = null;
+			}
+		}
 	}, []);
 
 	// Refactored function to load a URL
-	const loadUrl = (newUrlString: string, blocksEmbedding = false) => {
-		// Added blocksEmbedding param
+	const loadUrl = (
+		newUrlString: string,
+		blocksEmbedding = false,
+		mockComponent: FunctionComponent | null = null,
+	) => {
 		if (!newUrlString) return;
 		try {
 			const urlObj = new URL(
@@ -99,20 +134,19 @@ export function App() {
 
 			// Update state *before* changing URLs
 			showEmbeddingBlockMessage.value = blocksEmbedding;
+			CurrentMockComponent.value = mockComponent;
 
-			inputUrl.value = finalUrl; // Keep input in sync
+			inputUrl.value = finalUrl;
 
-			// Only update iframe src if embedding is NOT blocked
-			if (!blocksEmbedding) {
-				iframeUrl.value = finalUrl; // Trigger iframe load
+			// Only update iframe src if NOT blocked AND no mock is active
+			if (!blocksEmbedding && !mockComponent) {
+				iframeUrl.value = finalUrl;
 			} else {
-				// Optionally clear iframe or set to blank if blocked?
-				// iframeUrl.value = "about:blank"; // Or leave as is?
+				iframeUrl.value = null;
 			}
 
 			// Update the global signal for the sidebar regardless
 			currentUrl.value = finalUrl;
-			// Ensure the new domain is whitelisted for the demo regardless
 			ensureDomainIsWhitelisted(finalUrl);
 		} catch (error) {
 			console.error("Invalid URL:", error);
@@ -120,10 +154,15 @@ export function App() {
 		}
 	};
 
-	// handleSubmit for the form - assume not blocked
+	// handleSubmit for the form - assume not blocked, no mock
 	const handleSubmit = (e: Event) => {
 		e.preventDefault();
-		loadUrl(inputUrl.value, false);
+		const matchedSample = sampleUrls.find((s) => s.url === inputUrl.value);
+		loadUrl(
+			inputUrl.value,
+			matchedSample?.blocksEmbedding ?? false,
+			matchedSample?.mockComponent ?? null,
+		);
 	};
 
 	return (
@@ -184,7 +223,7 @@ export function App() {
 			<div class="flex flex-1 overflow-hidden">
 				<main class="flex flex-1 flex-col p-3 gap-3">
 					<span class="text-xs text-gray-500 dark:text-gray-400 self-center italic">
-						↓ Simulated Browser Window ↓
+						↓ Simulated (Mock) Browser Window ↓
 					</span>
 					{/* Address Bar */}
 					<form onSubmit={handleSubmit} class="flex">
@@ -211,24 +250,33 @@ export function App() {
 						{sampleUrls.map((sample) => (
 							<button
 								key={sample.url}
-								onClick={() => loadUrl(sample.url, sample.blocksEmbedding)} // Pass flag
-								title={`Load ${sample.url}${sample.blocksEmbedding ? " (Known to block embedding)" : ""}`}
-								class={`px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500/50 ${sample.blocksEmbedding ? "bg-yellow-200 dark:bg-yellow-700 hover:bg-yellow-300 dark:hover:bg-yellow-600 text-yellow-800 dark:text-yellow-100" : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"}`}
+								onClick={() =>
+									loadUrl(
+										sample.url,
+										sample.blocksEmbedding,
+										sample.mockComponent ?? null,
+									)
+								}
+								title={`Load ${sample.url}${sample.blocksEmbedding ? " (Known to block embedding)" : ""}${sample.mockComponent ? " (Mocked View)" : ""}`}
+								class={`px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500/50 ${sample.mockComponent ? "bg-purple-200 dark:bg-purple-700 hover:bg-purple-300 dark:hover:bg-purple-600 text-purple-800 dark:text-purple-100" : sample.blocksEmbedding ? "bg-yellow-200 dark:bg-yellow-700 hover:bg-yellow-300 dark:hover:bg-yellow-600 text-yellow-800 dark:text-yellow-100" : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"}`}
 							>
 								{sample.name}
 							</button>
 						))}
 					</div>
 
-					{/* Content Area: Either Iframe or Blocking Message */}
+					{/* Content Area: Mock Component, Iframe, or Blocking Message */}
 					<div class="flex-1 border rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
-						{showEmbeddingBlockMessage.value ? (
+						{CurrentMockComponent.value ? (
+							// Render Mock Component if active
+							<CurrentMockComponent.value />
+						) : showEmbeddingBlockMessage.value ? (
+							// Render Blocking Message if embedding is blocked
 							(() => {
-								// Find the current sample object to get the title
 								const currentSample = sampleUrls.find(
 									(s) => s.url === currentUrl.value,
 								);
-								const title = currentSample?.title || "This website"; // Fallback title
+								const title = currentSample?.title || "This website";
 								const hostname = new URL(currentUrl.value).hostname;
 
 								return (
@@ -255,23 +303,22 @@ export function App() {
 									</div>
 								);
 							})()
-						) : (
-							// Render the iframe normally if not blocked
+						) : iframeUrl.value ? (
+							// Render the iframe normally if not blocked and no mock active
 							<iframe
-								key={iframeUrl.value} // Use iframeUrl here for re-render trigger
+								key={iframeUrl.value}
 								src={iframeUrl.value}
 								title="Website Content"
 								class="w-full h-full border-0"
 								sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-								// We might not need onLoad/onError if we trust the flag
-								// onLoad={...}
-								// onError={...}
 							/>
-							// Or potentially use the IframeLoader component again if needed
-							// <IframeLoader url={iframeUrl} />
+						) : (
+							// Placeholder if nothing else is shown
+							<div class="w-full h-full flex items-center justify-center text-gray-500">
+								{/* Content blocked or not loaded */}
+							</div>
 						)}
 					</div>
-					<SampleQuotes />
 				</main>
 				<aside class="w-[360px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
@@ -289,7 +336,9 @@ export function App() {
 					const selection = window.getSelection()?.toString();
 					if (!selection) return;
 					quotedSelection.value = selection;
-					currentUrl.value = window.location.href;
+					// For inline content, we need to ensure currentUrl still reflects the *original* URL
+					// currentUrl is already managed correctly in loadUrl, so this should be fine.
+					// currentUrl.value = window.location.href; // This would be wrong for inline content
 				}}
 			/>
 		</div>

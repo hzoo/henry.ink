@@ -7,7 +7,7 @@ export function PostList() {
   return (
     <>
       {currentPosts.value.map((post: AppBskyFeedDefs.PostView) => (
-        <FullPost key={post.cid} post={post} />
+        <FullPost key={post.cid} postUri={post.uri} />
       ))}
       <div className="pb-96" />
     </>
