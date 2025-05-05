@@ -34,6 +34,7 @@ function updateNestedSignals(replies: ThreadReply[] | undefined, now: number) {
     const nestedSignal = getThreadSignal(reply.post.uri);
     // Update the signal for this specific reply post
     nestedSignal.value = {
+      post: reply.post,
       data: reply.replies || [], // Use the pre-processed nested replies
       isLoading: false,
       error: null,
@@ -89,6 +90,7 @@ export async function fetchAndUpdateThreadSignal(uri: string, options: { depth?:
 
   // Keep a reference to potentially stale data in case of error
   const potentiallyStaleData = currentState.data;
+  const potentiallyStalePost = currentState.post;
 
   threadSignal.value = {
     ...currentState,
@@ -100,8 +102,10 @@ export async function fetchAndUpdateThreadSignal(uri: string, options: { depth?:
     const threadData = await getPostThread(uri, { depth });
 
     let processedReplies: ThreadReply[] | null = null;
+    let post = null;
     if (threadData && isThreadViewPost(threadData)) {
         processedReplies = processThreadReplies(threadData);
+        post = threadData.post;
     } else {
         processedReplies = [];
         console.warn(`[API] No valid thread view post found for: ${uri}, treating as empty.`);
@@ -114,6 +118,7 @@ export async function fetchAndUpdateThreadSignal(uri: string, options: { depth?:
       const now = Date.now();
       // Update the main signal
       threadSignal.value = {
+        post,
         data: processedReplies,
         isLoading: false,
         lastFetched: now,
@@ -134,6 +139,7 @@ export async function fetchAndUpdateThreadSignal(uri: string, options: { depth?:
       // Update the main signal with error, potentially keeping stale data?
       // Let's keep stale data for the main post for now.
       threadSignal.value = {
+        post: potentiallyStalePost,
         data: potentiallyStaleData, // Keep potentially stale data for the main post
         isLoading: false,
         error: errorMessage,

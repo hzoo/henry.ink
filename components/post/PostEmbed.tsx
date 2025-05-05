@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import { getPost } from "@/lib/utils/postUrls";
 
 export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	if (!post.embed) return null;
@@ -17,9 +18,9 @@ export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	//     return <div>{post.embed.external.uri}</div>;
 	//   }
 
-	//   if (post.embed.$type === 'app.bsky.embed.record#view') {
-	//     return <div>{post.embed.record.uri}</div>;
-	//   }
+	  if (post.embed.$type === 'app.bsky.embed.record#view') {
+		return <a href={getPost(post.embed.record.uri)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline">[quoted post]</a>
+	  }
 
 	//   if (post.embed.$type === 'app.bsky.embed.video#view') {
 	//     return <div>{post.embed.thumbnail}</div>;

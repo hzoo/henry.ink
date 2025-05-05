@@ -7,6 +7,7 @@ import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { ExpandButton } from "@/components/post/ExpandButton";
 import { PostEmbed } from "@/components/post/PostEmbed";
+import { getThreadSignal } from "@/lib/signals";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -21,10 +22,20 @@ export function CompactPost({
 	expanded = false,
 	op,
 }: CompactPostProps) {
+	const threadStateSignal = getThreadSignal(post.uri);
+	const { data, isLoading, error } = threadStateSignal.value;
 	const isExpanded = useSignal(expanded);
 	const postUrl = getPostUrl(post.author.handle, post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
+
+	if (isLoading) {
+		return <div className="p-4 text-center text-gray-500">Loading thread...</div>;
+	}
+
+	if (error) {
+		return <div className="p-4 text-center text-red-500">Error loading thread: {error}</div>;
+	}
 
 	return (
 		<article className="relative min-w-0 pl-5">
@@ -67,7 +78,7 @@ export function CompactPost({
 				)}
 			</div>
 			{isExpanded.value && (
-				<PostReplies post={post} depth={depth + 1} isExpanded={isExpanded} op={op} />
+				<PostReplies replies={data} depth={depth + 1} isExpanded={isExpanded} op={op} />
 			)}
 		</article>
 	);

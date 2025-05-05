@@ -7,10 +7,8 @@ export interface ThreadReply {
 }
 
 export interface PostRepliesProps {
-  post: AppBskyFeedDefs.PostView;
+  replies: ThreadReply[] | null;
   isExpanded: Signal<boolean>;
   depth?: number;
-  maxDepth?: number;
-  prefetchedReplies?: ThreadReply[];
   op?: string;
 }

@@ -17,3 +17,14 @@ export function getPost(uri: string) {
 export function getAuthorUrl(handle: string): string {
   return `https://bsky.app/profile/${handle}`;
 }
+
+export function getAtUriFromUrl(url: string): string {
+  if (!url.startsWith('at://') && url.includes('bsky.app/profile/')) {
+    const match = url.match(/profile\/([\w:.]+)\/post\/([\w]+)/);
+    if (match) {
+      const [, handleOrDid, postId] = match;
+      return `at://${handleOrDid}/app.bsky.feed.post/${postId}`;
+    }
+  }
+  return url;
+}

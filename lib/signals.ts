@@ -18,6 +18,7 @@ export const error = signal<ErrorState | string | null>(null);
 export const contentSourceUrl = signal<string>("");
 
 export interface ThreadState {
+  post: AppBskyFeedDefs.PostView | null;
   data: ThreadReply[] | null; 
   lastFetched: number | null;
   isLoading: boolean;
@@ -31,6 +32,7 @@ export const threadsStore = new Map<string, Signal<ThreadState>>();
 export function getThreadSignal(uri: string): Signal<ThreadState> {
   if (!threadsStore.has(uri)) {
     const newSignal = signal<ThreadState>({
+      post: null,
       data: null,
       lastFetched: null,
       isLoading: false,
