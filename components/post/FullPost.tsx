@@ -16,7 +16,7 @@ interface FullPostProps {
 }
 
 export function FullPost({ postUri, uri }: FullPostProps) {
-let postUrl: string | undefined;
+	let postUrl: string | undefined;
 	if (postUri) {
 		postUrl = postUri;
 	} else if (uri) {
@@ -40,15 +40,20 @@ let postUrl: string | undefined;
 	});
 
 	if (isLoading) {
-		return <div className="p-4 text-center text-gray-500">Loading post...</div>;
-	}
-
-	if (error) {
-		return <div className="p-4 text-center text-red-500">Error loading post: {error}</div>;
+		return null;
 	}
 
 	if (!post) {
-		return <div className="p-4 text-center text-gray-500">Post not found.</div>;
+		return null;
+	}
+
+	if (error) {
+		return (
+			<div className="p-4 text-center text-red-500 dark:text-red-400 flex flex-col items-center">
+				<span>Error loading post. Please try again later.</span>
+				<span className="text-xs text-gray-400 dark:text-gray-500 mt-1">({error})</span>
+			</div>
+		);
 	}
 
 	const authorName = post.author.displayName || post.author.handle;
