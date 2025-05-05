@@ -1,9 +1,11 @@
-import { batch, type Signal, useComputed, useSignal } from "@preact/signals";
-import { Icon } from "@/components/Icon";
-import { formatCount } from "@/lib/utils/count";
+import { batch, useComputed, useSignal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+
 import { ReplyInput } from "@/components/post/ReplyInput";
+import { Icon } from "@/components/Icon";
+
 import { atCuteState } from "@/site/lib/oauth";
+import { formatCount } from "@/lib/utils/count";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
 import { getThreadSignal } from "@/lib/signals";
 import {

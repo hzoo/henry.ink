@@ -4,7 +4,7 @@ import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
-import { currentPosts, loading, error, contentSourceUrl, cacheTimeAgo, lastSeenVersion } from "@/lib/signals";
+import { currentPosts, loading, error, contentSourceUrl, cacheTimeAgo } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { PostList } from "@/components/PostList";
 import { fetchPosts, loadFromCacheAndUpdate } from "@/lib/posts";

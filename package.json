@@ -12,6 +12,7 @@
     "build:ff": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:ff": "wxt zip -b firefox",
+    "build:npm": "vite build --config vite.lib.config.ts",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "release": "bun scripts/release.ts",
@@ -23,6 +24,7 @@
     "@atcute/client": "^3.0.1",
     "@atcute/oauth-browser-client": "^1.0.17",
     "@preact/signals": "^2.0.4",
+    "@preact/signals-react": "^3.0.1",
     "@tailwindcss/vite": "^4.1.4",
     "preact": "^10.26.5"
   },
@@ -31,6 +33,7 @@
     "@types/bun": "^1.2.10",
     "@types/chrome": "^0.0.317",
     "typescript": "^5.8.3",
+    "vite-plugin-dts": "^4.5.3",
     "vite-plugin-svgr": "^4.3.0",
     "wxt": "^0.20.4"
   }

@@ -1,7 +1,8 @@
 import type { Signal } from "@preact/signals-core";
-import { hoveredCollapsePostUri } from "@/lib/signals";
-import { useComputed } from "@preact/signals-react";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import { useComputed } from "@preact/signals-react";
+
+import { hoveredCollapsePostUri } from "@/lib/signals";
 
 interface ExpandButtonProps {
 	post: AppBskyFeedDefs.PostView;

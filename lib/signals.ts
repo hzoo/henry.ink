@@ -1,7 +1,6 @@
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { signal } from "@preact/signals";
 import type { Signal } from "@preact/signals";
-import { signalBrowserLocal } from "@/lib/signal";
 import type { ThreadReply } from "@/lib/types"; // Assuming ThreadReply is defined here
 
 // Define a type for the error state
@@ -46,5 +45,3 @@ export function getThreadSignal(uri: string): Signal<ThreadState> {
 
 // Signal to track which post's collapse controls (line/button) are hovered
 export const hoveredCollapsePostUri = signal<string | null>(null);
-// Signal to track the last version the user has seen the intro/update popup for
-export const lastSeenVersion = signalBrowserLocal<string>("last-seen-version", "0.0.0");

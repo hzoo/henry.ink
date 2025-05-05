@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { FunctionComponent, VNode } from "preact";
+import type { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";

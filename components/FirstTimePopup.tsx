@@ -1,8 +1,7 @@
-import { lastSeenVersion } from "@/lib/signals";
+import { lastSeenVersion } from "@/lib/extension-signals";
 import { version } from "../package.json";
 import { changelogData } from "@/lib/changelog";
 import type { ChangelogEntry } from "@/lib/changelog";
-import { computed } from "@preact/signals";
 import { useComputed, useSignal } from "@preact/signals-react/runtime";
 import type { JSX } from "preact";
 
