@@ -32,6 +32,11 @@ export default defineConfig({
         description: "Toggle the Bluesky Sidebar",
       },
     },
+    browser_specific_settings: {
+      gecko: {
+        id: "{42f52678-fbed-4a73-88dd-b01f94d06cdb}"
+      }
+    }
   }),
   vite: (env) => ({
     plugins: [
