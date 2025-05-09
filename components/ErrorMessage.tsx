@@ -1,16 +1,15 @@
 import { memo } from "preact/compat";
-import { error } from "@/lib/signals";
-// Import ErrorState as a type
 import type { ErrorState } from "@/lib/signals";
 
 interface ErrorMessageProps {
   // Accept either the ErrorState object or a simple string
   message: ErrorState | string | null;
+  onDismiss?: () => void;
 }
 
 // Reusable component for displaying error messages
 // Memoized to prevent unnecessary re-renders
-export const ErrorMessage = memo(({ message }: ErrorMessageProps) => {
+export const ErrorMessage = memo(({ message, onDismiss }: ErrorMessageProps) => {
   if (!message) return null;
 
   // Determine message text and link (if any)
@@ -32,13 +31,15 @@ export const ErrorMessage = memo(({ message }: ErrorMessageProps) => {
           </a>
         )}
       </span>
-      <button
-        onClick={() => error.value = null}
-        class="ml-4 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 flex-shrink-0"
-        aria-label="Dismiss error"
-      >
-        ✕
-      </button>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          class="ml-4 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 flex-shrink-0"
+          aria-label="Dismiss error"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }); 

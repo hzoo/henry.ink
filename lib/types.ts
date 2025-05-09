@@ -1,5 +1,6 @@
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import type { Signal } from "@preact/signals";
+import type { PostFilter } from "./postFilters";
 
 export interface ThreadReply {
   post: AppBskyFeedDefs.PostView;
@@ -11,4 +12,5 @@ export interface PostRepliesProps {
   isExpanded: Signal<boolean>;
   depth?: number;
   op?: string;
+  filters?: PostFilter[];
 }

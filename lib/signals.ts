@@ -1,7 +1,9 @@
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
-import { signal } from "@preact/signals";
+import { effect, signal } from "@preact/signals";
 import type { Signal } from "@preact/signals";
 import type { ThreadReply } from "@/lib/types"; // Assuming ThreadReply is defined here
+import { currentUrl } from "./messaging";
+import { isSearchableUrl } from "./messaging";
 
 // Define a type for the error state
 export interface ErrorState {
@@ -11,10 +13,13 @@ export interface ErrorState {
 
 export const currentPosts = signal<AppBskyFeedDefs.PostView[]>([]);
 export const cacheTimeAgo = signal<number | null>(null);
-export const loading = signal(false);
-// Update error signal to use the ErrorState type or string for simpler errors
-export const error = signal<ErrorState | string | null>(null);
 export const contentSourceUrl = signal<string>("");
+
+effect(() => {
+	if (isSearchableUrl.value) {
+		contentSourceUrl.value = currentUrl.value;
+	}
+});
 
 export interface ThreadState {
   post: AppBskyFeedDefs.PostView | null;
