@@ -10,12 +10,14 @@ import { getThreadSignal } from "@/lib/signals";
 
 import { getAuthorUrl, getPost } from "@/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
+import { applyFilters, type PostFilter } from "@/lib/postFilters";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
 	depth?: number;
 	expanded?: boolean;
 	op?: string;
+	filters?: PostFilter[];
 }
 
 export function CompactPost({
@@ -23,6 +25,7 @@ export function CompactPost({
 	depth = 0,
 	expanded = false,
 	op,
+	filters,
 }: CompactPostProps) {
 	const threadStateSignal = getThreadSignal(post.uri);
 	const { data, isLoading, error } = threadStateSignal.value;
@@ -37,6 +40,10 @@ export function CompactPost({
 
 	if (error) {
 		return <div className="p-4 text-center text-red-500">Error loading thread: {error}</div>;
+	}
+
+	if (applyFilters(post, filters)) {
+		return null;
 	}
 
 	return (
@@ -80,7 +87,7 @@ export function CompactPost({
 				)}
 			</div>
 			{isExpanded.value && (
-				<PostReplies replies={data} depth={depth + 1} isExpanded={isExpanded} op={op} />
+				<PostReplies replies={data} depth={depth + 1} isExpanded={isExpanded} op={op} filters={filters} />
 			)}
 		</article>
 	);

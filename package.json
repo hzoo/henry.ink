@@ -26,6 +26,9 @@
     "@preact/signals": "^2.0.4",
     "@preact/signals-react": "^3.0.1",
     "@tailwindcss/vite": "^4.1.4",
+    "@tanstack/query-sync-storage-persister": "^5.75.5",
+    "@tanstack/react-query": "^5.75.5",
+    "@tanstack/react-query-persist-client": "^5.75.5",
     "preact": "^10.26.5"
   },
   "devDependencies": {

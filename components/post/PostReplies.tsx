@@ -8,6 +8,7 @@ export function PostReplies({
   isExpanded,
   depth = 0,
   op,
+  filters,
 }: PostRepliesProps) {
   if (!isExpanded.value || !replies) {
     return null;
@@ -30,6 +31,7 @@ export function PostReplies({
           depth={depth}
           expanded={isExpanded.value}
           op={op}
+          filters={filters}
         />
       ))}
     </>

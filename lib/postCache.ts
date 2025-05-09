@@ -278,31 +278,9 @@ function checkCacheLimits(forceCheck = false) {
   }
 }
 
-// --- Public API --- (Wrappers around internal helpers)
-
-// Specific interfaces for public return types
-export interface PostCacheInfo {
-  posts: AppBskyFeedDefs.PostView[] | null;
-  lastFetched: number | null;
-}
-
 export interface ThreadCacheInfo {
   replies: ThreadReply[] | null;
   lastFetched: number | null;
-}
-
-export function updatePostsCache(url: string, posts: AppBskyFeedDefs.PostView[]) {
-  const unifiedKey = getUnifiedKey('post', url);
-  _updateCacheItem(unifiedKey, posts);
-}
-
-export function getCachedPosts(url: string): PostCacheInfo {
-  const unifiedKey = getUnifiedKey('post', url);
-  const result = _getCachedItem(unifiedKey);
-  return {
-    posts: result?.data as AppBskyFeedDefs.PostView[] ?? null,
-    lastFetched: result?.lastFetched ?? null,
-  };
 }
 
 export function updateThreadCache(uri: string, replies: ThreadReply[]) {

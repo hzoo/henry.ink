@@ -11,13 +11,16 @@ import { getTimeAgo } from "@/lib/utils/time";
 import { getThreadSignal } from "@/lib/signals";
 import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
 import { isRecord } from "@/lib/postActions";
+import type { PostFilter } from "@/lib/postFilters";
+import { applyFilters } from "@/lib/postFilters";
 
 interface FullPostProps {
 	uri?: string
 	postUri: string;
+	filters?: PostFilter[];
 }
 
-export function FullPost({ postUri, uri }: FullPostProps) {
+export function FullPost({ postUri, uri, filters }: FullPostProps) {
 	let postUrl: string | undefined;
 	if (postUri) {
 		postUrl = postUri;
@@ -46,6 +49,10 @@ export function FullPost({ postUri, uri }: FullPostProps) {
 	}
 
 	if (!post) {
+		return null;
+	}
+
+	if (applyFilters(post, filters)) {
 		return null;
 	}
 
@@ -128,6 +135,7 @@ export function FullPost({ postUri, uri }: FullPostProps) {
 				depth={0}
 				isExpanded={isExpanded}
 				op={post.author.handle}
+				filters={filters}
 			/>
 		</article>
 	);

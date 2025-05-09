@@ -3,13 +3,13 @@ import { cacheTimeAgo, contentSourceUrl } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
 import { getTimeAgo } from "@/lib/utils/time";
-import { fetchPosts } from "@/lib/posts";
+import { queryClient } from "@/lib/queryClient";
 import { Icon } from "@/components/Icon";
 import { useAtCute } from "@/site/lib/oauth";
 
 const handleRefresh = () => {
 	if (contentSourceUrl.value) {
-		fetchPosts(contentSourceUrl.value);
+		queryClient.refetchQueries({ queryKey: ['posts', contentSourceUrl.value] });
 	}
 };
 

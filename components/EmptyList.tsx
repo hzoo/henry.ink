@@ -3,15 +3,8 @@ import { ManualFetchButton } from "@/components/ManualFetchButton";
 import { WhitelistButton } from "@/components/WhitelistButton";
 import { isWhitelisted, currentDomain, isSearchableUrl, currentUrl } from "@/lib/messaging";
 import { Icon } from "@/components/Icon";
-import { error } from "@/lib/signals";
-import { loading } from "@/lib/signals";
-import { currentPosts } from "@/lib/signals";
 
 export function EmptyList() {
-  if (currentPosts.value.length > 0 || loading.value || error.value) {
-    return null;
-  }
-
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 text-center">
       <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-4">
