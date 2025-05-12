@@ -16,7 +16,8 @@
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "release": "bun scripts/release.ts",
-    "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo"
+    "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo",
+    "deploy:w": "bunx wrangler deploy"
   },
   "dependencies": {
     "@atcute/bluesky": "^2.1.1",

@@ -32,20 +32,43 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
     };
 
     if (!atCuteState.value?.rpc) {
-      const res = await fetch(import.meta.env.VITE_WORKER_URL, {
-        method: 'POST',
-        body: JSON.stringify({ url }),
+      // Use the worker for search, it handles caching and auth forwarding
+      const workerUrl = `${import.meta.env.VITE_WORKER_URL}?url=${encodeURIComponent(url)}`;
+      const res = await fetch(workerUrl, {
+        method: 'GET',
+        signal: options?.signal,
       });
 
-      if (res.ok) {
-        const data = await res.json() as AppBskyFeedSearchPosts.Output;
-        return sortPosts(data.posts);
+      if (!res.ok) {
+        // Attempt to parse JSON error response if available
+        let errorDetail = res.statusText;
+        try {
+          const errorJson = await res.json();
+          if (typeof errorJson === 'object' && errorJson !== null && 'error' in errorJson && typeof errorJson.error === 'string') {
+             errorDetail = errorJson.error;
+          } else if (typeof errorJson === 'string') {
+             errorDetail = errorJson;
+          }
+        } catch (e) {
+          console.error('Failed to parse error response body:', e);
+        }
+
+        let errorMessage = `Error searching Bluesky posts: ${res.status} ${errorDetail}`;
+        
+        // Special handling for authentication required errors from the worker
+        if (res.status === 401) {
+           errorMessage = 'Bluesky search sometimes requires login due to high load. See:';
+        }
+
+        throw new Error(errorMessage);
       }
 
-      throw new Error(`Error searching Bluesky posts: ${res.statusText}`);
+      const data = await res.json() as AppBskyFeedSearchPosts.Output;
+      return sortPosts(data.posts);
     }
 
-    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
+    // Direct RPC call if rpc is available (user is logged in)
+    const {ok, data} = await atCuteState.value.rpc.get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
 
     if (!ok) {
       switch (data.error) {
@@ -58,22 +81,30 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
 
     return sortPosts(data.posts);
   } catch (error: unknown) {
-    console.error('Caught bsky search error:', JSON.stringify(error, null, 2));
+     console.error('Caught bsky search error:', JSON.stringify(error, null, 2));
     
-    if (error instanceof Error && error.name !== 'AbortError') {
-      if (error.message.includes('AuthMissing') || error.message.includes('Authentication Required') || error.message.includes('403')) {
-        console.error('Authentication required:', error);
-        throw new Error('Bluesky search sometimes requires login due to high load. See:');
-      }
-      console.error('Error searching Bluesky posts:', error);
-      throw error;
-    }
+     if (error instanceof Error) {
+       // Handle network errors or specific messages
+       if (error.name !== 'AbortError') {
+          // Check for authentication required messages from either source
+          if (error.message.includes('AuthMissing') || error.message.includes('Authentication Required') || error.message.includes('403') || error.message.includes('Authentication failed')) {
+            console.error('Authentication required:', error);
+            throw new Error('Bluesky search sometimes requires login due to high load. See:');
+          }
+          console.error('Error searching Bluesky posts:', error);
+          throw error;
+       }
+       // AbortError is expected on signal abort, no need to re-throw after logging
+     } else {
+        // Re-throw non-Error exceptions after logging
+        throw error;
+     }
   }
 }
 
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
-    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', { 
+    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', {
       params: { uri: uri as At.ResourceUri, depth: options?.depth ?? 1 },
       signal: options?.signal,
     });
