@@ -6,6 +6,7 @@ interface ReplyInputProps {
   onSubmit: (text: string) => Promise<void>;
   isSubmitting: Signal<boolean>;
   submitError: Signal<string | null>;
+  onClearError: () => void;
 }
 
 interface ReplyButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
@@ -31,7 +32,7 @@ function ReplyButton({ isLoading, children, ...props }: ReplyButtonProps) {
   )
 }
 
-export function ReplyInput({ onCancel, onSubmit, isSubmitting, submitError }: ReplyInputProps) {
+export function ReplyInput({ onCancel, onSubmit, isSubmitting, submitError, onClearError }: ReplyInputProps) {
   const replyText = useSignal("");
 
   const handleSubmitClick = async (e: MouseEvent) => {
@@ -65,7 +66,7 @@ export function ReplyInput({ onCancel, onSubmit, isSubmitting, submitError }: Re
         value={replyText.value}
         onInput={(e) => {
            replyText.value = (e.target as HTMLTextAreaElement).value;
-           submitError.value = null;
+           onClearError();
         }}
         onKeyDown={handleKeyDown}
         placeholder="Write your reply..."

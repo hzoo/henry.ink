@@ -28,3 +28,4 @@ web-ext.config.ts
 .env
 dist
 dist-npm
+.dev.vars

@@ -1,12 +1,14 @@
-import { useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals-react/runtime";
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import { useQuery } from "@tanstack/react-query";
 
 import { PostText } from "@/components/post/PostText";
 import { PostReplies } from "@/components/post/PostReplies";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { ExpandButton } from "@/components/post/ExpandButton";
 import { PostEmbed } from "@/components/post/PostEmbed";
-import { getThreadSignal } from "@/lib/signals";
+import { fetchProcessedThread } from "@/lib/threadUtils"; 
+import type { ThreadReply } from "@/lib/types";
 
 import { getAuthorUrl, getPost } from "@/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
@@ -18,6 +20,12 @@ interface CompactPostProps {
 	expanded?: boolean;
 	op?: string;
 	filters?: PostFilter[];
+	replies?: ThreadReply[] | null; // Added: direct replies for this post
+}
+
+interface ProcessedThreadData { // This is what fetchProcessedThread returns for THIS post
+	post: AppBskyFeedDefs.PostView; 
+	replies: ThreadReply[];
 }
 
 export function CompactPost({
@@ -26,25 +34,31 @@ export function CompactPost({
 	expanded = false,
 	op,
 	filters,
+	replies: initialReplies,
 }: CompactPostProps) {
-	const threadStateSignal = getThreadSignal(post.uri);
-	const { data, isLoading, error } = threadStateSignal.value;
 	const isExpanded = useSignal(expanded);
 	const postUrl = getPost(post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
 
-	if (isLoading) {
-		return null;
-	}
-
-	if (error) {
-		return <div className="p-4 text-center text-red-500">Error loading thread: {error}</div>;
-	}
+	const {
+		data: fetchedRepliesData, // Contains { post: PostView (of this post), replies: ThreadReply[] (children of this post) }
+		isLoading: repliesAreLoading,
+		error: repliesError,
+	} = useQuery<ProcessedThreadData, Error>({
+		queryKey: ['thread', post.uri, 'repliesOnly'], // queryKey indicates we are fetching children for post.uri
+		queryFn: () => fetchProcessedThread(post.uri), // Fetches this post AND its replies
+		// Only fetch if this specific post is expanded AND its replies were NOT provided via props.
+		enabled: isExpanded.value && initialReplies === undefined,
+		staleTime: 1000 * 30, // 30 seconds
+	});
 
 	if (applyFilters(post, filters)) {
 		return null;
 	}
+
+	// Determine which replies to show: prop > fetched > null
+	const actualReplies = initialReplies !== undefined ? initialReplies : (fetchedRepliesData?.replies ?? null);
 
 	return (
 		<article className="relative min-w-0 pl-5">
@@ -56,7 +70,7 @@ export function CompactPost({
 						target="_blank"
 						rel="noopener noreferrer"
 						className="hover:underline font-medium text-gray-800 dark:text-gray-100 truncate max-w-[100px]"
-						title={post.author.displayName}
+						title={post.author.displayName ?? post.author.handle}
 					>
 						{post.author.handle}
 					</a>
@@ -87,7 +101,21 @@ export function CompactPost({
 				)}
 			</div>
 			{isExpanded.value && (
-				<PostReplies replies={data} depth={depth + 1} isExpanded={isExpanded} op={op} filters={filters} />
+				<>
+					{/* Show loading/error only if we are the ones fetching (initialReplies was undefined) */}
+					{initialReplies === undefined && repliesAreLoading && <div className="pl-1 pt-1 text-xs text-gray-400">Loading replies...</div>}
+					{initialReplies === undefined && repliesError && <div className="pl-1 pt-1 text-xs text-red-500">Error: {repliesError.message}</div>}
+					
+					{actualReplies && actualReplies.length > 0 && (
+						<PostReplies 
+							replies={actualReplies} 
+							depth={depth + 1} 
+							isExpanded={isExpanded} // This isExpanded is for the current CompactPost, PostReplies handles its children based on this
+							op={op} 
+							filters={filters} 
+						/>
+					)}
+				</>
 			)}
 		</article>
 	);

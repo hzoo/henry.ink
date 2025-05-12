@@ -16,6 +16,8 @@ function handleClose() {
 }
 
 export function QuotePopup() {
+	if (!quotedSelection.value) return null;
+	
 	// --- State Signals ---
 	// Initialize empty, will be populated by effect
 	const userText = useSignal<string>("");
@@ -78,13 +80,13 @@ export function QuotePopup() {
 		postError.value = null;
 
 		const state = atCuteState.peek();
-		if (!state?.session || !state?.xrpc) {
+		if (!state?.session || !state?.rpc) {
 			postError.value = "You must be logged in to post.";
 			isPosting.value = false;
 			return;
 		}
 
-		const { session, xrpc } = state;
+		const { session, rpc } = state;
 		const fullText = userText.value.trim(); // Use userText directly
 
 		try {
@@ -133,8 +135,8 @@ export function QuotePopup() {
 				record: postRecord as ComAtprotoRepoCreateRecord.Input["record"],
 			};
 
-			await xrpc.call("com.atproto.repo.createRecord", {
-				data: createRecordInput,
+			await rpc.post("com.atproto.repo.createRecord", {
+				input: createRecordInput,
 			});
 
 			userText.value = ""; // Clear text on success

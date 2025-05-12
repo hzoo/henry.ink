@@ -10,9 +10,9 @@ import { PostList } from "@/components/PostList";
 import { searchBskyPosts } from "@/lib/bsky";
 import { FirstTimePopup } from "@/components/FirstTimePopup";
 import { QuotePopup } from "./QuotePopup";
-import { quotedSelection } from "@/lib/messaging";
 import { useQuery } from "@tanstack/react-query";
 import { useRef } from "preact/hooks";
+import { useAtCute } from "@/site/lib/oauth";
 
 // Type for ErrorMessage prop
 export type ErrorMessageType = string | { message: string; link: string };
@@ -39,7 +39,8 @@ function SidebarBody() {
 			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
 		},
 		enabled: isSearchableUrl.value && autoFetchEnabled.value && isWhitelisted.value,
-		staleTime: 86400000, // 24 hours
+		staleTime: Number.POSITIVE_INFINITY,
+		gcTime: Number.POSITIVE_INFINITY,
 		retry: (failureCount, err) => !err?.message?.startsWith(MY_AUTH_ERROR_MESSAGE) && failureCount < 3,
 	});
 
@@ -80,12 +81,14 @@ function SidebarBody() {
 }
 
 export function Sidebar() {
+	useAtCute();
+
 	return (
 		<div className="flex flex-col h-full relative">
 			<SidebarHeader />
 			<SidebarBody />
 			<FirstTimePopup />
-			{quotedSelection.value && <QuotePopup />}
+			<QuotePopup />
 		</div>
 	);
 }

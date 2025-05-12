@@ -4,7 +4,6 @@ import preact from "@preact/preset-vite";
 import svgr from 'vite-plugin-svgr'
 import { version } from './package.json';
 import { injectOauthEnv } from './inject-oauth-plugin';
-import type { PluginOption } from 'vite';
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -44,7 +43,7 @@ export default defineConfig({
       tailwindcss(),
       svgr(),
       injectOauthEnv(true, env.browser)
-    ] as PluginOption[],
+    ],
   }),
   webExt: {
     chromiumArgs: ["--user-data-dir=./.wxt/chrome-data"],

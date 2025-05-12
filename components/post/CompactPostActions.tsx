@@ -1,13 +1,12 @@
-import { batch, useComputed, useSignal } from "@preact/signals";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import { batch, useComputed, useSignal } from "@preact/signals-react";
+import type { AppBskyFeedDefs, At } from "@atcute/client/lexicons";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ReplyInput } from "@/components/post/ReplyInput";
 import { Icon } from "@/components/Icon";
 
-import { atCuteState } from "@/site/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
 import { formatCount } from "@/lib/utils/count";
-import { fetchAndUpdateThreadSignal } from "@/lib/threadUtils";
-import { getThreadSignal } from "@/lib/signals";
 import {
 	submitReply,
 	likePost,
@@ -16,295 +15,252 @@ import {
 	deleteRepost,
 	isRecord,
 } from "@/lib/postActions";
-import { findAndUpdatePostInSignal } from "@/lib/signalUtils";
+import type { ThreadReply } from "@/lib/types";
 
 interface CompactPostActionsProps {
 	post: AppBskyFeedDefs.PostView;
 }
 
-export function CompactPostActions({
-	post,
-}: CompactPostActionsProps) {
+interface ProcessedThreadData {
+	post: AppBskyFeedDefs.PostView;
+	replies: ThreadReply[];
+}
+
+interface ActionMutationContext {
+	previousThreadData?: ProcessedThreadData;
+	queryKey: string[];
+}
+
+interface LikeMutationResult {
+	liked: boolean;
+	newLikeUri?: At.ResourceUri;
+}
+
+interface RepostMutationResult {
+	reposted: boolean;
+	newRepostUri?: At.ResourceUri;
+}
+
+interface ReplyMutationVariables {
+	text: string;
+}
+
+interface ReplyMutationResult {
+	success: boolean;
+}
+
+function getRootPostUri(post: AppBskyFeedDefs.PostView): string {
+	if (isRecord(post.record) && post.record.reply?.root?.uri) {
+		return post.record.reply.root.uri;
+	}
+	return post.uri;
+}
+
+export function CompactPostActions({ post }: CompactPostActionsProps) {
+	const queryClient = useQueryClient();
 	const isReplying = useSignal(false);
-	const isSubmitting = useSignal(false);
-	const submitError = useSignal<string | null>(null);
-	const isLiking = useSignal(false);
-	const isReposting = useSignal(false);
 	const actionError = useSignal<string | null>(null);
 
 	const state = atCuteState.value;
 	const isLoggedIn = !!state?.session;
 
-	const threadSignal = getThreadSignal(post.uri);
+	const displayedReplyCount = useComputed(() => post.replyCount ?? 0);
 
-	const localLikeUri = useSignal<string | undefined>(post.viewer?.like);
-	const localLikeCount = useSignal(post.likeCount ?? 0);
-	const localRepostUri = useSignal<string | undefined>(post.viewer?.repost);
-	const localRepostCount = useSignal(post.repostCount ?? 0);
-
-	const displayedReplyCount = useComputed(() => {
-		const signalData = threadSignal.value.data;
-		return Array.isArray(signalData)
-			? signalData.length
-			: (post.replyCount ?? 0);
+	const likeMutation = useMutation<
+		LikeMutationResult,
+		Error,
+		void,
+		ActionMutationContext
+	>({
+		mutationFn: async () => {
+			actionError.value = null;
+			const currentState = atCuteState.peek();
+			if (!currentState?.session || !currentState?.rpc) {
+				throw new Error("Login required to like/unlike.");
+			}
+			if (post.viewer?.like) {
+				await unlikePost(post.viewer.like, currentState as AtCuteState);
+				return { liked: false, newLikeUri: undefined };
+			}
+			const likeResultUri = await likePost(post, currentState as AtCuteState);
+			return { liked: true, newLikeUri: likeResultUri };
+		},
+		onError: (err: Error) => {
+			actionError.value = err.message;
+		},
+		onSettled: () => {
+			const rootUri = getRootPostUri(post);
+			const queryKey = ["thread", rootUri];
+			queryClient.invalidateQueries({ queryKey });
+		},
 	});
+
+	const repostMutation = useMutation<
+		RepostMutationResult,
+		Error,
+		void,
+		ActionMutationContext
+	>({
+		mutationFn: async () => {
+			actionError.value = null;
+			const currentState = atCuteState.peek();
+			if (!currentState?.session || !currentState?.rpc) {
+				throw new Error("Login required to repost/unrepost.");
+			}
+			if (post.viewer?.repost) {
+				await deleteRepost(post.viewer.repost, currentState as AtCuteState);
+				return { reposted: false, newRepostUri: undefined };
+			}
+			const repostResultUri = await repostPost(
+				post,
+				currentState as AtCuteState,
+			);
+			return { reposted: true, newRepostUri: repostResultUri };
+		},
+		onError: (err: Error) => {
+			actionError.value = err.message;
+		},
+		onSettled: () => {
+			const rootUri = getRootPostUri(post);
+			const queryKey = ["thread", rootUri];
+			queryClient.invalidateQueries({ queryKey });
+		},
+	});
+
+	const replyMutation = useMutation<
+		ReplyMutationResult,
+		Error,
+		ReplyMutationVariables,
+		void
+	>({
+		mutationFn: async (variables: ReplyMutationVariables) => {
+			actionError.value = null;
+			const currentState = atCuteState.peek();
+			if (!currentState?.session) {
+				throw new Error("You must be logged in to reply.");
+			}
+			await submitReply(post, variables.text, currentState as AtCuteState);
+			return { success: true };
+		},
+		onSuccess: () => {
+			handleCancelReply();
+			const rootUriToInvalidate = getRootPostUri(post);
+			queryClient.invalidateQueries({
+				queryKey: ["thread", rootUriToInvalidate],
+			});
+		},
+		onError: (err: Error) => {
+			actionError.value = err.message;
+		},
+	});
+
+	const computedIsSubmitting = useComputed(() => replyMutation.isPending);
+	const computedSubmitError = useComputed(
+		() => replyMutation.error?.message || null,
+	);
 
 	const handleReplyClick = (e: MouseEvent) => {
 		e.stopPropagation();
-		batch(() => {
-			isReplying.value = !isReplying.value;
-			submitError.value = null;
-		});
+		isReplying.value = !isReplying.value;
+		if (replyMutation.error) replyMutation.reset();
 	};
 
 	const handleCancelReply = () => {
-		batch(() => {
-			isReplying.value = false;
-			submitError.value = null;
-		});
+		isReplying.value = false;
+		if (replyMutation.error) replyMutation.reset();
 	};
 
 	const handleSubmitReply = async (text: string) => {
-		const currentState = atCuteState.peek();
-		if (!currentState?.session) {
-			submitError.value = "You must be logged in to reply.";
-			console.error("Attempted reply submission without active session.");
-			return;
-		}
-
-		batch(() => {
-			isSubmitting.value = true;
-			submitError.value = null;
-		});
-
 		try {
-			await submitReply(post, text, currentState);
-			handleCancelReply();
-
-			let rootUri = post.uri;
-			const record = post.record;
-			if (isRecord(record) && record.reply?.root?.uri) {
-				rootUri = record.reply.root.uri;
-				if (rootUri) {
-					fetchAndUpdateThreadSignal(rootUri).catch((err) => {
-						console.error(
-							`Error refreshing thread ${rootUri} after reply:`,
-							err,
-						);
-					});
-				}
-			}
-		} catch (error: unknown) {
-			console.error("Failed to submit reply:", error);
-			if (error instanceof Error) {
-				submitError.value = error.message;
-			} else {
-				try {
-					submitError.value = JSON.stringify(error);
-				} catch {
-					submitError.value = "An unknown, non-serializable error occurred.";
-				}
-			}
-		} finally {
-			isSubmitting.value = false;
+			await replyMutation.mutateAsync({ text });
+		} catch (error) {
+			// error is handled by replyMutation.error and displayed in ReplyInput
 		}
 	};
 
-	const handleLikeClick = async (e: MouseEvent) => {
+	const handleLikeClick = (e: MouseEvent) => {
 		e.stopPropagation();
-		if (!isLoggedIn || isLiking.value) return;
-
-		const currentState = atCuteState.peek();
-		if (!currentState?.session || !currentState?.xrpc) {
-			console.error("Like action requires logged-in state with XRPC client.");
-			actionError.value = "Login required.";
-			return;
-		}
-
-		const currentLikeUri = localLikeUri.peek();
-		const originalLikeCount = localLikeCount.peek();
-
-		batch(() => {
-			isLiking.value = true;
-			actionError.value = null;
-			if (currentLikeUri) {
-				localLikeUri.value = undefined;
-				localLikeCount.value = Math.max(0, originalLikeCount - 1);
-			} else {
-				localLikeUri.value = undefined;
-				localLikeCount.value = originalLikeCount + 1;
-			}
-		});
-
-		try {
-			if (currentLikeUri) {
-				await unlikePost(currentLikeUri, currentState);
-				findAndUpdatePostInSignal(
-					threadSignal,
-					post.uri,
-					(p: AppBskyFeedDefs.PostView) => ({
-						...p,
-						viewer: { ...p.viewer, like: undefined },
-						likeCount: Math.max(0, (p.likeCount ?? 0) - 1),
-					}),
-				);
-			} else {
-				const likeResultUri = await likePost(post, currentState);
-				batch(() => {
-					localLikeUri.value = likeResultUri;
-					findAndUpdatePostInSignal(
-						threadSignal,
-						post.uri,
-						(p: AppBskyFeedDefs.PostView) => ({
-							...p,
-							viewer: { ...p.viewer, like: likeResultUri },
-							likeCount: (p.likeCount ?? 0) + 1,
-						}),
-					);
-				});
-			}
-		} catch (error: unknown) {
-			console.error("Failed to like/unlike post:", error);
-			batch(() => {
-				localLikeUri.value = currentLikeUri;
-				localLikeCount.value = originalLikeCount;
-				actionError.value =
-					error instanceof Error
-						? error.message
-						: "Failed to update like status.";
-			});
-		} finally {
-			isLiking.value = false;
-		}
+		if (!isLoggedIn || likeMutation.isPending) return;
+		likeMutation.mutate();
 	};
 
-	const handleRepostClick = async (e: MouseEvent) => {
+	const handleRepostClick = (e: MouseEvent) => {
 		e.stopPropagation();
-		if (!isLoggedIn || isReposting.value) return;
+		if (!isLoggedIn || repostMutation.isPending) return;
+		repostMutation.mutate();
+	};
 
-		const currentState = atCuteState.peek();
-		if (!currentState?.session || !currentState?.xrpc) {
-			console.error("Repost action requires logged-in state with XRPC client.");
-			actionError.value = "Login required.";
-			return;
-		}
-
-		const currentRepostUri = localRepostUri.peek();
-		const originalRepostCount = localRepostCount.peek();
-
-		batch(() => {
-			isReposting.value = true;
-			actionError.value = null;
-			if (currentRepostUri) {
-				localRepostUri.value = undefined;
-				localRepostCount.value = Math.max(0, originalRepostCount - 1);
-			} else {
-				localRepostUri.value = undefined;
-				localRepostCount.value = originalRepostCount + 1;
-			}
-		});
-
-		try {
-			if (currentRepostUri) {
-				await deleteRepost(currentRepostUri, currentState);
-				findAndUpdatePostInSignal(
-					threadSignal,
-					post.uri,
-					(p: AppBskyFeedDefs.PostView) => ({
-						...p,
-						viewer: { ...p.viewer, repost: undefined },
-						repostCount: Math.max(0, (p.repostCount ?? 0) - 1),
-					}),
-				);
-			} else {
-				const repostResultUri = await repostPost(post, currentState);
-				batch(() => {
-					localRepostUri.value = repostResultUri;
-					findAndUpdatePostInSignal(
-						threadSignal,
-						post.uri,
-						(p: AppBskyFeedDefs.PostView) => ({
-							...p,
-							viewer: { ...p.viewer, repost: repostResultUri },
-							repostCount: (p.repostCount ?? 0) + 1,
-						}),
-					);
-				});
-			}
-		} catch (error: unknown) {
-			console.error("Failed to repost/delete repost:", error);
-			batch(() => {
-				localRepostUri.value = currentRepostUri;
-				localRepostCount.value = originalRepostCount;
-				actionError.value =
-					error instanceof Error
-						? error.message
-						: "Failed to update repost status.";
-			});
-		} finally {
-			isReposting.value = false;
-		}
+	const handleClearSubmitError = () => {
+		replyMutation.reset();
 	};
 
 	return (
 		<div className="mt-1">
 			<div className="flex justify-between gap-4 text-gray-500 text-sm">
-				{post.replyCount !== undefined && (
-					<button
-						onClick={handleReplyClick}
-						className="flex items-center gap-1 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-						aria-label="Reply"
-						title="Reply"
-						disabled={!isLoggedIn}
+				<button
+					onClick={handleReplyClick}
+					className="flex items-center gap-1 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+					aria-label="Reply"
+					title="Reply"
+					disabled={!isLoggedIn}
+				>
+					<Icon name="comment" className="w-3.5 h-3.5" />
+					<span
+						style={{
+							visibility:
+								displayedReplyCount.value === 0 ? "hidden" : "visible",
+						}}
 					>
-						<Icon name="comment" className="w-3.5 h-3.5" />
-						<span style={{ visibility: displayedReplyCount.value === 0 ? 'hidden' : 'visible' }}>
-							{formatCount(displayedReplyCount.value)}
-						</span>
-					</button>
-				)}
-				{post.repostCount !== undefined && (
-					<button
-						onClick={handleRepostClick}
-						className={`flex items-center gap-1 ${localRepostUri.value ? "text-green-500" : "hover:text-green-500"} disabled:opacity-50 disabled:cursor-not-allowed`}
-						aria-label="Repost"
-						title="Repost"
-						disabled={!isLoggedIn || isReposting.value}
+						{formatCount(displayedReplyCount.value)}
+					</span>
+				</button>
+				<button
+					onClick={handleRepostClick}
+					className={`flex items-center gap-1 ${post.viewer?.repost ? "text-green-500" : "hover:text-green-500"} disabled:opacity-50 disabled:cursor-not-allowed`}
+					aria-label="Repost"
+					title="Repost"
+					disabled={!isLoggedIn || repostMutation.isPending}
+				>
+					<Icon name="arrowPath" className="w-3.5 h-3.5" />
+					<span
+						style={{
+							visibility: (post.repostCount ?? 0) === 0 ? "hidden" : "visible",
+						}}
 					>
-						<Icon name="arrowPath" className="w-3.5 h-3.5" />
-						<span style={{ visibility: localRepostCount.value === 0 ? 'hidden' : 'visible' }}>
-							{formatCount(localRepostCount.value)}
-						</span>
-					</button>
-				)}
-				{post.likeCount !== undefined && (
-					<button
-						onClick={handleLikeClick}
-						className={`flex items-center gap-1 ${localLikeUri.value ? "text-[#ec4899]" : "hover:text-[#ec4899]"} disabled:opacity-50 disabled:cursor-not-allowed`}
-						aria-label="Like"
-						title="Like"
-						disabled={!isLoggedIn || isLiking.value}
+						{formatCount(post.repostCount ?? 0)}
+					</span>
+				</button>
+				<button
+					onClick={handleLikeClick}
+					className={`flex items-center gap-1 ${post.viewer?.like ? "text-[#ec4899]" : "hover:text-[#ec4899]"} disabled:opacity-50 disabled:cursor-not-allowed`}
+					aria-label="Like"
+					title="Like"
+					disabled={!isLoggedIn || likeMutation.isPending}
+				>
+					<Icon
+						name={post.viewer?.like ? "heartFilled" : "heart"}
+						className={"w-3.5 h-3.5"}
+					/>
+					<span
+						style={{
+							visibility: (post.likeCount ?? 0) === 0 ? "hidden" : "visible",
+						}}
 					>
-						<Icon
-							name={localLikeUri.value ? "heartFilled" : "heart"}
-							className={"w-3.5 h-3.5"}
-						/>
-						<span style={{ visibility: localLikeCount.value === 0 ? 'hidden' : 'visible' }}>
-							{formatCount(localLikeCount.value)}
-						</span>
-					</button>
-				)}
-				<div/>
+						{formatCount(post.likeCount ?? 0)}
+					</span>
+				</button>
+				<div />
 			</div>
 			{isLoggedIn && isReplying.value && (
 				<ReplyInput
 					onCancel={handleCancelReply}
 					onSubmit={handleSubmitReply}
-					isSubmitting={isSubmitting}
-					submitError={submitError}
+					isSubmitting={computedIsSubmitting}
+					submitError={computedSubmitError}
+					onClearError={handleClearSubmitError}
 				/>
 			)}
-			{actionError.value && (
+			{actionError.value && !replyMutation.error && (
 				<p className="text-red-500 text-xs mt-1">{actionError.value}</p>
 			)}
 		</div>

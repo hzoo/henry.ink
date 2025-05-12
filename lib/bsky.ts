@@ -1,9 +1,9 @@
 import { atCuteState } from '@/site/lib/oauth';
-import { XRPC, CredentialManager } from '@atcute/client';
+import { Client, CredentialManager } from '@atcute/client';
 import type { At } from '@atcute/client/lexicons';
 
 const manager = new CredentialManager({ service: 'https://public.api.bsky.app' });
-const rpc = new XRPC({ handler: manager });
+const rpc = new Client({ handler: manager });
 
 // Calculate engagement score for a post
 function getEngagementScore(post: { likeCount?: number; repostCount?: number; replyCount?: number }) {
@@ -18,21 +18,28 @@ function getEngagementScore(post: { likeCount?: number; repostCount?: number; re
 export async function searchBskyPosts(url: string, options?: { signal?: AbortSignal }) {
   try {
     const params = {
-      q: url,
+      q: '*',
+      url,
       sort: 'top',
     };
 
-    const response = await (atCuteState.value?.xrpc ?? rpc).get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
-    if (response.data.posts) {
-      // Apply our own sorting for 'top' mode
-      return response.data.posts.sort((a, b) => {
-        const scoreA = getEngagementScore(a);
-        const scoreB = getEngagementScore(b);
-        return scoreB - scoreA;
-      });
+    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
+
+    if (!ok) {
+      switch (data.error) {
+        case 'AuthMissing':
+          throw new Error('Bluesky search sometimes requires login due to high load. See:');
+        default:
+          throw new Error(`Error searching Bluesky posts: ${data.error}`);
+      }
     }
-    
-    return response.data.posts;
+
+    // Apply our own sorting for 'top' mode
+    return data.posts.sort((a, b) => {
+      const scoreA = getEngagementScore(a);
+      const scoreB = getEngagementScore(b);
+      return scoreB - scoreA;
+    });
   } catch (error: unknown) {
     // Log the full error object for inspection
     console.error('Caught bsky search error:', JSON.stringify(error, null, 2));
@@ -54,12 +61,16 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
 
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
-    const response = await (atCuteState.value?.xrpc ?? rpc).get('app.bsky.feed.getPostThread', { 
+    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', { 
       params: { uri: uri as At.ResourceUri, depth: options?.depth ?? 1 },
       signal: options?.signal,
     });
 
-    return response.data.thread;
+    if (!ok) {
+      throw new Error(`Error fetching thread: ${data.error}`);
+    }
+
+    return data.thread;
   } catch (error: unknown) {
     if (error instanceof Error && error.name !== 'AbortError') {
       console.error('Error fetching thread:', error);

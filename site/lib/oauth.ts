@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import { XRPC } from "@atcute/client";
+import { Client } from "@atcute/client";
 import {
   configureOAuth,
   createAuthorizationUrl,
@@ -31,7 +31,7 @@ export function initializeOAuth() {
 type AtCuteSessionData = Awaited<ReturnType<typeof finalizeAuthorization>>;
 export interface AtCuteState {
 	agent: OAuthUserAgent;
-	xrpc: XRPC;
+	rpc: Client;
 	session: AtCuteSessionData;
 }
 
@@ -55,9 +55,9 @@ export const useAtCute = () => {
                     history.replaceState(null, "", location.pathname); // Clean URL
                     const session = await finalizeAuthorization(params);
                     const agent = new OAuthUserAgent(session);
-                    const xrpc = new XRPC({ handler: agent });
+                    const rpc = new Client({ handler: agent });
                     if (isMounted) {
-                        atCuteState.value = { agent, xrpc, session };
+                        atCuteState.value = { agent, rpc, session };
                         localStorage.setItem("atcute-oauth:did", session.info.sub);
                         console.log("Web OAuth successful, session established.");
                     }
@@ -84,8 +84,8 @@ export const useAtCute = () => {
 					if (session && isMounted) {
                         console.log("Successfully loaded/refreshed session:", session.info.sub); // Log only sub for brevity
 						const agent = new OAuthUserAgent(session);
-						const xrpc = new XRPC({ handler: agent });
-						atCuteState.value = { agent, xrpc, session };
+						const rpc = new Client({ handler: agent });
+						atCuteState.value = { agent, rpc, session };
 					} else if (!session) {
                         console.warn("getSession returned null (likely refresh failure), clearing potentially invalid session for DID:", persistedDid);
 						localStorage.removeItem("atcute-oauth:did");
@@ -180,8 +180,8 @@ export const startLoginProcess = async (handleOrDid: string) => {
 
             const session = await finalizeAuthorization(params);
             const agent = new OAuthUserAgent(session);
-            const xrpc = new XRPC({ handler: agent });
-            atCuteState.value = { agent, xrpc, session };
+            const rpc = new Client({ handler: agent });
+            atCuteState.value = { agent, rpc, session };
             localStorage.setItem("atcute-oauth:did", session.info.sub);
             console.log("Extension login successful, session established.");
             if (isLoadingSession.peek()) isLoadingSession.value = false; // Ensure loading state is false
