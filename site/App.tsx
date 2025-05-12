@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals";
 import type { FunctionComponent } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
 import {
@@ -89,6 +89,8 @@ export function App() {
 	const CurrentMockComponent = useSignal<FunctionComponent | null>(
 		initialSample.mockComponent ?? null,
 	);
+
+	const mockContainerRef = useRef<HTMLDivElement>(null);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
@@ -225,8 +227,11 @@ export function App() {
 					</div>
 
 					{/* Content Area: Only Mock Component or Placeholder */}
-					<div class="flex-1 border border-dashed rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
-						<span class="absolute top-1 right-2 text-xs text-gray-400 dark:text-gray-600 italic z-10 select-none">
+					<div
+						class="flex-1 border border-dashed rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
+						ref={mockContainerRef}
+					>
+						<span class="absolute top-1 right-2 text-xs text-yellow-400 dark:text-yellow-600 italic z-10 select-none">
 							Mock View
 						</span>
 						{CurrentMockComponent.value ? (
@@ -262,6 +267,7 @@ export function App() {
 					// currentUrl is already managed correctly in loadUrl, so this should be fine.
 					// currentUrl.value = window.location.href; // This would be wrong for inline content
 				}}
+				targetContainerRef={mockContainerRef}
 			/>
 		</div>
 	);
