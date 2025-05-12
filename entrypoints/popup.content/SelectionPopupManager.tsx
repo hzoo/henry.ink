@@ -87,12 +87,14 @@ interface SelectionPopupManagerProps {
 	canShowPopup: () => Promise<boolean> | boolean;
 	popupTitle?: string;
 	sendSelection: () => void;
+	targetContainerRef: React.RefObject<HTMLDivElement>;
 }
 
 const SelectionPopupManager = ({
 	canShowPopup,
 	popupTitle = "Quote",
 	sendSelection,
+	targetContainerRef,
 }: SelectionPopupManagerProps) => {
 	const isVisible = useSignal(false);
 	const position = useSignal({ top: 0, left: 0 });
@@ -113,7 +115,7 @@ const SelectionPopupManager = ({
 			});
 		};
 
-		const onMouseDown = async (event: MouseEvent) => {
+		const onMouseDown = async (event: Event) => {
 			if (popupRef.current?.contains(event.target as Node)) {
 				return;
 			}
@@ -150,7 +152,8 @@ const SelectionPopupManager = ({
 			});
 		};
 
-		document.addEventListener("mousedown", onMouseDown, { signal });
+		// Attach mousedown listener to the target container
+		(targetContainerRef.current || document).addEventListener("mousedown", onMouseDown, { signal });
 
 		return () => {
 			controller.abort();
