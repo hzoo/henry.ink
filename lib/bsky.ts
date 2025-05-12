@@ -1,6 +1,6 @@
 import { atCuteState } from '@/site/lib/oauth';
 import { Client, CredentialManager } from '@atcute/client';
-import type { At } from '@atcute/client/lexicons';
+import type { AppBskyFeedSearchPosts, At } from '@atcute/client/lexicons';
 
 const manager = new CredentialManager({ service: 'https://public.api.bsky.app' });
 const rpc = new Client({ handler: manager });
@@ -15,13 +15,35 @@ function getEngagementScore(post: { likeCount?: number; repostCount?: number; re
   return likes + reposts + replies;
 }
 
+function sortPosts(posts: AppBskyFeedSearchPosts.Output['posts']) {
+  return posts.sort((a, b) => {
+    const scoreA = getEngagementScore(a);
+    const scoreB = getEngagementScore(b);
+    return scoreB - scoreA;
+  });
+}
+
 export async function searchBskyPosts(url: string, options?: { signal?: AbortSignal }) {
   try {
     const params = {
       q: '*',
-      url,
+      url: url as `https://${string}`,
       sort: 'top',
     };
+
+    if (!atCuteState.value?.rpc) {
+      const res = await fetch(import.meta.env.VITE_WORKER_URL, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+
+      if (res.ok) {
+        const data = await res.json() as AppBskyFeedSearchPosts.Output;
+        return sortPosts(data.posts);
+      }
+
+      throw new Error(`Error searching Bluesky posts: ${res.statusText}`);
+    }
 
     const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.searchPosts', { params, signal: options?.signal });
 
@@ -34,25 +56,15 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
       }
     }
 
-    // Apply our own sorting for 'top' mode
-    return data.posts.sort((a, b) => {
-      const scoreA = getEngagementScore(a);
-      const scoreB = getEngagementScore(b);
-      return scoreB - scoreA;
-    });
+    return sortPosts(data.posts);
   } catch (error: unknown) {
-    // Log the full error object for inspection
     console.error('Caught bsky search error:', JSON.stringify(error, null, 2));
     
-    // Only rethrow if it's not an abort error
     if (error instanceof Error && error.name !== 'AbortError') {
-      // Check for specific AuthMissing error
       if (error.message.includes('AuthMissing') || error.message.includes('Authentication Required') || error.message.includes('403')) {
         console.error('Authentication required:', error);
-        // Throw the new, simpler error message
         throw new Error('Bluesky search sometimes requires login due to high load. See:');
       }
-      // If it wasn't the AuthMissing error, log and rethrow the original error
       console.error('Error searching Bluesky posts:', error);
       throw error;
     }
