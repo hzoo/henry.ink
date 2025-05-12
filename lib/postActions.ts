@@ -27,11 +27,11 @@ export async function submitReply(
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
-	if (!state.xrpc) {
-		throw new Error("XRPC client is not available.");
+	if (!state.rpc) {
+		throw new Error("RPC client is not available.");
 	}
 
-	const { session, xrpc } = state;
+	const { session, rpc } = state;
 
 	const parentRef = { uri: post.uri, cid: post.cid };
 	const replyRecord: AppBskyFeedPost.Record = {
@@ -50,10 +50,10 @@ export async function submitReply(
 		record: replyRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
-	// Use the xrpc instance from the global state with the 2-argument pattern
-	return xrpc.call(
+	// Use the rpc instance from the global state with the 2-argument pattern
+	return rpc.post(
 		"com.atproto.repo.createRecord", // nsid
-		{ data: createRecordInput },
+		{ input: createRecordInput },
 	);
 }
 
@@ -69,10 +69,10 @@ export async function likePost(
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
-	if (!state.xrpc) {
-		throw new Error("XRPC client is not available.");
+	if (!state.rpc) {
+		throw new Error("RPC client is not available.");
 	}
-	const { session, xrpc } = state;
+	const { session, rpc } = state;
 
 	const likeRecord = {
 		$type: "app.bsky.feed.like",
@@ -89,12 +89,16 @@ export async function likePost(
 		record: likeRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
-	const response = await xrpc.call("com.atproto.repo.createRecord", {
-		data: createRecordInput,
+	const {ok, data} = await rpc.post("com.atproto.repo.createRecord", {
+		input: createRecordInput,
 	});
 
+	if (!ok) {	
+		throw new Error(`Error liking post: ${data.error}`);
+	}
+
 	// Return the URI of the created like record, useful for unliking
-	return response.data.uri;
+	return data.uri;
 }
 
 /**
@@ -106,10 +110,10 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
-	if (!state.xrpc) {
-		throw new Error("XRPC client is not available.");
+	if (!state.rpc) {
+		throw new Error("RPC client is not available.");
 	}
-	const { session, xrpc } = state;
+	const { session, rpc } = state;
 
 	if (!likeUri) {
 		throw new Error("Like URI is required to unlike a post.");
@@ -127,8 +131,8 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
 		rkey: rkey,
 	};
 
-	return xrpc.call("com.atproto.repo.deleteRecord", {
-		data: deleteRecordInput,
+	return rpc.post("com.atproto.repo.deleteRecord", {
+		input: deleteRecordInput,
 	});
 }
 
@@ -144,10 +148,10 @@ export async function repostPost(
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
-	if (!state.xrpc) {
-		throw new Error("XRPC client is not available.");
+	if (!state.rpc) {
+		throw new Error("RPC client is not available.");
 	}
-	const { session, xrpc } = state;
+	const { session, rpc } = state;
 
 	const repostRecord = {
 		$type: "app.bsky.feed.repost",
@@ -164,12 +168,16 @@ export async function repostPost(
 		record: repostRecord as ComAtprotoRepoCreateRecord.Input["record"],
 	};
 
-	const response = await xrpc.call("com.atproto.repo.createRecord", {
-		data: createRecordInput,
+	const {ok, data} = await rpc.post("com.atproto.repo.createRecord", {
+		input: createRecordInput,
 	});
 
+	if (!ok) {
+		throw new Error(`Error reposting post: ${data.error}`);
+	}
+
 	// Return the URI of the created repost record, useful for deleting the repost
-	return response.data.uri;
+	return data.uri;
 }
 
 /**
@@ -181,10 +189,10 @@ export async function deleteRepost(repostUri: string, state: AtCuteState) {
 	if (!state?.agent || !state?.session) {
 		throw new Error("User is not logged in.");
 	}
-	if (!state.xrpc) {
-		throw new Error("XRPC client is not available.");
+	if (!state.rpc) {
+		throw new Error("RPC client is not available.");
 	}
-	const { session, xrpc } = state;
+	const { session, rpc } = state;
 
 	if (!repostUri) {
 		throw new Error("Repost URI is required to delete a repost.");
@@ -201,7 +209,7 @@ export async function deleteRepost(repostUri: string, state: AtCuteState) {
 		rkey: rkey,
 	};
 
-	return xrpc.call("com.atproto.repo.deleteRecord", {
-		data: deleteRecordInput,
+	return rpc.post("com.atproto.repo.deleteRecord", {
+		input: deleteRecordInput,
 	});
 }

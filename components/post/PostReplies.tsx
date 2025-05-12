@@ -24,12 +24,13 @@ export function PostReplies({
 
   return (
     <>
-      {replies?.map((reply) => (
+      {replies?.map((replyItem) => (
         <CompactPost
-          key={reply.post.cid}
-          post={reply.post}
+          key={replyItem.post.cid}
+          post={replyItem.post}
+          replies={replyItem.replies}
           depth={depth}
-          expanded={isExpanded.value}
+          expanded={true}
           op={op}
           filters={filters}
         />

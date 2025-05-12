@@ -18,6 +18,9 @@ import { MockArxiv } from "@/site/components/mock-pages/MockArxiv";
 import { MockYouTube } from "@/site/components/mock-pages/MockYouTube";
 import { MockGitHub } from "@/site/components/mock-pages/MockGitHub";
 import { MockBlog } from "@/site/components/mock-pages/MockBlog";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+
 // Define the shape of our sample URLs
 interface SampleUrl {
 	name: string;
@@ -243,7 +246,9 @@ export function App() {
 							↓ Extension Sidebar (Actual Bluesky Posts) ↓
 						</span>
 					</div>
-					<Sidebar />
+					<QueryClientProvider client={queryClient}>
+						<Sidebar />
+					</QueryClientProvider>
 				</aside>
 			</div>
 			<SelectionPopupManager

@@ -44,10 +44,15 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
         isFetchingProfile.value = true;
         try {
           await sleep(100);
-          const profile = await currentAtCute.xrpc.get('app.bsky.actor.getProfile', {
+          const {ok, data} = await currentAtCute.rpc.get('app.bsky.actor.getProfile', {
             params: { actor: did },
           });
-          const fetchedHandle = profile?.data?.handle;
+
+          if (!ok) {
+            throw new Error(`Error fetching profile: ${data.error}`);
+          }
+
+          const fetchedHandle = data.handle;
           if (fetchedHandle) {
             userHandle.value = fetchedHandle;
             localStorage.setItem(storageKey, fetchedHandle);
