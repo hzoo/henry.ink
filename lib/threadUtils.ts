@@ -1,6 +1,7 @@
 import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { getPostThread } from "@/lib/bsky";
 import type { ThreadReply } from "@/lib/types";
+import { isRecord } from "@/lib/postActions";
 
 function isThreadViewPost(v: unknown): v is AppBskyFeedDefs.ThreadViewPost {
   return typeof v === 'object' && v !== null &&
@@ -39,4 +40,11 @@ export async function fetchProcessedThread(uri: string, options: { depth?: numbe
   // This allows react-query to handle the error state.
   console.warn(`[API] Thread not found or invalid format for URI: ${uri}. Thread data:`, threadView);
   throw new Error(`Thread not found or invalid format for URI: ${uri}`);
+}
+
+export function getRootPostUri(post: AppBskyFeedDefs.PostView): string {
+	if (isRecord(post.record) && post.record.reply?.root?.uri) {
+		return post.record.reply.root.uri;
+	}
+	return post.uri;
 } 
