@@ -5,6 +5,14 @@ export interface ChangelogEntry {
   
   export const changelogData: ChangelogEntry[] = [
     {
+      version: "0.0.8",
+      changes: [
+        "basic inline image support",
+        "usable when not logged in",
+        "basic filters"
+      ],
+    },
+    {
       version: "0.0.7",
       changes: [
         "when selecting text, show popup to annotate (when sidebar is open) and post to bsky",
