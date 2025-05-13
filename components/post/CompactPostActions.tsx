@@ -1,5 +1,5 @@
-import { batch, useComputed, useSignal } from "@preact/signals-react";
-import type { AppBskyFeedDefs, At } from "@atcute/client/lexicons";
+import { useComputed, useSignal } from "@preact/signals-react";
+import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ReplyInput } from "@/components/post/ReplyInput";
@@ -9,36 +9,14 @@ import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
 import { formatCount } from "@/lib/utils/count";
 import {
 	submitReply,
-	likePost,
-	unlikePost,
-	repostPost,
-	deleteRepost,
-	isRecord,
 } from "@/lib/postActions";
-import type { ThreadReply } from "@/lib/types";
+import { getRootPostUri } from "@/lib/threadUtils";
+
+import { useLike } from "@/hooks/useLike";
+import { useRepost } from "@/hooks/useRepost";
 
 interface CompactPostActionsProps {
 	post: AppBskyFeedDefs.PostView;
-}
-
-interface ProcessedThreadData {
-	post: AppBskyFeedDefs.PostView;
-	replies: ThreadReply[];
-}
-
-interface ActionMutationContext {
-	previousThreadData?: ProcessedThreadData;
-	queryKey: string[];
-}
-
-interface LikeMutationResult {
-	liked: boolean;
-	newLikeUri?: At.ResourceUri;
-}
-
-interface RepostMutationResult {
-	reposted: boolean;
-	newRepostUri?: At.ResourceUri;
 }
 
 interface ReplyMutationVariables {
@@ -47,13 +25,6 @@ interface ReplyMutationVariables {
 
 interface ReplyMutationResult {
 	success: boolean;
-}
-
-function getRootPostUri(post: AppBskyFeedDefs.PostView): string {
-	if (isRecord(post.record) && post.record.reply?.root?.uri) {
-		return post.record.reply.root.uri;
-	}
-	return post.uri;
 }
 
 export function CompactPostActions({ post }: CompactPostActionsProps) {
@@ -66,72 +37,23 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 
 	const displayedReplyCount = useComputed(() => post.replyCount ?? 0);
 
-	const likeMutation = useMutation<
-		LikeMutationResult,
-		Error,
-		void,
-		ActionMutationContext
-	>({
-		mutationFn: async () => {
-			actionError.value = null;
-			const currentState = atCuteState.peek();
-			if (!currentState?.session || !currentState?.rpc) {
-				throw new Error("Login required to like/unlike.");
-			}
-			if (post.viewer?.like) {
-				await unlikePost(post.viewer.like, currentState as AtCuteState);
-				return { liked: false, newLikeUri: undefined };
-			}
-			const likeResultUri = await likePost(post, currentState as AtCuteState);
-			return { liked: true, newLikeUri: likeResultUri };
-		},
-		onError: (err: Error) => {
-			actionError.value = err.message;
-		},
-		onSettled: () => {
-			const rootUri = getRootPostUri(post);
-			const queryKey = ["thread", rootUri];
-			queryClient.invalidateQueries({ queryKey });
-		},
-	});
+	const onErrorCallback = (error: Error) => {
+		actionError.value = error.message;
+	};
 
-	const repostMutation = useMutation<
-		RepostMutationResult,
-		Error,
-		void,
-		ActionMutationContext
-	>({
-		mutationFn: async () => {
-			actionError.value = null;
-			const currentState = atCuteState.peek();
-			if (!currentState?.session || !currentState?.rpc) {
-				throw new Error("Login required to repost/unrepost.");
-			}
-			if (post.viewer?.repost) {
-				await deleteRepost(post.viewer.repost, currentState as AtCuteState);
-				return { reposted: false, newRepostUri: undefined };
-			}
-			const repostResultUri = await repostPost(
-				post,
-				currentState as AtCuteState,
-			);
-			return { reposted: true, newRepostUri: repostResultUri };
-		},
-		onError: (err: Error) => {
-			actionError.value = err.message;
-		},
-		onSettled: () => {
-			const rootUri = getRootPostUri(post);
-			const queryKey = ["thread", rootUri];
-			queryClient.invalidateQueries({ queryKey });
-		},
+	const { liked, likeCount, toggleLike, isPending: isLikePending } = useLike({ 
+		post, 
+		options: { onError: onErrorCallback } 
+	});
+	const { reposted, repostCount, toggleRepost, isPending: isRepostPending } = useRepost({ 
+		post, 
+		options: { onError: onErrorCallback } 
 	});
 
 	const replyMutation = useMutation<
 		ReplyMutationResult,
 		Error,
-		ReplyMutationVariables,
-		void
+		ReplyMutationVariables
 	>({
 		mutationFn: async (variables: ReplyMutationVariables) => {
 			actionError.value = null;
@@ -163,11 +85,13 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 		e.stopPropagation();
 		isReplying.value = !isReplying.value;
 		if (replyMutation.error) replyMutation.reset();
+		actionError.value = null;
 	};
 
 	const handleCancelReply = () => {
 		isReplying.value = false;
 		if (replyMutation.error) replyMutation.reset();
+		actionError.value = null;
 	};
 
 	const handleSubmitReply = async (text: string) => {
@@ -180,18 +104,21 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 
 	const handleLikeClick = (e: MouseEvent) => {
 		e.stopPropagation();
-		if (!isLoggedIn || likeMutation.isPending) return;
-		likeMutation.mutate();
+		if (!isLoggedIn || isLikePending) return;
+		actionError.value = null;
+		toggleLike();
 	};
 
 	const handleRepostClick = (e: MouseEvent) => {
 		e.stopPropagation();
-		if (!isLoggedIn || repostMutation.isPending) return;
-		repostMutation.mutate();
+		if (!isLoggedIn || isRepostPending) return;
+		actionError.value = null;
+		toggleRepost();
 	};
 
 	const handleClearSubmitError = () => {
 		replyMutation.reset();
+		actionError.value = null;
 	};
 
 	return (
@@ -216,37 +143,37 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 				</button>
 				<button
 					onClick={handleRepostClick}
-					className={`flex items-center gap-1 ${post.viewer?.repost ? "text-green-500" : "hover:text-green-500"} disabled:opacity-50 disabled:cursor-not-allowed`}
+					className={`flex items-center gap-1 ${reposted ? "text-green-500" : "hover:text-green-500"} ${isRepostPending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
 					aria-label="Repost"
 					title="Repost"
-					disabled={!isLoggedIn || repostMutation.isPending}
+					disabled={!isLoggedIn || isRepostPending}
 				>
 					<Icon name="arrowPath" className="w-3.5 h-3.5" />
 					<span
 						style={{
-							visibility: (post.repostCount ?? 0) === 0 ? "hidden" : "visible",
+							visibility: (repostCount ?? 0) === 0 ? "hidden" : "visible",
 						}}
 					>
-						{formatCount(post.repostCount ?? 0)}
+						{formatCount(repostCount ?? 0)}
 					</span>
 				</button>
 				<button
 					onClick={handleLikeClick}
-					className={`flex items-center gap-1 ${post.viewer?.like ? "text-[#ec4899]" : "hover:text-[#ec4899]"} disabled:opacity-50 disabled:cursor-not-allowed`}
+					className={`flex items-center gap-1 ${liked ? "text-[#ec4899]" : "hover:text-[#ec4899]"} ${isLikePending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
 					aria-label="Like"
 					title="Like"
-					disabled={!isLoggedIn || likeMutation.isPending}
+					disabled={!isLoggedIn || isLikePending}
 				>
 					<Icon
-						name={post.viewer?.like ? "heartFilled" : "heart"}
+						name={liked ? "heartFilled" : "heart"}
 						className={"w-3.5 h-3.5"}
 					/>
 					<span
 						style={{
-							visibility: (post.likeCount ?? 0) === 0 ? "hidden" : "visible",
+							visibility: (likeCount ?? 0) === 0 ? "hidden" : "visible",
 						}}
 					>
-						{formatCount(post.likeCount ?? 0)}
+						{formatCount(likeCount ?? 0)}
 					</span>
 				</button>
 				<div />
@@ -260,7 +187,7 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 					onClearError={handleClearSubmitError}
 				/>
 			)}
-			{actionError.value && !replyMutation.error && (
+			{actionError.value && !computedSubmitError.value && (
 				<p className="text-red-500 text-xs mt-1">{actionError.value}</p>
 			)}
 		</div>

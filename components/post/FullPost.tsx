@@ -70,7 +70,7 @@ export function FullPost({
 	} = useQuery<ProcessedThreadData, Error>({
 		queryKey: ["thread", finalPostUri],
 		queryFn: () => fetchProcessedThread(finalPostUri!),
-		staleTime: 1000 * 60,
+		staleTime: 1000 * 30,
 	});
 
 	const post = threadData?.post;
@@ -174,7 +174,9 @@ export function FullPost({
 										Reply
 									</a>
 								)}
-								<CollapsePost isExpanded={isExpanded} />
+								{replies && replies.length > 0 && (
+									<CollapsePost isExpanded={isExpanded} />
+								)}
 							</div>
 						</div>
 					</div>
