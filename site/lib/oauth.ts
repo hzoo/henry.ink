@@ -12,7 +12,7 @@ import {
 import { useEffect } from "preact/hooks";
 import { sleep } from "@/lib/utils/sleep";
 
-const isChromeExtension = typeof browser !== 'undefined' && !!browser.runtime?.id;
+const isBrowserExtension = typeof browser !== 'undefined' && !!browser.runtime?.id;
 
 export function initializeOAuth() {
 	if (typeof window !== "undefined") {
@@ -48,7 +48,7 @@ export const useAtCute = () => {
 			initializeOAuth(); // Ensure config is set before getSession/finalize
 
 			// 1. Check if returning from OAuth provider (standard web flow)
-            if (!isChromeExtension && (location.hash.includes("state=") || location.search.includes("code="))) {
+            if (!isBrowserExtension && (location.hash.includes("state=") || location.search.includes("code="))) {
                 try {
                     console.log("Handling web OAuth callback...");
                     const params = new URLSearchParams(location.hash ? location.hash.slice(1) : location.search);
@@ -158,7 +158,7 @@ export const startLoginProcess = async (handleOrDid: string) => {
 			scope: import.meta.env.VITE_OAUTH_SCOPE,
 		});
 
-        if (isChromeExtension) {
+        if (isBrowserExtension) {
             console.log("Launching web auth flow for extension...");
             const finalRedirectUrl = await browser.identity.launchWebAuthFlow({
                 url: authUrl.toString(),

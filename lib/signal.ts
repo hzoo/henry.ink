@@ -36,16 +36,6 @@ export const persistSignal = <T>(
   return data;
 };
 
-  /**
- * Persists a signal in `localStorage`.
- *
- * @param key The key to use when storing and retrieving the value.
- * @param initialValue The initial value of the signal if no persisted value is found.
- * @returns A new signal with the persisted value.
- */
-export const signalL = <T>(key: string, initialValue: T): Signal<T> =>
-    persistSignal(key, initialValue, window.localStorage);
-  
 interface AsyncStorage<T> {
   get(key: string): Promise<{ [key: string]: T }>;
   set(items: { [key: string]: T }): Promise<void>;

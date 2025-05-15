@@ -105,10 +105,7 @@ function renderWhatsNewStep(
 		<div>
 			<h3 className="font-semibold mb-1">
 				What's New (
-				{showWelcome
-					? `Up to v${currentVersion}`
-					: `Since v${lastVersion}`}
-				)
+				{showWelcome ? `Up to v${currentVersion}` : `Since v${lastVersion}`})
 			</h3>
 			<ul className="space-y-2 list-disc list-inside pl-0 text-xs">
 				{changes.map((entry) => (
@@ -285,7 +282,9 @@ export function FirstTimePopup() {
 		return generatedSteps;
 	});
 	const totalSteps = useComputed(() => steps.value.length);
-	const isLastStep = useComputed(() => currentStep.value === totalSteps.value - 1);
+	const isLastStep = useComputed(
+		() => currentStep.value === totalSteps.value - 1,
+	);
 
 	const handleNext = () => {
 		if (!isLastStep.value) {
@@ -298,23 +297,17 @@ export function FirstTimePopup() {
 	if (totalSteps.value === 0) {
 		// This might happen if the user somehow has a future version stored
 		// or if changelogData is empty and lastSeenVersion is not '0.0.0'
-		console.warn(
-			"FirstTimePopup: No steps to display.",
-			{
-				lastVersion: lastSeenVersion.value, // Use reactive value here too
-				currentVersion,
-				hasChanges: relevantChanges.value.length > 0,
-			},
-		);
+		console.warn("FirstTimePopup: No steps to display.", {
+			lastVersion: lastSeenVersion.value, // Use reactive value here too
+			currentVersion,
+			hasChanges: relevantChanges.value.length > 0,
+		});
 		return null;
 	}
 
 	// Handle edge case where currentStep might be out of bounds if stepsContent changes
 	// Though useMemo dependency should handle this by recreating stepsContent
-	if (
-		currentStep.value >= totalSteps.value &&
-		totalSteps.value > 0
-	) {
+	if (currentStep.value >= totalSteps.value && totalSteps.value > 0) {
 		console.warn("FirstTimePopup: currentStep out of bounds, resetting.");
 		currentStep.value = 0;
 	}
@@ -344,14 +337,22 @@ export function FirstTimePopup() {
 						))}
 					</div>
 				)}
-				<button
-					onClick={handleNext}
-					className="w-full px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-				>
-					{isLastStep.value
-						? "Got it!"
-						: `Next (${currentStep.value + 1}/${totalSteps.value})`}
-				</button>
+				<div className="flex justify-between gap-1">
+					<button
+						onClick={handleDismiss}
+						className="px-3 py-1.5 text-sm font-semibold text-white bg-yellow-600 rounded-md hover:bg-yellow-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-yellow-600"
+					>
+						Skip
+					</button>
+					<button
+						onClick={handleNext}
+						className="w-full px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+					>
+						{isLastStep.value
+							? "Got it!"
+							: `Next (${currentStep.value + 1}/${totalSteps.value})`}
+					</button>
+				</div>
 			</div>
 		</div>
 	);
