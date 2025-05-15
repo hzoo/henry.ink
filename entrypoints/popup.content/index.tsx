@@ -2,7 +2,7 @@ import type { ContentScriptContext } from "#imports";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
 import type { ContentScriptPingMessage, ContentScriptSelectionMessage } from "@/lib/messagingTypes";
-import "@/lib/styles.css";
+// import "@/lib/styles.css";
 import SelectionPopupManager from "./SelectionPopupManager";
 
 const pingMessage: ContentScriptPingMessage = {
@@ -35,10 +35,11 @@ function sendSelection() {
 };
 
 export default defineContentScript({
-	matches: ["<all_urls>"],
-	cssInjectionMode: "ui",
+	registration: "runtime",
+	// cssInjectionMode: "ui",
 
 	async main(ctx) {
+		console.log("Creating UI");
 		const ui = await createUi(ctx);
 		ui.mount();
 	},
@@ -46,7 +47,7 @@ export default defineContentScript({
 
 async function createUi(ctx: ContentScriptContext) {
 	const ui = await createShadowRootUi(ctx, {
-		name: "selection-popup-ui",
+		name: "extension-annotation-popup",
 		position: "inline",
 		anchor: "body",
 		append: "first",
