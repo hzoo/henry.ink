@@ -9,7 +9,8 @@ export interface ChangelogEntry {
       changes: [
         "basic inline image support",
         "usable when not logged in",
-        "basic filters"
+        "basic filters",
+        "right click on selection of text to annotate"
       ],
     },
     {

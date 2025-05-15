@@ -2,10 +2,12 @@ import { useSignal, useSignalEffect, useComputed } from "@preact/signals";
 import { quotedSelection, currentUrl } from "@/lib/messaging";
 import { atCuteState } from "@/site/lib/oauth";
 import type {
+	AppBskyActorSearchActors,
 	AppBskyFeedPost,
-	ComAtprotoRepoCreateRecord,
 	AppBskyRichtextFacet,
-} from "@atcute/client/lexicons";
+} from "@atcute/bluesky";
+import type { ComAtprotoRepoCreateRecord } from "@atcute/atproto";
+import { InferInput } from "@atcute/lexicons";
 
 const MAX_CHARS = 300;
 
@@ -47,18 +49,6 @@ export function QuotePopup() {
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
-
-			// Focus and move cursor to the end
-			queueMicrotask(() => {
-				const textarea = document.getElementById("quote-reply-textarea") as HTMLTextAreaElement | null;
-				if (textarea) {
-					textarea.focus();
-					textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
-				}
-			});
-		} else {
-			// Selection cleared, reset userText (optional, depends on desired behavior on close)
-			// userText.value = "";
 		}
 	});
 
@@ -111,21 +101,19 @@ export function QuotePopup() {
 				}
 			}
 
-			const postRecord: Partial<AppBskyFeedPost.Record> = {
+			const postRecord: Partial<AppBskyFeedPost.Main> = {
 				$type: "app.bsky.feed.post",
 				text: fullText,
 				createdAt: new Date().toISOString(),
-				facets: facets as AppBskyFeedPost.Record['facets'],
-			};
-
-			const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
-				repo: session.info.sub,
-				collection: "app.bsky.feed.post",
-				record: postRecord as ComAtprotoRepoCreateRecord.Input["record"],
+				facets: facets as AppBskyFeedPost.Main['facets'],
 			};
 
 			await rpc.post("com.atproto.repo.createRecord", {
-				input: createRecordInput,
+				input: {
+					repo: session.info.sub,
+					collection: "app.bsky.feed.post",
+					record: postRecord,
+				}
 			});
 
 			userText.value = ""; // Clear text on success

@@ -1,9 +1,9 @@
 import { atCuteState } from '@/site/lib/oauth';
-import { Client, CredentialManager } from '@atcute/client';
-import type { AppBskyFeedSearchPosts, At } from '@atcute/client/lexicons';
+import { Client, simpleFetchHandler } from '@atcute/client';
+import type { AppBskyFeedSearchPosts } from '@atcute/bluesky';
+import type { InferOutput, ResourceUri } from "@atcute/lexicons";
 
-const manager = new CredentialManager({ service: 'https://public.api.bsky.app' });
-const rpc = new Client({ handler: manager });
+const rpc = new Client({ handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }) });
 
 // Calculate engagement score for a post
 function getEngagementScore(post: { likeCount?: number; repostCount?: number; replyCount?: number }) {
@@ -15,7 +15,7 @@ function getEngagementScore(post: { likeCount?: number; repostCount?: number; re
   return likes + reposts + replies;
 }
 
-function sortPosts(posts: AppBskyFeedSearchPosts.Output['posts']) {
+function sortPosts(posts: InferOutput<AppBskyFeedSearchPosts.mainSchema['output']['schema']>['posts']) {
   return posts.sort((a, b) => {
     const scoreA = getEngagementScore(a);
     const scoreB = getEngagementScore(b);
@@ -63,7 +63,7 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
         throw new Error(errorMessage);
       }
 
-      const data = await res.json() as AppBskyFeedSearchPosts.Output;
+      const data = await res.json() as InferOutput<AppBskyFeedSearchPosts.mainSchema['output']['schema']>;
       return sortPosts(data.posts);
     }
 
@@ -105,7 +105,7 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
     const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', {
-      params: { uri: uri as At.ResourceUri, depth: options?.depth ?? 1 },
+      params: { uri: uri as ResourceUri, depth: options?.depth ?? 1 },
       signal: options?.signal,
     });
 

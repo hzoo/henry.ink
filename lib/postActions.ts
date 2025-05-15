@@ -1,12 +1,7 @@
 import type { AtCuteState } from "@/site/lib/oauth";
-import type {
-	AppBskyFeedDefs,
-	ComAtprotoRepoCreateRecord,
-	AppBskyFeedPost,
-	ComAtprotoRepoDeleteRecord,
-} from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs, AppBskyFeedPost } from "@atcute/bluesky";
 
-export function isRecord(record: unknown): record is AppBskyFeedPost.Record {
+export function isRecord(record: unknown): record is AppBskyFeedPost.Main {
 	return (
 		typeof record === "object" &&
 		record !== null &&
@@ -34,26 +29,26 @@ export async function submitReply(
 	const { session, rpc } = state;
 
 	const parentRef = { uri: post.uri, cid: post.cid };
-	const replyRecord: AppBskyFeedPost.Record = {
+	const replyRecord: AppBskyFeedPost.Main = {
 		$type: "app.bsky.feed.post",
 		text: text,
 		reply: {
-			root: (post.record as AppBskyFeedPost.Record).reply?.root || parentRef,
+			root: (post.record as AppBskyFeedPost.Main).reply?.root || parentRef,
 			parent: parentRef,
 		},
 		createdAt: new Date().toISOString(),
 	};
 
-	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
-		repo: session.info.sub,
-		collection: "app.bsky.feed.post",
-		record: replyRecord as ComAtprotoRepoCreateRecord.Input["record"],
-	};
-
 	// Use the rpc instance from the global state with the 2-argument pattern
 	return rpc.post(
 		"com.atproto.repo.createRecord", // nsid
-		{ input: createRecordInput },
+		{
+			input: {
+				repo: session.info.sub,
+				collection: "app.bsky.feed.post",
+				record: replyRecord,
+			},
+		},
 	);
 }
 
@@ -83,17 +78,15 @@ export async function likePost(
 		createdAt: new Date().toISOString(),
 	};
 
-	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
-		repo: session.info.sub,
-		collection: "app.bsky.feed.like",
-		record: likeRecord as ComAtprotoRepoCreateRecord.Input["record"],
-	};
-
-	const {ok, data} = await rpc.post("com.atproto.repo.createRecord", {
-		input: createRecordInput,
+	const { ok, data } = await rpc.post("com.atproto.repo.createRecord", {
+		input: {
+			repo: session.info.sub,
+			collection: "app.bsky.feed.like",
+			record: likeRecord,
+		},
 	});
 
-	if (!ok) {	
+	if (!ok) {
 		throw new Error(`Error liking post: ${data.error}`);
 	}
 
@@ -125,14 +118,12 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
 		throw new Error("Could not extract rkey from like URI.");
 	}
 
-	const deleteRecordInput: ComAtprotoRepoDeleteRecord.Input = {
-		repo: session.info.sub,
-		collection: "app.bsky.feed.like",
-		rkey: rkey,
-	};
-
 	return rpc.post("com.atproto.repo.deleteRecord", {
-		input: deleteRecordInput,
+		input: {
+			repo: session.info.sub,
+			collection: "app.bsky.feed.like",
+			rkey: rkey,
+		},
 	});
 }
 
@@ -162,14 +153,12 @@ export async function repostPost(
 		createdAt: new Date().toISOString(),
 	};
 
-	const createRecordInput: ComAtprotoRepoCreateRecord.Input = {
-		repo: session.info.sub,
-		collection: "app.bsky.feed.repost",
-		record: repostRecord as ComAtprotoRepoCreateRecord.Input["record"],
-	};
-
-	const {ok, data} = await rpc.post("com.atproto.repo.createRecord", {
-		input: createRecordInput,
+	const { ok, data } = await rpc.post("com.atproto.repo.createRecord", {
+		input: {
+			repo: session.info.sub,
+			collection: "app.bsky.feed.repost",
+			record: repostRecord,
+		},
 	});
 
 	if (!ok) {
@@ -203,13 +192,11 @@ export async function deleteRepost(repostUri: string, state: AtCuteState) {
 		throw new Error("Could not extract rkey from repost URI.");
 	}
 
-	const deleteRecordInput: ComAtprotoRepoDeleteRecord.Input = {
-		repo: session.info.sub,
-		collection: "app.bsky.feed.repost",
-		rkey: rkey,
-	};
-
 	return rpc.post("com.atproto.repo.deleteRecord", {
-		input: deleteRecordInput,
+		input: {
+			repo: session.info.sub,
+			collection: "app.bsky.feed.repost",
+			rkey: rkey,
+		},
 	});
 }

@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals-react/runtime";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useQuery } from "@tanstack/react-query";
 
 import { PostText } from "@/components/post/PostText";
@@ -43,14 +43,14 @@ export function CompactPost({
 
 	const {
 		data: fetchedRepliesData, // Contains { post: PostView (of this post), replies: ThreadReply[] (children of this post) }
-		isLoading: repliesAreLoading,
 		error: repliesError,
 	} = useQuery<ProcessedThreadData, Error>({
 		queryKey: ['thread', post.uri, 'repliesOnly'], // queryKey indicates we are fetching children for post.uri
-		queryFn: () => fetchProcessedThread(post.uri), // Fetches this post AND its replies
-		// Only fetch if this specific post is expanded AND its replies were NOT provided via props.
+		queryFn: () => {
+			return fetchProcessedThread(post.uri);
+		},
 		enabled: isExpanded.value && initialReplies === undefined,
-		staleTime: 1000 * 30, // 30 seconds
+		staleTime: 1000 * 60,
 	});
 
 	if (applyFilters(post, filters)) {
@@ -103,9 +103,7 @@ export function CompactPost({
 			{isExpanded.value && (
 				<>
 					{/* Show loading/error only if we are the ones fetching (initialReplies was undefined) */}
-					{initialReplies === undefined && repliesAreLoading && <div className="pl-1 pt-1 text-xs text-gray-400">Loading replies...</div>}
 					{initialReplies === undefined && repliesError && <div className="pl-1 pt-1 text-xs text-red-500">Error: {repliesError.message}</div>}
-					
 					{actualReplies && actualReplies.length > 0 && (
 						<PostReplies 
 							replies={actualReplies} 

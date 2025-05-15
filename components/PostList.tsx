@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { FullPost } from "./post/FullPost";
 import type { PostFilter } from "@/lib/postFilters";
 import { Filters } from "@/lib/postFilters";

@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { effect, signal } from "@preact/signals";
 import { currentUrl } from "./messaging";
 import { isSearchableUrl } from "./messaging";
