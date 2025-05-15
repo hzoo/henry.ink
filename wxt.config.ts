@@ -20,6 +20,10 @@ export default defineConfig({
       // https://developer.chrome.com/docs/extensions/reference/api/sidePanel
       ...(env.browser === "chrome" ? ['sidePanel'] : []),
       'identity',
+      'scripting',
+    ],
+    optional_host_permissions: [
+      'https://*/*', 'http://*/*',
     ],
     action: {}, // Required for sidepanel to open on action click
     commands: {

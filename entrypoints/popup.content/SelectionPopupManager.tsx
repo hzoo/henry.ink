@@ -87,7 +87,7 @@ interface SelectionPopupManagerProps {
 	canShowPopup: () => Promise<boolean> | boolean;
 	popupTitle?: string;
 	sendSelection: () => void;
-	targetContainerRef: React.RefObject<HTMLDivElement>;
+	targetContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 const SelectionPopupManager = ({
@@ -153,7 +153,7 @@ const SelectionPopupManager = ({
 		};
 
 		// Attach mousedown listener to the target container
-		(targetContainerRef.current || document).addEventListener("mousedown", onMouseDown, { signal });
+		(targetContainerRef?.current || document).addEventListener("mousedown", onMouseDown, { signal });
 
 		return () => {
 			controller.abort();
