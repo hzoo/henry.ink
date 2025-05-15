@@ -47,18 +47,6 @@ export function QuotePopup() {
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
-
-			// Focus and move cursor to the end
-			queueMicrotask(() => {
-				const textarea = document.getElementById("quote-reply-textarea") as HTMLTextAreaElement | null;
-				if (textarea) {
-					textarea.focus();
-					textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
-				}
-			});
-		} else {
-			// Selection cleared, reset userText (optional, depends on desired behavior on close)
-			// userText.value = "";
 		}
 	});
 
