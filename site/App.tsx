@@ -11,7 +11,6 @@ import {
 import { whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
-import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MockExampleCom } from "@/site/components/mock-pages/ExampleCom";
 import { MockWikipedia } from "@/site/components/mock-pages/MockWikipedia";
 import { MockArxiv } from "@/site/components/mock-pages/MockArxiv";
@@ -256,19 +255,6 @@ export function App() {
 					</QueryClientProvider>
 				</aside>
 			</div>
-			<SelectionPopupManager
-				canShowPopup={() => Promise.resolve(true)}
-				popupTitle="Quote"
-				sendSelection={() => {
-					const selection = window.getSelection()?.toString();
-					if (!selection) return;
-					quotedSelection.value = selection;
-					// For inline content, we need to ensure currentUrl still reflects the *original* URL
-					// currentUrl is already managed correctly in loadUrl, so this should be fine.
-					// currentUrl.value = window.location.href; // This would be wrong for inline content
-				}}
-				targetContainerRef={mockContainerRef}
-			/>
 		</div>
 	);
 }

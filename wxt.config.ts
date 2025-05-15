@@ -20,6 +20,7 @@ export default defineConfig({
       // https://developer.chrome.com/docs/extensions/reference/api/sidePanel
       ...(env.browser === "chrome" ? ['sidePanel'] : []),
       'identity',
+      'contextMenus',
     ],
     action: {}, // Required for sidepanel to open on action click
     commands: {

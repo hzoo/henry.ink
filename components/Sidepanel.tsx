@@ -1,13 +1,18 @@
 import { render } from "preact";
 import { Sidebar } from "@/components/Sidebar";
 import { currentUrl, quotedSelection } from "@/lib/messaging";
-import type { BackgroundScriptMessage, SidepanelMessage } from "@/lib/messagingTypes";
 import "@/lib/styles.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
 let activeTabId: number | undefined;
 let extensionWindowId: number | undefined;
+
+interface ContentScriptSelectionMessage {
+	type: "SELECTION";
+	from: "content";
+	data: { selection: string };
+}
 
 export async function setupTabListener() {
 	try {
@@ -47,12 +52,9 @@ export async function setupTabListener() {
 		});
 
 		// Listen for messages from the content script
-		browser.runtime.onMessage.addListener((message: BackgroundScriptMessage) => {
-			if (message.from === "content") {
-				// Handle QUOTE_SELECTION specifically if needed in background/sidepanel
-				if (message.type === "SELECTION") {
-					quotedSelection.value = message.data.selection || null;
-				}
+		browser.runtime.onMessage.addListener((message: ContentScriptSelectionMessage) => {
+			if (message.from === "content" && message.type === "SELECTION") {
+				quotedSelection.value = message.data.selection || null;
 			}
 		});
 	} catch (error) {
@@ -61,13 +63,6 @@ export async function setupTabListener() {
 }
 
 setupTabListener();
-
-browser.runtime.onMessage.addListener((message: SidepanelMessage, sender: Browser.runtime.MessageSender, sendResponse: (response?: object) => void) => {
-	if (message.type === "PING_SIDEPANEL") {
-		sendResponse({ type: "PONG_SIDEPANEL", from: "sidepanel" });
-		return true;
-	}
-});
 
 function App() {
 	return (
