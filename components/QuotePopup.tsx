@@ -7,7 +7,6 @@ import type {
 	AppBskyRichtextFacet,
 } from "@atcute/client/lexicons";
 
-const DRAFT_STORAGE_KEY = "quote_reply_draft";
 const MAX_CHARS = 300;
 
 function handleClose() {
@@ -60,16 +59,6 @@ export function QuotePopup() {
 		} else {
 			// Selection cleared, reset userText (optional, depends on desired behavior on close)
 			// userText.value = "";
-		}
-	});
-
-	// Save draft whenever userText changes *while* a selection is active
-	useSignalEffect(() => {
-		if (quotedSelection.value) { // Only save if the popup is conceptually "open"
-			localStorage.setItem(DRAFT_STORAGE_KEY, userText.value);
-		} else {
-			// Optional: Clear draft when selection is cleared/popup closes
-			// localStorage.removeItem(DRAFT_STORAGE_KEY);
 		}
 	});
 
@@ -140,7 +129,6 @@ export function QuotePopup() {
 			});
 
 			userText.value = ""; // Clear text on success
-			localStorage.removeItem(DRAFT_STORAGE_KEY); // Clear draft on success
 			handleClose();
 
 		} catch (err) {
