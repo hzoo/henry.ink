@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 export type PostFilter = (post: AppBskyFeedDefs.PostView) => boolean;
 
