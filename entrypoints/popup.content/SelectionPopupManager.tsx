@@ -16,7 +16,7 @@ const calculatePopupPosition = (
 	if (
 		!selection ||
 		selection.rangeCount === 0 ||
-		selection.toString().trim().length === 0
+		!selection.toString().trim().includes(" ")
 	) {
 		return null;
 	}
@@ -111,6 +111,8 @@ const SelectionPopupManager = ({
 				if (newPos) {
 					isVisible.value = true;
 					position.value = newPos;
+				} else {
+					isVisible.value = false;
 				}
 			});
 		};
