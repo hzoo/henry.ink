@@ -1,6 +1,8 @@
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
+import type { ResourceUri } from "@atcute/lexicons";
+
 import { useState, useEffect } from "preact/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AppBskyFeedDefs, At } from "@atcute/client/lexicons";
 
 import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
 import { repostPost, deleteRepost } from "@/lib/postActions";
@@ -29,7 +31,7 @@ export function useRepost({ post, options }: UseRepostProps) {
     (post.repostCount || 0);
 
   const mutation = useMutation<
-    { uri?: At.ResourceUri },
+    { uri?: ResourceUri },
     Error
   >({
     mutationFn: async () => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AppBskyFeedDefs, At } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
+import type { ResourceUri } from "@atcute/lexicons";
 
 import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
 import { likePost, unlikePost } from "@/lib/postActions";
@@ -28,7 +29,7 @@ export function useLike({ post, options }: UseLikeProps) {
     (liked ? 1 : 0) - (post.viewer?.like ? 1 : 0) + (post.likeCount || 0);
 
   const mutation = useMutation<
-    { uri?: At.ResourceUri },
+    { uri?: ResourceUri },
     Error
   >({
     mutationFn: async () => {

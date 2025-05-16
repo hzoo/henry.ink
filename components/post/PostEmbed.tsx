@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { getPost } from "@/lib/utils/postUrls";
 
 export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {

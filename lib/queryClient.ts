@@ -1,18 +1,19 @@
 import { QueryClient } from '@tanstack/react-query';
-import { persistQueryClient } from '@tanstack/react-query-persist-client';
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { experimental_createQueryPersister } from '@tanstack/react-query-persist-client';
 
-export const queryClient = new QueryClient();
-
-const localStoragePersister = createSyncStoragePersister({
+export const appPersister = experimental_createQueryPersister({
   storage: window.localStorage,
-  key: 'bsky-search', // Optional: customize the localStorage key
-  throttleTime: 1000,
+  prefix: 'bsky-search-experimental',
+  maxAge: 1000 * 60 * 60 * 24 * 7,
 });
 
-persistQueryClient({
-  queryClient,
-  persister: localStoragePersister,
-  maxAge: Number.POSITIVE_INFINITY, // Persist data indefinitely
-  // You might also consider a dehydrate/hydrate options here if needed later for complex data types
-}); 
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 0,
+      gcTime: 1000 * 60 * 60 * 24 * 7,
+      staleTime: Number.POSITIVE_INFINITY,
+      persister: appPersister.persisterFn,
+    },
+  },
+});

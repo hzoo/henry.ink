@@ -2,7 +2,6 @@
 
 import { Client, CredentialManager } from '@atcute/client';
 import type { AtpSessionData } from '@atcute/client';
-import type { AppBskyFeedSearchPosts } from '@atcute/client/lexicons';
 
 export interface Env {
   BLUESKY_IDENTIFIER: string;
@@ -13,7 +12,7 @@ export interface Env {
 const SESSION_KV_KEY = 'bluesky_bot_session';
 
 const allowedOrigins = [
-  'http://127.0.0.0:3003',
+  'http://127.0.0.1:3003',
   'https://annotation-demo.henryzoo.com',
   'https://annotation-sidebar-demo.pages.dev',
   'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni'

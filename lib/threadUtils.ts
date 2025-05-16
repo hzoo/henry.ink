@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { getPostThread } from "@/lib/bsky";
 import type { ThreadReply } from "@/lib/types";
 import { isRecord } from "@/lib/postActions";

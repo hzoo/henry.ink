@@ -20,24 +20,27 @@
     "deploy:w": "bunx wrangler deploy"
   },
   "dependencies": {
-    "@atcute/bluesky": "^2.1.1",
-    "@atcute/bluesky-richtext-segmenter": "^2.0.0",
-    "@atcute/client": "^3.1.0",
-    "@atcute/oauth-browser-client": "^1.0.18",
+    "@atcute/atproto": "^3.0.0",
+    "@atcute/bluesky": "^3.0.0",
+    "@atcute/bluesky-richtext-segmenter": "^2.0.1",
+    "@atcute/client": "^4.0.0",
+    "@atcute/lexicons": "^1.0.0",
+    "@atcute/oauth-browser-client": "^1.0.19",
     "@preact/signals": "^2.0.4",
     "@preact/signals-react": "^3.0.1",
-    "@tailwindcss/vite": "^4.1.5",
-    "@tanstack/query-sync-storage-persister": "^5.75.5",
-    "@tanstack/react-query": "^5.75.5",
-    "@tanstack/react-query-persist-client": "^5.75.5",
+    "@tailwindcss/vite": "^4.1.7",
+    "@tanstack/query-persist-client-core": "^5.76.1",
+    "@tanstack/query-sync-storage-persister": "^5.76.1",
+    "@tanstack/react-query": "^5.76.1",
+    "@tanstack/react-query-persist-client": "^5.76.1",
     "preact": "^10.26.6"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
-    "@types/bun": "^1.2.12",
-    "@types/chrome": "^0.0.320",
+    "@types/bun": "^1.2.13",
+    "@types/chrome": "^0.0.322",
     "typescript": "^5.8.3",
-    "vite-plugin-dts": "^4.5.3",
+    "vite-plugin-dts": "^4.5.4",
     "vite-plugin-svgr": "^4.3.0",
     "wxt": "^0.20.6"
   }

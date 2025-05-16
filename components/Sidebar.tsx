@@ -4,18 +4,16 @@ import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
 import { EmptyList } from "@/components/EmptyList";
-import { cacheTimeAgo } from "@/lib/signals";
+import { cacheTimeAgo, type ErrorState } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
 import { PostList } from "@/components/PostList";
 import { searchBskyPosts } from "@/lib/bsky";
 import { FirstTimePopup } from "@/components/FirstTimePopup";
 import { QuotePopup } from "./QuotePopup";
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { useAtCute } from "@/site/lib/oauth";
-
-// Type for ErrorMessage prop
-export type ErrorMessageType = string | { message: string; link: string };
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 // Constants for error handling
 const MY_AUTH_ERROR_MESSAGE = "Bluesky search sometimes requires login due to high load. See:";
@@ -32,17 +30,21 @@ function SidebarBody() {
 		isError: queryIsError,
 		error: queryError,
 		dataUpdatedAt,
-	} = useQuery({
+	} = useQuery<AppBskyFeedDefs.PostView[] | undefined>({
 		queryKey: ['posts', currentUrl.value],
 		queryFn: async ({ signal }) => {
 			if (!currentUrl.value) return [];
+			// console.log("[Sidebar] fetching posts");
 			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
 		},
 		enabled: isSearchableUrl.value && autoFetchEnabled.value && isWhitelisted.value,
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,
-		retry: (failureCount, err) => !err?.message?.startsWith(MY_AUTH_ERROR_MESSAGE) && failureCount < 3,
 	});
+
+	useEffect(() => {
+		cacheTimeAgo.value = dataUpdatedAt || null;
+	}, [dataUpdatedAt]);
 
 	useSignalEffect(() => {
 		const currentKey = currentUrl.value;
@@ -53,7 +55,6 @@ function SidebarBody() {
 		}
 		prevQueryKey.current = currentKey;
 		prevErrorInstance.current = queryError;
-		cacheTimeAgo.value = dataUpdatedAt || null;
 	});
 
 	return (
@@ -65,8 +66,8 @@ function SidebarBody() {
 					<ErrorMessage
 						message={
 							queryError?.message?.startsWith(MY_AUTH_ERROR_MESSAGE)
-								? { message: MY_AUTH_ERROR_MESSAGE, link: AUTH_ERROR_LINK }
-								: queryError?.message || "Failed to fetch posts"
+								? { message: MY_AUTH_ERROR_MESSAGE, link: AUTH_ERROR_LINK } as ErrorState
+								: (queryError?.message || "Failed to fetch posts") as string
 						}
 						onDismiss={() => userDismissedError.value = true}
 					/>
