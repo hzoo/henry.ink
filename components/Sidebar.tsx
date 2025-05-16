@@ -34,7 +34,6 @@ function SidebarBody() {
 		queryKey: ['posts', currentUrl.value],
 		queryFn: async ({ signal }) => {
 			if (!currentUrl.value) return [];
-			// console.log("[Sidebar] fetching posts");
 			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
 		},
 		enabled: isSearchableUrl.value && autoFetchEnabled.value && isWhitelisted.value,

@@ -3,6 +3,7 @@ import {
 	autoFetchEnabled,
 	addDomainToWhitelist,
 	removeDomainFromWhitelist,
+	showQuotePopupOnSelection,
 } from "@/lib/settings";
 import { WhitelistedSitesManager } from "./WhitelistedSitesManager";
 import { currentDomain, isWhitelisted } from "@/lib/messaging";
@@ -10,6 +11,10 @@ import { Icon } from "@/components/Icon";
 
 const handleAutoFetchToggle = () => {
 	autoFetchEnabled.value = !autoFetchEnabled.value;
+};
+
+const handleShowQuotePopupToggle = () => {
+	showQuotePopupOnSelection.value = !showQuotePopupOnSelection.value;
 };
 
 export function BlueskySettings() {
@@ -103,6 +108,39 @@ export function BlueskySettings() {
 						</div>
 					</div>
 				)}
+
+				{/* New toggle for showQuotePopupOnSelection */}
+				<div className="flex items-center justify-between mb-2 gap-1 pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+					<div>
+						<label
+							htmlFor="show-quote-popup"
+							className="text-sm font-medium text-gray-900 dark:text-gray-100"
+						>
+							Show quote popup on selection
+						</label>
+						<p className="text-xs text-gray-500 dark:text-gray-400">
+							{showQuotePopupOnSelection.value
+								? "Popup will show on text selection"
+								: "Popup will not show on text selection"}
+						</p>
+					</div>
+					<label className="relative inline-flex items-center cursor-pointer">
+						<input
+							type="checkbox"
+							id="show-quote-popup"
+							className="sr-only"
+							checked={showQuotePopupOnSelection.value}
+							onChange={handleShowQuotePopupToggle}
+						/>
+						<div
+							className={`w-9 h-5 rounded-full transition ${showQuotePopupOnSelection.value
+								? "bg-green-600"
+								: "bg-gray-300 dark:bg-gray-600"
+							} after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${showQuotePopupOnSelection.value ? "after:translate-x-4" : ""
+							}`}
+						/>
+					</label>
+				</div>
 			</div>
 
 			{/* Whitelisted Sites Manager Modal */}
