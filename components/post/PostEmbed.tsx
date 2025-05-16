@@ -35,9 +35,9 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 	const lightboxImage = useSignal<string | null>(null);
 
 	const openLightbox = (imageUrl: string) => {
-		// Prefer fullsize for lightbox if available
-		const imageToOpen = content.images.find(img => img.fullsize === imageUrl || img.thumb === imageUrl);
-		lightboxImage.value = imageToOpen?.fullsize || imageUrl; // Fallback to passed URL if fullsize not found
+		// Prefer thumb for lightbox if available
+		const imageToOpen = content.images.find(img => img.thumb === imageUrl);
+		lightboxImage.value = imageToOpen?.thumb || imageUrl; // Fallback to passed URL if thumb not found
 		lightboxOpen.value = true;
 	};
 
@@ -74,7 +74,7 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 						src={img.thumb} // Use thumb for preview
 						alt={img.alt}
 						className="w-full h-auto object-cover max-h-[500px] cursor-pointer"
-						onClick={() => openLightbox(img.fullsize || img.thumb)}
+						onClick={() => openLightbox(img.thumb)}
 					/>
 				</div>
 				{renderLightbox()}
@@ -91,7 +91,7 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 							src={image.thumb}
 							alt={image.alt}
 							className="aspect-[1/1] w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(image.fullsize || image.thumb)}
+							onClick={() => openLightbox(image.thumb)}
 						/>
 					))}
 				</div>
@@ -109,7 +109,7 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 							src={content.images[0].thumb}
 							alt={content.images[0].alt}
 							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[0].fullsize || content.images[0].thumb)}
+							onClick={() => openLightbox(content.images[0].thumb)}
 						/>
 					</div>
 					<div className="col-span-1 row-span-1">
@@ -117,7 +117,7 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 							src={content.images[1].thumb}
 							alt={content.images[1].alt}
 							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[1].fullsize || content.images[1].thumb)}
+							onClick={() => openLightbox(content.images[1].thumb)}
 						/>
 					</div>
 					<div className="col-span-1 row-span-1">
@@ -125,7 +125,7 @@ function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
 							src={content.images[2].thumb}
 							alt={content.images[2].alt}
 							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[2].fullsize || content.images[2].thumb)}
+							onClick={() => openLightbox(content.images[2].thumb)}
 						/>
 					</div>
 				</div>
@@ -249,6 +249,8 @@ function VideoEmbed({ content }: { content: import("@atcute/bluesky").AppBskyEmb
 export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	const { embed } = post; // Destructure for convenience
 	if (!embed) return null;
+
+	console.log("embed", embed);
 
 	// Case 1: Image Embed
 	if (is(AppBskyEmbedImages.viewSchema, embed)) {
