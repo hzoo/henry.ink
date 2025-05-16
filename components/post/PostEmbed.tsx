@@ -2,6 +2,7 @@ import { type AppBskyFeedDefs, AppBskyEmbedImages, AppBskyEmbedRecord, AppBskyEm
 import { is } from "@atcute/lexicons";
 import { getPost } from "@/lib/utils/postUrls";
 import { currentUrl } from "@/lib/messaging";
+import { useSignal } from "@preact/signals-react/runtime";
 
 // Helper component for informational messages (can be moved to a separate file later)
 function Info({ children }: { children: React.ReactNode }) {
@@ -29,78 +30,125 @@ function normalizeUrl(url: string): string {
 
 // Image Embed Component (adapted from example)
 function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
-	// For now, we won't implement labelInfo, but it's good to be aware of.
-	// const labelInfo = useMemo(() => labelsToInfo(labels), [labels]);
-	// if (labelInfo) {
-	//   return <Info>{labelInfo}</Info>;
-	// }
-
 	const imageCount = content.images.length;
+	const lightboxOpen = useSignal(false);
+	const lightboxImage = useSignal<string | null>(null);
+
+	const openLightbox = (imageUrl: string) => {
+		// Prefer fullsize for lightbox if available
+		const imageToOpen = content.images.find(img => img.fullsize === imageUrl || img.thumb === imageUrl);
+		lightboxImage.value = imageToOpen?.fullsize || imageUrl; // Fallback to passed URL if fullsize not found
+		lightboxOpen.value = true;
+	};
+
+	const closeLightbox = () => {
+		lightboxOpen.value = false;
+		lightboxImage.value = null;
+	};
+
+	const renderLightbox = () => {
+		if (lightboxOpen.value && lightboxImage.value) {
+			return (
+				<div
+					className="fixed inset-0 bg-white dark:bg-black flex items-center justify-center z-50 p-4"
+					onClick={closeLightbox}
+				>
+					<img
+						src={lightboxImage.value}
+						alt="Enlarged view"
+						className="max-w-full max-h-full object-contain rounded-md shadow-lg"
+						onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+					/>
+				</div>
+			);
+		}
+		return null;
+	};
 
 	if (imageCount === 1) {
+		const img = content.images[0];
 		return (
-			<div className="mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-				<img
-					src={content.images[0].fullsize || content.images[0].thumb} // Prefer fullsize
-					alt={content.images[0].alt}
-					className="w-full h-auto object-cover max-h-[500px]" // Max height to prevent huge images
-				/>
-			</div>
+			<>
+				<div className="mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+					<img
+						src={img.thumb} // Use thumb for preview
+						alt={img.alt}
+						className="w-full h-auto object-cover max-h-[500px] cursor-pointer"
+						onClick={() => openLightbox(img.fullsize || img.thumb)}
+					/>
+				</div>
+				{renderLightbox()}
+			</>
 		);
 	}
 	if (imageCount === 2) {
 		return (
-			<div className="mt-2 grid grid-cols-2 gap-1 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-				{content.images.map((image, i) => (
-					<img
-						key={image.thumb || i} // Use thumb as key, fallback to index
-						src={image.thumb} // Thumbnails are fine for multi-image layouts
-						alt={image.alt}
-						className="aspect-[1/1] w-full h-full object-cover" // Square aspect ratio for 2 images
-					/>
-				))}
-			</div>
+			<>
+				<div className="mt-2 grid grid-cols-2 gap-1 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+					{content.images.map((image, i) => (
+						<img
+							key={image.thumb || i}
+							src={image.thumb}
+							alt={image.alt}
+							className="aspect-[1/1] w-full h-full object-cover cursor-pointer"
+							onClick={() => openLightbox(image.fullsize || image.thumb)}
+						/>
+					))}
+				</div>
+				{renderLightbox()}
+			</>
 		);
 	}
 	if (imageCount === 3) {
+		// Reverting to a structure that works well for 3 images with specific spans
 		return (
-			<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-[4/3] border border-slate-200 dark:border-slate-700">
-				<div className="col-span-1 row-span-2">
-					<img
-						src={content.images[0].thumb}
-						alt={content.images[0].alt}
-						className="w-full h-full object-cover"
-					/>
+			<>
+				<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-[4/3] border border-slate-200 dark:border-slate-700">
+					<div className="col-span-1 row-span-2">
+						<img
+							src={content.images[0].thumb}
+							alt={content.images[0].alt}
+							className="w-full h-full object-cover cursor-pointer"
+							onClick={() => openLightbox(content.images[0].fullsize || content.images[0].thumb)}
+						/>
+					</div>
+					<div className="col-span-1 row-span-1">
+						<img
+							src={content.images[1].thumb}
+							alt={content.images[1].alt}
+							className="w-full h-full object-cover cursor-pointer"
+							onClick={() => openLightbox(content.images[1].fullsize || content.images[1].thumb)}
+						/>
+					</div>
+					<div className="col-span-1 row-span-1">
+						<img
+							src={content.images[2].thumb}
+							alt={content.images[2].alt}
+							className="w-full h-full object-cover cursor-pointer"
+							onClick={() => openLightbox(content.images[2].fullsize || content.images[2].thumb)}
+						/>
+					</div>
 				</div>
-				<div className="col-span-1 row-span-1">
-					<img
-						src={content.images[1].thumb}
-						alt={content.images[1].alt}
-						className="w-full h-full object-cover"
-					/>
-				</div>
-				<div className="col-span-1 row-span-1">
-					<img
-						src={content.images[2].thumb}
-						alt={content.images[2].alt}
-						className="w-full h-full object-cover"
-					/>
-				</div>
-			</div>
+				{renderLightbox()}
+			</>
 		);
 	}
 	if (imageCount >= 4) {
 		return (
-			<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-square border border-slate-200 dark:border-slate-700">
-				{content.images.slice(0, 4).map((image, i) => (
-					<img
-						key={image.thumb || i} // Use thumb as key, fallback to index
-						src={image.thumb}
-						alt={image.alt}
-						className="w-full h-full object-cover"
-					/>
-				))}
-			</div>
+			<>
+				<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-square border border-slate-200 dark:border-slate-700">
+					{content.images.slice(0, 4).map((image, i) => (
+						<img
+							key={image.thumb || i}
+							src={image.thumb}
+							alt={image.alt}
+							className="w-full h-full object-cover cursor-pointer"
+							onClick={() => openLightbox(image.fullsize || image.thumb)}
+						/>
+					))}
+				</div>
+				{renderLightbox()}
+			</>
 		);
 	}
 	return null;

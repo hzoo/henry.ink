@@ -8,7 +8,8 @@ export interface ChangelogEntry {
       version: "0.0.9",
       changes: [
         "right click on selection of text to annotate",
-        "fix cache"
+        "fix cache",
+        "additional embed support"
       ],
     },
     {
