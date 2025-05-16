@@ -250,8 +250,6 @@ export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	const { embed } = post; // Destructure for convenience
 	if (!embed) return null;
 
-	console.log("embed", embed);
-
 	// Case 1: Image Embed
 	if (is(AppBskyEmbedImages.viewSchema, embed)) {
 		return <ImageEmbed content={embed} />;

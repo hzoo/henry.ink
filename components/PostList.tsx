@@ -8,7 +8,10 @@ export interface PostListProps {
 }
 
 const filters: PostFilter[] = [
+  // Filters.MinInteractionCount(1),
   Filters.NoPins,
+  Filters.MaxTags(3),
+  Filters.BotPost,
 ];
 
 export function PostList({ posts }: PostListProps) {
