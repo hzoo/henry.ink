@@ -1,4 +1,4 @@
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { Signal } from "@preact/signals";
 import type { PostFilter } from "./postFilters";
 

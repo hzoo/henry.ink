@@ -1,5 +1,5 @@
 import { Fragment, type JSX } from "preact";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { segmentize, type FacetFeature } from "@atcute/bluesky-richtext-segmenter";
 
 import { isRecord } from "@/lib/postActions";

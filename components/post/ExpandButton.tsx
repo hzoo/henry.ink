@@ -1,5 +1,5 @@
 import type { Signal } from "@preact/signals-core";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useComputed } from "@preact/signals-react";
 
 import { hoveredCollapsePostUri } from "@/lib/signals";

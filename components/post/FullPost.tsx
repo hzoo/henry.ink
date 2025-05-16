@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { useQuery } from "@tanstack/react-query";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 import { PostReplies } from "@/components/post/PostReplies";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
@@ -69,8 +69,10 @@ export function FullPost({
 		error,
 	} = useQuery<ProcessedThreadData, Error>({
 		queryKey: ["thread", finalPostUri],
-		queryFn: () => fetchProcessedThread(finalPostUri!),
-		staleTime: 1000 * 30,
+		queryFn: () => {
+			return fetchProcessedThread(finalPostUri!);
+		},
+		staleTime: 1000 * 60,
 	});
 
 	const post = threadData?.post;
@@ -79,7 +81,7 @@ export function FullPost({
 	const isExpanded = useSignal(true);
 
 	if (isLoading) {
-		return <div className="p-4 text-center text-gray-500">Loading post...</div>;
+		return null;
 	}
 
 	if (error) {

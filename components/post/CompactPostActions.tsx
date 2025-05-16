@@ -1,5 +1,5 @@
 import { useComputed, useSignal } from "@preact/signals-react";
-import type { AppBskyFeedDefs } from "@atcute/client/lexicons";
+import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ReplyInput } from "@/components/post/ReplyInput";

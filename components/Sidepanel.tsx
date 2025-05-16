@@ -2,8 +2,8 @@ import { render } from "preact";
 import { Sidebar } from "@/components/Sidebar";
 import { currentUrl, quotedSelection } from "@/lib/messaging";
 import "@/lib/styles.css";
+import { queryClient, appPersister } from "@/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
 
 let activeTabId: number | undefined;
 let extensionWindowId: number | undefined;
@@ -25,13 +25,9 @@ export async function setupTabListener() {
 			currentUrl.value = tab.url;
 		}
 		
-		// Listen for tab changes - only in our window
 		browser.tabs.onActivated.addListener(async (activeInfo: Browser.tabs.TabActiveInfo) => {
-			// Only process if this is in our window
 			if (activeInfo.windowId === extensionWindowId) {
 				activeTabId = activeInfo.tabId;
-				
-				// Get the tab details
 				const tab = await browser.tabs.get(activeInfo.tabId);
 				if (tab.url) {
 					currentUrl.value = tab.url;
@@ -43,15 +39,12 @@ export async function setupTabListener() {
 			}
 		});
 		
-		// Listen for URL changes
 		browser.tabs.onUpdated.addListener((tabId: number, changeInfo: Browser.tabs.TabChangeInfo) => {
-			// Only update if this is the active tab in our window and there's a URL change
 			if (tabId === activeTabId && changeInfo.url) {
 				currentUrl.value = changeInfo.url;
 			}
 		});
 
-		// Listen for messages from the content script
 		browser.runtime.onMessage.addListener((message: ContentScriptSelectionMessage) => {
 			if (message.from === "content" && message.type === "SELECTION") {
 				quotedSelection.value = message.data.selection || null;
@@ -62,14 +55,22 @@ export async function setupTabListener() {
 	}
 }
 
-setupTabListener();
-
 function App() {
 	return (
 		<QueryClientProvider client={queryClient}>
+			{/* @ts-ignore */}
 			<Sidebar />
 		</QueryClientProvider>
 	);
 }
 
-render(<App/>, document.getElementById("app")!);
+(async () => {
+	try {
+		await setupTabListener();
+		await appPersister.persisterRestoreAll(queryClient);
+		console.log("Persisted queries restored.");
+	} catch (error) {
+		console.error("Error during initial setup or restore:", error);
+	}
+	render(<App/>, document.getElementById("app")!);
+})();
