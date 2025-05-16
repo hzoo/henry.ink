@@ -3,13 +3,11 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
-import {
-	currentUrl,
-	extractBaseDomain,
-} from "@/lib/messaging";
-import { whitelistedDomains } from "@/lib/settings";
+import { currentUrl, extractBaseDomain, quotedSelection } from "@/lib/messaging";
+import { showQuotePopupOnSelection, whitelistedDomains } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
+import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MockExampleCom } from "@/site/components/mock-pages/ExampleCom";
 import { MockWikipedia } from "@/site/components/mock-pages/MockWikipedia";
 import { MockArxiv } from "@/site/components/mock-pages/MockArxiv";
@@ -88,8 +86,6 @@ function MockBrowser() {
 		initialSample.mockComponent ?? null,
 	);
 
-	const mockContainerRef = useRef<HTMLDivElement>(null);
-
 	useEffect(() => {
 		currentUrl.value = initialUrl;
 		ensureDomainIsWhitelisted(initialUrl);
@@ -158,7 +154,7 @@ function MockBrowser() {
 						onClick={() => loadUrl(sample.url, sample.mockComponent ?? null)}
 						title={`Load Mock View for ${sample.url}`}
 						// Consistent styling for all mock buttons
-						class={`px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-purple-500/50 bg-purple-200 dark:bg-purple-700 hover:bg-purple-300 dark:hover:bg-purple-600 text-purple-800 dark:text-purple-100`}
+						class={"px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-purple-500/50 bg-purple-200 dark:bg-purple-700 hover:bg-purple-300 dark:hover:bg-purple-600 text-purple-800 dark:text-purple-100"}
 					>
 						{sample.name}
 					</button>
@@ -168,7 +164,6 @@ function MockBrowser() {
 			{/* Content Area: Only Mock Component or Placeholder */}
 			<div
 				class="flex-1 border border-dashed rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
-				ref={mockContainerRef}
 			>
 				<span class="absolute top-1 right-2 text-xs text-yellow-400 dark:text-yellow-600 italic z-10 select-none">
 					Mock View
@@ -189,6 +184,8 @@ function MockBrowser() {
 }
 
 export function App() {
+	const mockContainerRef = useRef<HTMLDivElement>(null);
+
 	return (
 		<div class="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-gray-900 text-gray-900 dark:text-gray-100 font-sans">
 			{/* Cozy/Lofi Header */}
@@ -252,7 +249,9 @@ export function App() {
 				<LoginButton />
 			</header>
 			<div class="flex flex-1 overflow-hidden">
-				<MockBrowser />
+				<div ref={mockContainerRef}>
+					<MockBrowser />
+				</div>
 				<aside class="w-[360px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
 						<span class="text-xs text-gray-500 dark:text-gray-400 italic">
@@ -263,6 +262,16 @@ export function App() {
 						{/* @ts-ignore */}
 						<Sidebar />
 					</QueryClientProvider>
+					<SelectionPopupManager
+						canShowPopup={() => showQuotePopupOnSelection.peek()}
+						popupTitle="Quote"
+						sendSelection={() => {
+							const selection = window.getSelection()?.toString();
+							if (!selection) return;
+							quotedSelection.value = selection;
+						}}
+						targetContainerRef={mockContainerRef}
+					/>
 				</aside>
 			</div>
 		</div>
