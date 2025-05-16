@@ -112,6 +112,10 @@ export function PostText(props: Props) {
         ),
       });
     } else {
+      if (segment.text.includes(normalizeUrl(currentUrl.value))) {
+        segment.text = segment.text.replace(normalizeUrl(currentUrl.value), '↗');
+      }
+
       content.push({
         text: segment.text,
         component: (

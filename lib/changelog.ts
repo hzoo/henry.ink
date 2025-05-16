@@ -5,12 +5,18 @@ export interface ChangelogEntry {
   
   export const changelogData: ChangelogEntry[] = [
     {
+      version: "0.0.9",
+      changes: [
+        "right click on selection of text to annotate",
+        "fix cache"
+      ],
+    },
+    {
       version: "0.0.8",
       changes: [
         "basic inline image support",
         "usable when not logged in",
-        "basic filters",
-        "right click on selection of text to annotate"
+        "basic filters"
       ],
     },
     {
