@@ -29,6 +29,7 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
       q: '*',
       url: url as `https://${string}`,
       sort: 'top',
+      limit: 100,
     };
 
     if (!atCuteState.value?.rpc) {
