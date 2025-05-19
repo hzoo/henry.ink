@@ -1,5 +1,5 @@
 import { computed, signal } from "@preact/signals";
-import { whitelistedDomains } from "./settings";
+import { domainSettings } from "./settings";
 
 export function extractBaseDomain(url: string): string {
 	try {
@@ -16,8 +16,11 @@ export const currentUrl = signal<string>("");
 export const currentDomain = computed(() =>
 	currentUrl.value ? extractBaseDomain(currentUrl.value) : "",
 );
-export const isWhitelisted = computed(() =>
-	whitelistedDomains.value.includes(currentDomain.value),
+export const isAllowed = computed(() =>
+	domainSettings.value[currentDomain.value] === 'a'
+);
+export const isBlocked = computed(() =>
+	domainSettings.value[currentDomain.value] === 'b'
 );
 // Signal to hold the latest selection action data received from the sidepanel
 export const quotedSelection = signal<string | null>(null);
@@ -26,7 +29,10 @@ export const quotedSelection = signal<string | null>(null);
 export const isSearchableUrl = computed(() => {
 	const url = currentUrl.value;
 	if (!url) return false;
-	
+
+	// not searchable
+	if (isBlocked.value) return false;
+
 	try {
 		const parsedUrl = new URL(url);
 		// Only allow http and https protocols

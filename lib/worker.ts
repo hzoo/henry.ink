@@ -15,7 +15,8 @@ const allowedOrigins = [
   'http://127.0.0.1:3003',
   'https://annotation-demo.henryzoo.com',
   'https://annotation-sidebar-demo.pages.dev',
-  'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni'
+  'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni',
+  'moz-extension://e620cfe1-59a8-429f-8265-a7c22dc42136/_generated_background_page.html'
 ];
 
 function setCorsHeaders(response: Response, origin: string | null): void {

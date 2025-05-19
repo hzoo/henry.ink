@@ -30,7 +30,8 @@
           "noAssignInExpressions": "off"
         },
         "style": {
-          "noNonNullAssertion": "off"
+          "noNonNullAssertion": "off",
+          "noUselessElse": "off"
         },
         "complexity": {
           "noForEach": "off"
