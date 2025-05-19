@@ -5,6 +5,14 @@ export interface ChangelogEntry {
   
   export const changelogData: ChangelogEntry[] = [
     {
+      version: "0.0.10",
+      changes: [
+        "add blocklist ability (gmail, bsky)",
+        "simple bot filter",
+        "simple image sizing"
+      ],
+    },
+    {
       version: "0.0.9",
       changes: [
         "right click on selection of text to annotate",
