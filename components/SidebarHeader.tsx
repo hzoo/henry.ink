@@ -1,7 +1,7 @@
 import { SettingsToggle } from "@/components/SettingsToggle";
 import { cacheTimeAgo, contentSourceUrl } from "@/lib/signals";
 import { autoFetchEnabled } from "@/lib/settings";
-import { currentDomain, isWhitelisted } from "@/lib/messaging";
+import { currentDomain, isAllowed, isBlocked } from "@/lib/messaging";
 import { getTimeAgo } from "@/lib/utils/time";
 import { queryClient } from "@/lib/queryClient";
 import { Icon } from "@/components/Icon";
@@ -19,7 +19,17 @@ export function SidebarHeader() {
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-col items-start p-1">
 						{autoFetchEnabled.value ? (
-							isWhitelisted.value ? (
+							isBlocked.value ? (
+								<div class="flex items-center text-[10px] mt-0.5 gap-1">
+									<span class="flex items-center gap-0.5 text-red-600 dark:text-red-400 whitespace-nowrap">
+										<Icon name="xMark" className="h-2.5 w-2.5" />
+										Blocked
+									</span>
+									<span class="text-gray-600 dark:text-gray-400 truncate">
+										{currentDomain.value}
+									</span>
+								</div>
+							) : isAllowed.value ? (
 								<div class="flex items-center text-[10px] mt-0.5 gap-1">
 									<button
 										onClick={handleRefresh}
@@ -27,7 +37,7 @@ export function SidebarHeader() {
 										title="Refresh posts"
 									><span class="flex items-center gap-0.5 text-green-600 dark:text-green-400 whitespace-nowrap cursor-pointer">
 										<Icon name="arrowPath" className="h-2.5 w-2.5" />
-										Auto
+										Allowed
 									</span>
 									</button>
 									<span class="text-gray-600 dark:text-gray-400 truncate">
@@ -42,7 +52,7 @@ export function SidebarHeader() {
 							) : (
 								<div class="flex items-center text-[10px] mt-0.5">
 									<span class="text-gray-600 dark:text-gray-400">
-										Not whitelisted
+										Default (Not Allowed)
 									</span>
 								</div>
 							)

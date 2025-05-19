@@ -4,7 +4,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
 import { currentUrl, extractBaseDomain, quotedSelection } from "@/lib/messaging";
-import { showQuotePopupOnSelection, whitelistedDomains } from "@/lib/settings";
+import { showQuotePopupOnSelection, domainSettings, setDomainStatus } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
@@ -69,11 +69,10 @@ const sampleUrls: SampleUrl[] = [
 	},
 ];
 
-// Helper function to manage whitelist for the demo
-const ensureDomainIsWhitelisted = (url: string) => {
+const ensureDomainIsAllowedForDemo = (url: string) => {
 	const domain = extractBaseDomain(url);
-	if (domain && !whitelistedDomains.value.includes(domain)) {
-		whitelistedDomains.value = [...whitelistedDomains.value, domain];
+	if (domain && domainSettings.value[domain] !== 'a') {
+		setDomainStatus(domain, 'a');
 	}
 };
 
@@ -88,7 +87,7 @@ function MockBrowser() {
 
 	useEffect(() => {
 		currentUrl.value = initialUrl;
-		ensureDomainIsWhitelisted(initialUrl);
+		ensureDomainIsAllowedForDemo(initialUrl);
 	}, []);
 
 	const loadUrl = (
@@ -105,7 +104,7 @@ function MockBrowser() {
 			CurrentMockComponent.value = mockComponent;
 			inputUrl.value = finalUrl;
 			currentUrl.value = finalUrl;
-			ensureDomainIsWhitelisted(finalUrl);
+			ensureDomainIsAllowedForDemo(finalUrl);
 		} catch (error) {
 			console.error("Invalid URL:", error);
 			CurrentMockComponent.value = null;
@@ -133,11 +132,11 @@ function MockBrowser() {
 						(inputUrl.value = (e.target as HTMLInputElement).value)
 					}
 					placeholder="Enter URL (e.g., https://example.com)"
-					class="flex-grow p-2 border border-r-0 rounded-l dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+					class="flex-grow p-2 border border-r-0 rounded-l dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:border-slate-500/50"
 				/>
 				<button
 					type="submit"
-					class="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80"
+					class="px-4 py-2 bg-slate-600 text-white rounded-r hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-500/80"
 				>
 					Go
 				</button>
@@ -154,7 +153,7 @@ function MockBrowser() {
 						onClick={() => loadUrl(sample.url, sample.mockComponent ?? null)}
 						title={`Load Mock View for ${sample.url}`}
 						// Consistent styling for all mock buttons
-						class={"px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-purple-500/50 bg-purple-200 dark:bg-purple-700 hover:bg-purple-300 dark:hover:bg-purple-600 text-purple-800 dark:text-purple-100"}
+						className="px-2 py-1 rounded-xl transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-purple-500/50 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100"
 					>
 						{sample.name}
 					</button>
@@ -208,7 +207,7 @@ export function App() {
 							target="_blank"
 							rel="noopener noreferrer"
 							title="Get on Chrome Web Store"
-							class="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+							className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline hover:text-slate-800 dark:hover:text-slate-300 transition-colors"
 						>
 							<Icon name="chrome" className="w-3.5 h-3.5" /> Chrome
 						</a>
@@ -218,7 +217,7 @@ export function App() {
 							target="_blank"
 							rel="noopener noreferrer"
 							title="Get on Firefox Add-ons"
-							class="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 hover:underline hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
+							className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline hover:text-slate-800 dark:hover:text-slate-300 transition-colors"
 						>
 							<Icon name="firefox" className="w-3.5 h-3.5" /> Firefox
 						</a>
@@ -230,7 +229,7 @@ export function App() {
 							target="_blank"
 							rel="noopener noreferrer"
 							title={`GitHub Repository (v${version})`}
-							class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+							className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline hover:text-slate-800 dark:hover:text-slate-300 transition-colors"
 						>
 							<Icon name="github" className="w-3.5 h-3.5" /> v{version}
 						</a>
@@ -240,7 +239,7 @@ export function App() {
 							href="https://bsky.app/profile/henryzoo.com"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="text-xs text-gray-600 dark:text-gray-400 hover:underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+							className="text-xs text-slate-600 dark:text-slate-400 hover:underline hover:text-slate-800 dark:hover:text-slate-300 transition-colors"
 						>
 							by henryzoo.com
 						</a>

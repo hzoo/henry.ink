@@ -1,5 +1,5 @@
 import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
-import { currentUrl, isWhitelisted, isSearchableUrl } from "@/lib/messaging";
+import { currentUrl, isAllowed, isSearchableUrl, isBlocked } from "@/lib/messaging";
 import { LoadingItemList } from "@/components/LoadingItem";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SidebarHeader } from "@/components/SidebarHeader";
@@ -36,7 +36,7 @@ function SidebarBody() {
 			if (!currentUrl.value) return [];
 			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
 		},
-		enabled: isSearchableUrl.value && autoFetchEnabled.value && isWhitelisted.value,
+		enabled: isSearchableUrl.value && autoFetchEnabled.value && isAllowed.value,
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,
 	});
@@ -70,7 +70,7 @@ function SidebarBody() {
 						}
 						onDismiss={() => userDismissedError.value = true}
 					/>
-				) : !fetchedPostsData || fetchedPostsData.length === 0 ? (
+				) : !fetchedPostsData || fetchedPostsData.length === 0 || isBlocked.value ? (
 					<EmptyList />
 				) : (
 					<PostList posts={fetchedPostsData} />
@@ -84,7 +84,7 @@ export function Sidebar() {
 	useAtCute();
 
 	return (
-		<div className="flex flex-col h-full relative">
+		<div className="flex flex-col h-svh relative">
 			<SidebarHeader />
 			<SidebarBody />
 			<FirstTimePopup />

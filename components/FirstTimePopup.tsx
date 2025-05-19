@@ -156,7 +156,7 @@ function renderHowItWorksStep(currentVersion: string): JSX.Element {
 			</p>
 			<p>
 				You can manage this behavior in the settings
-				(auto-fetching/whitelisting), or use a VPN for added privacy.
+				(auto-fetching), or use a VPN for added privacy.
 			</p>
 			<p>
 				(there's also a small cache so navigating between previously visited
