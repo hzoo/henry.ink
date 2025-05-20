@@ -41,7 +41,7 @@ function CollapsePost({
 			className="font-mono flex items-center gap-0.5 text-xs pt-0.5"
 			onClick={() => (isExpanded.value = !isExpanded.value)}
 		>
-			[{isExpanded.value ? "-" : "+"}]
+			{isExpanded.value ? <Icon name="minusCircle" className="size-4" /> : <Icon name="plusCircle" className="size-4" />}
 		</span>
 	);
 }
