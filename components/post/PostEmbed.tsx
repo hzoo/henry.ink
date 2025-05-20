@@ -4,6 +4,8 @@ import { getPost } from "@/lib/utils/postUrls";
 import { currentUrl } from "@/lib/messaging";
 import { useSignal } from "@preact/signals-react/runtime";
 
+import { EmbeddedRecordView } from "@/components/post/EmbeddedRecordView";
+
 // Helper component for informational messages (can be moved to a separate file later)
 function Info({ children }: { children: React.ReactNode }) {
 	return (
@@ -177,7 +179,7 @@ function ExternalEmbed({ content }: { content: import("@atcute/bluesky").AppBsky
 			href={content.external.uri}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="mt-2 block w-full rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-150"
+			className="block w-full rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-150"
 		>
 			{content.external.thumb && (
 				<img
@@ -186,10 +188,7 @@ function ExternalEmbed({ content }: { content: import("@atcute/bluesky").AppBsky
 					className="w-full aspect-[1.91/1] object-cover border-b border-slate-200 dark:border-slate-700"
 				/>
 			)}
-			<div className="p-3">
-				<p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mb-0.5">
-					{toNiceDomain(content.external.uri)}
-				</p>
+			<div className="p-2">
 				<p className="font-semibold text-sm text-slate-800 dark:text-slate-100 line-clamp-2 mb-0.5">
 					{content.external.title}
 				</p>
@@ -198,6 +197,11 @@ function ExternalEmbed({ content }: { content: import("@atcute/bluesky").AppBsky
 						{content.external.description}
 					</p>
 				)}
+				<div className="mt-1 pt-1 border-t border-slate-200 dark:border-slate-700">
+					<p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+						🌐 {toNiceDomain(content.external.uri)}
+					</p>
+				</div>
 			</div>
 		</a>
 	);
@@ -267,19 +271,8 @@ export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 
 		// Sub-case: Standard Record (e.g. a post)
 		if (is(AppBskyEmbedRecord.viewRecordSchema, record)) {
-			// For now, a simple link. We can enhance this later.
-			// To do: Create a richer preview for quoted posts.
-			return (
-				<a
-					href={getPost(record.uri)}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="mt-2 block text-sm text-blue-500 hover:underline p-2 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800"
-				>
-					Quoted Post: {record.author.displayName || `@${record.author.handle}`}
-					{/* We could try to show some text if available: record.value?.text (needs type check) */}
-				</a>
-			);
+			// Use the new EmbeddedRecordView component to render the quoted post
+			return <EmbeddedRecordView record={record} />;
 		}
 		// Sub-case: Record Not Found
 		if (is(AppBskyEmbedRecord.viewNotFoundSchema, record)) {
