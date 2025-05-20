@@ -3,6 +3,7 @@ import HeartIcon from '@/assets/heart.svg?react';
 import HeartFilledIcon from '@/assets/heart-filled.svg?react';
 import ArrowPathIcon from '@/assets/arrow-path.svg?react';
 import CommentIcon from '@/assets/comment.svg?react';
+import LeftArrowIcon from '@/assets/left-arrow.svg?react';
 import RightArrowIcon from '@/assets/right-arrow.svg?react';
 import MagnifyingIcon from '@/assets/magnifying.svg?react';
 import CogIcon from '@/assets/cog.svg?react';
@@ -17,12 +18,14 @@ import GithubIcon from '@/assets/github.svg?react';
 import ArrowUturnLeftIcon from '@/assets/arrow-uturn-left.svg?react';
 import PlusCircleIcon from '@/assets/plus-circle.svg?react';
 import MinusCircleIcon from '@/assets/minus-circle.svg?react';
+import ChevronRightIcon from '@/assets/chevron-right.svg?react';
 
 const icons = {
   heart: HeartIcon,
   heartFilled: HeartFilledIcon,
   arrowPath: ArrowPathIcon,
   comment: CommentIcon,
+  leftArrow: LeftArrowIcon,
   rightArrow: RightArrowIcon,
   magnifying: MagnifyingIcon,
   cog: CogIcon,
@@ -37,6 +40,7 @@ const icons = {
   arrowUturnLeft: ArrowUturnLeftIcon,
   plusCircle: PlusCircleIcon,
   minusCircle: MinusCircleIcon,
+  chevronRight: ChevronRightIcon,
 } as const;
 
 export type IconName = keyof typeof icons;

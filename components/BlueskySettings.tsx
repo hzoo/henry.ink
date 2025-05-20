@@ -117,7 +117,7 @@ export function BlueskySettings() {
 								className="text-xs text-slate-600 dark:text-slate-400 hover:underline hover:text-slate-800 dark:hover:text-slate-300 text-left flex items-center gap-1"
 							>
 								<span>Manage all site settings</span>
-								<Icon name="rightArrow" className="h-3 w-3" />
+								<Icon name="chevronRight" className="h-3 w-3" />
 							</button>
 						</div>
 					</div>
