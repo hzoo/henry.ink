@@ -106,7 +106,7 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
 export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
   try {
     const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', {
-      params: { uri: uri as ResourceUri, depth: options?.depth ?? 1 },
+      params: { uri: uri as ResourceUri, depth: options?.depth },
       signal: options?.signal,
     });
 

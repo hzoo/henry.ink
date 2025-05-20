@@ -45,7 +45,7 @@ export function CompactPost({
 		data: fetchedRepliesData, // Contains { post: PostView (of this post), replies: ThreadReply[] (children of this post) }
 		error: repliesError,
 	} = useQuery<ProcessedThreadData, Error>({
-		queryKey: ['thread', post.uri, 'repliesOnly'], // queryKey indicates we are fetching children for post.uri
+		queryKey: ['thread', post.uri],
 		queryFn: () => {
 			return fetchProcessedThread(post.uri);
 		},
