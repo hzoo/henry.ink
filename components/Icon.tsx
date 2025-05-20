@@ -15,6 +15,8 @@ import FirefoxIcon from '@/assets/firefox.svg?react';
 import ChromeIcon from '@/assets/chrome.svg?react';
 import GithubIcon from '@/assets/github.svg?react';
 import ArrowUturnLeftIcon from '@/assets/arrow-uturn-left.svg?react';
+import PlusCircleIcon from '@/assets/plus-circle.svg?react';
+import MinusCircleIcon from '@/assets/minus-circle.svg?react';
 
 const icons = {
   heart: HeartIcon,
@@ -33,6 +35,8 @@ const icons = {
   chrome: ChromeIcon,
   github: GithubIcon,
   arrowUturnLeft: ArrowUturnLeftIcon,
+  plusCircle: PlusCircleIcon,
+  minusCircle: MinusCircleIcon,
 } as const;
 
 export type IconName = keyof typeof icons;

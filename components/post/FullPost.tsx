@@ -17,10 +17,13 @@ import { applyFilters } from "@/lib/postFilters";
 import type { ThreadReply } from "@/lib/types";
 import type { Signal } from "@preact/signals-react";
 
+export type DisplayableItem = 'avatar' | 'displayName' | 'handle';
+
 interface FullPostProps {
 	uri?: string;
 	postUri?: string;
 	filters?: PostFilter[];
+	displayItems: DisplayableItem[];
 }
 
 interface ProcessedThreadData {
@@ -47,12 +50,17 @@ export function FullPost({
 	postUri: initialPostUri,
 	uri,
 	filters,
+	displayItems,
 }: FullPostProps) {
 	let finalPostUri: string | undefined;
 	if (initialPostUri) {
 		finalPostUri = initialPostUri;
 	} else if (uri) {
 		finalPostUri = getAtUriFromUrl(uri);
+	}
+
+	if (!displayItems) {
+		displayItems = ["avatar", "displayName", "handle"];
 	}
 
 	if (!finalPostUri) {
@@ -126,7 +134,7 @@ export function FullPost({
 			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md p-2">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
-						{post.author.avatar && (
+						{displayItems.includes('avatar') && post.author.avatar && (
 							<img
 								src={post.author.avatar}
 								alt={authorName}
@@ -135,23 +143,29 @@ export function FullPost({
 						)}
 						<div className="flex flex-col text-sm">
 							<div className="flex items-center flex-wrap gap-x-1 min-w-0">
-								<a
-									href={postAuthorUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="font-semibold truncate hover:underline"
-								>
-									{authorName}
-								</a>
-								<a
-									href={postAuthorUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-gray-500"
-								>
-									@{post.author.handle}
-								</a>
-								<span className="text-gray-500">·</span>
+								{displayItems.includes('displayName') && (
+									<a
+										href={postAuthorUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="font-semibold truncate hover:underline"
+									>
+										{authorName}
+									</a>
+								)}
+								{displayItems.includes('handle') && (
+									<a
+										href={postAuthorUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-gray-500"
+									>
+										{post.author.handle}
+									</a>
+								)}
+								{(displayItems.includes('displayName') || displayItems.includes('handle')) && (
+									<span className="text-gray-500">·</span>
+								)}
 								<a
 									href={getPost(post.uri)} // Use post.uri from the fetched post
 									target="_blank"
@@ -193,6 +207,7 @@ export function FullPost({
 				isExpanded={isExpanded} // This controls visibility of the direct replies section
 				op={post.author.handle}
 				filters={filters}
+				displayItems={displayItems}
 			/>
 		</article>
 	);

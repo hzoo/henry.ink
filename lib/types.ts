@@ -1,6 +1,7 @@
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { Signal } from "@preact/signals";
 import type { PostFilter } from "./postFilters";
+import type { DisplayableItem } from "@/components/post/FullPost";
 
 export interface ThreadReply {
   post: AppBskyFeedDefs.PostView;
@@ -13,4 +14,5 @@ export interface PostRepliesProps {
   depth?: number;
   op?: string;
   filters?: PostFilter[];
+  displayItems: DisplayableItem[];
 }

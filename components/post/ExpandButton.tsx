@@ -1,7 +1,7 @@
 import type { Signal } from "@preact/signals-core";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useComputed } from "@preact/signals-react";
-
+import { Icon } from "@/components/Icon";
 import { hoveredCollapsePostUri } from "@/lib/signals";
 
 interface ExpandButtonProps {
@@ -25,18 +25,15 @@ export function ExpandButton({ post, isExpanded }: ExpandButtonProps) {
 			}}
 			title={isExpanded.value ? "Collapse thread" : "Expand thread"}
 		>
-			<div
-				className={`w-[2px] h-0 transition-colors duration-150 ${
-					isHoveringThisPost.value
-						? "bg-slate-800 dark:bg-slate-50"
-						: "bg-gray-200 dark:bg-gray-700"
-				}`}
-			/>
-			<span className="font-mono flex items-center gap-0.5 text-[10px]">
-				[{isExpanded.value ? "-" : "+"}]
+			<span className="font-mono flex items-center text-[10px]">
+				{isExpanded.value ? (
+					<Icon name="minusCircle" className="size-3.5" />
+				) : (
+					<Icon name="plusCircle" className="size-3.5" />
+				)}
 			</span>
 			<div
-				className={`w-[2px] flex-grow transition-colors duration-150 ${
+				className={`w-[1.5px] flex-grow transition-colors duration-150 ${
 					isHoveringThisPost.value
 						? "bg-slate-800 dark:bg-slate-50"
 						: "bg-gray-200 dark:bg-gray-700"
