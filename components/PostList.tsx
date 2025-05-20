@@ -18,7 +18,7 @@ export function PostList({ posts }: PostListProps) {
   return (
     <>
       {posts.map((post: AppBskyFeedDefs.PostView) => (
-        <FullPost key={post.cid} postUri={post.uri} filters={filters} />
+        <FullPost key={post.cid} postUri={post.uri} filters={filters} displayItems={["avatar", "handle"]} />
       ))}
       <div className="pb-96" />
     </>

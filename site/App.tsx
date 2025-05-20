@@ -259,7 +259,7 @@ export function App() {
 				<div ref={mockContainerRef}>
 					<MockBrowser />
 				</div>
-				<aside class="w-[360px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
+				<aside class="w-[600px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
 						<span class="text-xs text-gray-500 dark:text-gray-400 italic">
 							↓ Extension Sidebar (Actual Bluesky Posts) ↓

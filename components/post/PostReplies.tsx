@@ -9,6 +9,7 @@ export function PostReplies({
   depth = 0,
   op,
   filters,
+  displayItems,
 }: PostRepliesProps) {
   if (!isExpanded.value || !replies) {
     return null;
@@ -33,6 +34,7 @@ export function PostReplies({
           expanded={true}
           op={op}
           filters={filters}
+          displayItems={displayItems}
         />
       ))}
     </>
