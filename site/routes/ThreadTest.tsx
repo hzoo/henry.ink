@@ -1,10 +1,13 @@
 import { useSignal } from "@preact/signals-react/runtime";
-import { batch } from "@preact/signals";
+import { batch, useComputed } from "@preact/signals";
 import { FullPost } from "@/components/post/FullPost";
 import { ContinuousPost } from "@/components/post/ContinuousPost";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { Icon } from "@/components/Icon"; // Import Icon component
 import { FSPost } from "@/components/post/FSPost";
+import { getAtUriFromUrl } from "@/lib/utils/postUrls";
+import { fetchProcessedThread } from "@/lib/threadUtils";
+import { useQuery } from "@tanstack/react-query";
 
 export function ThreadTest() {
 	const threadUri = useSignal(
@@ -16,7 +19,7 @@ export function ThreadTest() {
 		"displayName",
 		"handle",
 	]);
-	const viewMode = useSignal<"nested" | "continuous" | "fs">("nested");
+	const viewMode = useSignal<"nested" | "continuous" | "fs">("fs");
 
 	const toggleDisplayItem = (item: DisplayableItem) => {
 		batch(() => {
@@ -28,6 +31,23 @@ export function ThreadTest() {
 			}
 		});
 	};
+
+	const atUri = useComputed(() => {
+		if (threadUri.value.startsWith("https://")) {
+			return getAtUriFromUrl(threadUri.value);
+		}
+		return threadUri.value;
+	});
+
+	const {
+		data: threadData,
+		isLoading,
+		error,
+	} = useQuery({
+		queryKey: ["thread", atUri.value],
+		queryFn: () => fetchProcessedThread(atUri.value),
+		staleTime: 1000 * 60 * 60 * 24,
+	});
 
 	return (
 		<div className="p-2">
@@ -129,19 +149,28 @@ export function ThreadTest() {
 			</div>
 
 			<div className="max-w-[600px] mx-auto">
+				{isLoading ? (
+					<div className="p-4">Loading conversation...</div>
+				) : error ? (
+					<div className="p-4 text-center text-red-500">
+						Error loading thread:{" "}
+						{error instanceof Error ? error.message : "Unknown error"}
+					</div>
+				) : null}
+
 				{threadUri.value && viewMode.value === "nested" && (
 					<FullPost uri={threadUri.value} displayItems={displayItems.value} />
 				)}
 
-				{threadUri.value && viewMode.value === "continuous" && (
+				{threadUri.value && viewMode.value === "continuous" && threadData && (
 					<ContinuousPost
-						uri={threadUri.value}
+						threadData={threadData}
 						displayItems={displayItems.value}
 					/>
 				)}
 
-				{threadUri.value && viewMode.value === "fs" && (
-					<FSPost uri={threadUri.value} displayItems={displayItems.value} />
+				{threadUri.value && viewMode.value === "fs" && threadData && (
+					<FSPost threadData={threadData} displayItems={displayItems.value} />
 				)}
 			</div>
 		</div>
