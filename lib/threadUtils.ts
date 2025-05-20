@@ -20,7 +20,7 @@ function processThreadReplies(thread: AppBskyFeedDefs.ThreadViewPost): ThreadRep
     }));
 }
 
-const DEFAULT_FETCH_DEPTH = 10;
+const DEFAULT_FETCH_DEPTH = 11;
 
 /**
  * Fetches a thread, processes its replies for use with react-query.
