@@ -19,7 +19,10 @@ import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
 
 interface ContinuousPostProps {
-	uri: string;
+	threadData: {
+		post: AppBskyFeedDefs.PostView;
+		replies: ThreadReply[];
+	};
 	displayItems: DisplayableItem[];
 	filters?: PostFilter[];
 }
@@ -33,9 +36,15 @@ interface ThreadNode {
 	parent: ThreadNode | null;
 }
 
-export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
+const INITIAL_PATH = "n";
+
+export function FSPost({
+	threadData,
+	displayItems,
+	filters,
+}: ContinuousPostProps) {
 	// Current navigation cursor position (path)
-	const activeCursor = useSignal<string>("0");
+	const activeCursor = useSignal<string>(INITIAL_PATH);
 	// For keyboard focus management
 	const threadContainerRef = useRef<HTMLDivElement>(null);
 	// Show/hide metadata like timestamps
@@ -48,20 +57,6 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 	// Map to store refs for each post
 	const postRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-	if (uri.startsWith("https://")) {
-		uri = getAtUriFromUrl(uri);
-	}
-
-	const {
-		data: threadData,
-		isLoading,
-		error,
-	} = useQuery({
-		queryKey: ["thread", uri],
-		queryFn: () => fetchProcessedThread(uri),
-		staleTime: 1000 * 60 * 60 * 24,
-	});
-
 	// Build a complete thread tree
 	const threadTree = useComputed(() => {
 		if (!threadData?.post) return null;
@@ -70,14 +65,14 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 		const root: ThreadNode = {
 			post: threadData.post,
 			depth: 0,
-			path: "0",
+			path: INITIAL_PATH,
 			children: [],
 			parent: null,
 		};
 
 		// Map to quickly find nodes by path
 		const nodeMap = new Map<string, ThreadNode>();
-		nodeMap.set("0", root);
+		nodeMap.set(INITIAL_PATH, root);
 
 		// Recursively build the tree
 		function buildTreeFromReplies(
@@ -88,10 +83,10 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 			if (!replies) return;
 
 			replies.forEach((reply, index) => {
-				const currentPath = `${parentPath}.${index}`;
+				const currentPath = `${parentPath}-${index}`;
 				const node: ThreadNode = {
 					post: reply.post,
-					depth: parentPath.split(".").length,
+					depth: parentPath.split("-").length,
 					path: currentPath,
 					children: [],
 					parent: parentNode,
@@ -107,7 +102,7 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 		}
 
 		// Build tree starting with root's children
-		buildTreeFromReplies(threadData.replies, "0", root);
+		buildTreeFromReplies(threadData.replies, INITIAL_PATH, root);
 
 		return { root, nodeMap };
 	});
@@ -333,6 +328,32 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 					}
 					break;
 
+				case "j": {
+					// Next sibling or next node
+					shouldPreventDefault();
+					if (activeNode.value.children.length > 0) {
+						// Go to first child if available
+						navigateTo(activeNode.value.children[0].path);
+					} else {
+						// Otherwise try to go to next sibling
+						const nextSibling = findNextSibling(activeNode.value);
+						if (nextSibling) {
+							navigateTo(nextSibling.path);
+						}
+					}
+					break;
+				}
+				case "k": {
+					// Previous sibling or parent
+					shouldPreventDefault();
+					const prevSibling = findPrevSibling(activeNode.value);
+					if (prevSibling) {
+						navigateTo(prevSibling.path);
+					} else if (activeNode.value.parent) {
+						navigateTo(activeNode.value.parent.path);
+					}
+					break;
+				}
 				case "n":
 					// Next leaf
 					if (adjacentLeaves.value.next) {
@@ -383,34 +404,18 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 		if (threadContainerRef.current) {
 			threadContainerRef.current.focus();
 
-			const ref = postRefs.current.get(path);
+			// Use a small timeout to ensure the DOM has updated
+			setTimeout(() => {
+				const ref = postRefs.current.get(path);
+				if (!ref) return;
 
-			if (ref) {
-				// Use a small timeout to ensure the DOM has updated
-				setTimeout(() => {
-					ref.scrollIntoView({
-						behavior: "smooth",
-						block: "center",
-					});
-				}, 50);
-			}
+				ref.scrollIntoView({
+					behavior: "smooth",
+					block: "nearest",
+				});
+			}, 50);
 		}
 	});
-
-	if (isLoading) return <div className="p-4">Loading conversation...</div>;
-
-	if (error) {
-		return (
-			<div className="p-4 text-center text-red-500">
-				Error loading thread:{" "}
-				{error instanceof Error ? error.message : "Unknown error"}
-			</div>
-		);
-	}
-
-	if (!threadData?.post || !threadTree.value) {
-		return <div className="p-4">No conversation found.</div>;
-	}
 
 	// Render the keyboard shortcuts help
 	const renderKeyboardHelp = () => (
@@ -428,6 +433,12 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 				</div>
 				<div>
 					<kbd>→</kbd> Next sibling or ancestor's sibling
+				</div>
+				<div>
+					<kbd>j</kbd> Next node (child or sibling)
+				</div>
+				<div>
+					<kbd>k</kbd> Previous node (sibling or parent)
 				</div>
 				<div>
 					<kbd>Shift+←</kbd> Back
@@ -536,6 +547,7 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 							return (
 								<div
 									key={node.path}
+									id={node.path}
 									className={`px-3 py-2 ${isActiveNode ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
 									ref={(el) => {
 										if (el) postRefs.current.set(node.path, el);
@@ -578,7 +590,7 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 												<span
 													className={`px-1.5 py-0.5 rounded ${isActiveNode ? "bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}
 												>
-													{node.path}
+													{node.path.split("-").slice(1).join(".")}
 												</span>
 											</div>
 										)}
@@ -694,6 +706,9 @@ export function FSPost({ uri, displayItems, filters }: ContinuousPostProps) {
 								</div>
 							);
 						})}
+
+						{/* Add extra padding to ensure scrollability */}
+						{threadPath.value.length > 0 && <div className="h-[70vh]" />}
 					</div>
 				</div>
 			</div>
