@@ -69,16 +69,19 @@ export function CompactPost({
 			: (fetchedRepliesData?.replies ?? null);
 
 	return (
-		<article className="relative min-w-0 pl-4">
-			<ExpandButton post={post} isExpanded={isExpanded} />
-			<div className="flex-1 min-w-0 pb-1">
-				<div className="flex items-center gap-x-1.5 flex-wrap text-gray-500 text-sm">
-					{displayItems.includes("avatar") && post.author.avatar && (
-						<img
-							src={post.author.avatar}
-							alt={post.author.displayName}
-							className="w-[24px] h-[24px] rounded-full flex-shrink-0"
-						/>
+		<article className="relative min-w-0">
+			<div className="flex-1 min-w-0 pb-1 text-gray-500">
+				<div className="flex items-center gap-x-1.5 flex-wrap text-sm">
+					{isExpanded.value ? (
+						displayItems.includes("avatar") && post.author.avatar && (
+							<img
+								src={post.author.avatar}
+								alt={post.author.displayName}
+								className="w-[24px] h-[24px] rounded-full flex-shrink-0"
+							/>
+						)
+					) : (
+						<ExpandButton post={post} isExpanded={isExpanded} />
 					)}
 					{displayItems.includes("displayName") && (
 						<a
@@ -115,18 +118,19 @@ export function CompactPost({
 						{timeAgo}
 					</a>
 				</div>
+				{isExpanded.value && <ExpandButton post={post} isExpanded={isExpanded} />}
 				{isExpanded.value && (
-					<>
+					<div className="pl-7.5">
 						<div className="text-sm break-words text-gray-900 dark:text-gray-100">
 							<PostText post={post} />
 							<PostEmbed post={post} />
 						</div>
 						<CompactPostActions post={post} />
-					</>
+					</div>
 				)}
 			</div>
 			{isExpanded.value && (
-				<>
+				<div className="pl-4">
 					{/* Show loading/error only if we are the ones fetching (initialReplies was undefined) */}
 					{initialReplies === undefined && repliesError && (
 						<div className="pl-1 pt-1 text-xs text-red-500">
@@ -143,7 +147,7 @@ export function CompactPost({
 							displayItems={displayItems}
 						/>
 					)}
-				</>
+				</div>
 			)}
 		</article>
 	);
