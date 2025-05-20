@@ -243,6 +243,14 @@ export function App() {
 						>
 							by henryzoo.com
 						</a>
+						<span class="text-xs text-gray-400 dark:text-gray-600">|</span>{" "}
+						{/* Separator */}
+						<a
+							href="/thread"
+							className="text-xs text-yellow-600 dark:text-yellow-400 hover:underline hover:text-yellow-800 dark:hover:text-yellow-300 transition-colors"
+						>
+							Thread UI Experiments
+						</a>
 					</div>
 				</div>
 				<LoginButton />
@@ -257,10 +265,7 @@ export function App() {
 							↓ Extension Sidebar (Actual Bluesky Posts) ↓
 						</span>
 					</div>
-					<QueryClientProvider client={queryClient}>
-						{/* @ts-ignore */}
-						<Sidebar />
-					</QueryClientProvider>
+					<Sidebar />
 					<SelectionPopupManager
 						canShowPopup={() => showQuotePopupOnSelection.peek()}
 						popupTitle="Quote"

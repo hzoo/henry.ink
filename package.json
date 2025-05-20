@@ -33,7 +33,8 @@
     "@tanstack/query-sync-storage-persister": "^5.76.1",
     "@tanstack/react-query": "^5.76.1",
     "@tanstack/react-query-persist-client": "^5.76.1",
-    "preact": "^10.26.6"
+    "preact": "^10.26.6",
+    "preact-iso": "^2.9.1"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
