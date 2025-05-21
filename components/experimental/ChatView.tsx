@@ -118,7 +118,7 @@ export function ChatView({
 			const container = chatContainerRef.current;
 			container.scrollTop = container.scrollHeight;
 		}
-	}, [chatMessages.value.length]);
+	}, []);
 
 	// Handle message submission
 	const handleSubmit = (e: React.FormEvent) => {
@@ -141,7 +141,9 @@ export function ChatView({
 
 	// Auto-expand textarea as content grows
 	const autoResizeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		const textarea = e.target;
+		const textarea = e.target as HTMLTextAreaElement;
+		if (!textarea) return;
+
 		setInputText(textarea.value);
 
 		// Reset height to auto to get the correct scrollHeight
@@ -337,14 +339,14 @@ export function ChatView({
 					onSubmit={handleSubmit}
 					className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750"
 				>
-					<div className="flex items-end gap-2">
-						<div className="flex-grow relative">
+					<div className="flex items-center gap-2">
+						<div className="flex-grow relative flex items-center">
 							<textarea
 								ref={inputRef}
 								value={inputText}
 								onChange={autoResizeTextarea}
 								placeholder="Aa"
-								className="w-full border border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none min-h-[40px] max-h-[150px]"
+								className="w-full border border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none max-h-[150px] min-h-[40px]"
 								style={{ height: "40px" }}
 								onKeyDown={(e) => {
 									if (e.key === "Enter" && !e.shiftKey) {
@@ -352,26 +354,20 @@ export function ChatView({
 										handleSubmit(e);
 									}
 								}}
-							></textarea>
+							/>
 
-							<div className="absolute right-3 bottom-2 flex space-x-2">
+							<div className="absolute right-3 top-1/2 -translate-y-1/2 flex space-x-2">
 								<button
 									type="button"
 									className="text-gray-500 hover:text-gray-700"
 								>
-									<Icon name="photograph" className="size-5" />
+									<Icon name="photo" className="size-5" />
 								</button>
 								<button
 									type="button"
 									className="text-gray-500 hover:text-gray-700"
 								>
-									<Icon name="gif" className="size-5" />
-								</button>
-								<button
-									type="button"
-									className="text-gray-500 hover:text-gray-700"
-								>
-									<Icon name="emoji" className="size-5" />
+									<Icon name="faceSmile" className="size-5" />
 								</button>
 							</div>
 						</div>
@@ -379,7 +375,7 @@ export function ChatView({
 						<button
 							type="submit"
 							disabled={!inputText.trim()}
-							className={`p-2 rounded-full ${
+							className={`p-2 rounded-full h-10 w-10 flex items-center justify-center ${
 								inputText.trim()
 									? "bg-blue-500 text-white"
 									: "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
