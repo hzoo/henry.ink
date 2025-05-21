@@ -9,6 +9,7 @@ import { getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { fetchProcessedThread } from "@/lib/threadUtils";
 import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/experimental/ChatView";
+import { CardStack } from "@/components/experimental/CardStack";
 
 export function ThreadTest() {
 	const threadUri = useSignal(
@@ -20,9 +21,9 @@ export function ThreadTest() {
 		"displayName",
 		"handle",
 	]);
-	const viewMode = useSignal<"nested" | "continuous" | "fs" | "messenger">(
-		"messenger",
-	);
+       const viewMode = useSignal<
+               "nested" | "continuous" | "fs" | "messenger" | "stack"
+       >("messenger");
 
 	const toggleDisplayItem = (item: DisplayableItem) => {
 		batch(() => {
@@ -147,15 +148,21 @@ export function ThreadTest() {
 						>
 							File System
 						</button>
-						<button
-							onClick={() => (viewMode.value = "messenger")}
-							className={`px-3 py-1 text-xs ${viewMode.value === "messenger" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
-						>
-							Messenger
-						</button>
-					</div>
-				</div>
-			</div>
+                                                <button
+                                                        onClick={() => (viewMode.value = "messenger")}
+                                                        className={`px-3 py-1 text-xs ${viewMode.value === "messenger" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
+                                                >
+                                                        Messenger
+                                                </button>
+                                                <button
+                                                        onClick={() => (viewMode.value = "stack")}
+                                                        className={`px-3 py-1 text-xs ${viewMode.value === "stack" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
+                                                >
+                                                        Stack
+                                                </button>
+                                        </div>
+                                </div>
+                        </div>
 
 			<div className="max-w-[600px] mx-auto pt-2">
 				{isLoading ? (
@@ -178,14 +185,18 @@ export function ThreadTest() {
 					/>
 				)}
 
-				{threadUri.value && viewMode.value === "fs" && threadData && (
-					<FSPost threadData={threadData} displayItems={displayItems.value} />
-				)}
+                                {threadUri.value && viewMode.value === "fs" && threadData && (
+                                        <FSPost threadData={threadData} displayItems={displayItems.value} />
+                                )}
 
-				{threadUri.value && viewMode.value === "messenger" && threadData && (
-					<ChatView threadData={threadData} displayItems={displayItems.value} />
-				)}
-			</div>
-		</div>
-	);
+                                {threadUri.value && viewMode.value === "messenger" && threadData && (
+                                        <ChatView threadData={threadData} displayItems={displayItems.value} />
+                                )}
+
+                                {threadUri.value && viewMode.value === "stack" && threadData && (
+                                        <CardStack threadData={threadData} displayItems={displayItems.value} />
+                                )}
+                        </div>
+                </div>
+        );
 }
