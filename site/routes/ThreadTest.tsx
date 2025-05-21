@@ -2,14 +2,14 @@ import { batch, computed, signal, effect } from "@preact/signals";
 import { FullPost } from "@/components/post/FullPost";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { Icon } from "@/components/Icon";
-import { FSPost } from "@/components/experimental/FSPost";
+import { FileView } from "@/components/experimental/FileView";
 import { getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
 import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/experimental/ChatView";
 import { CardStack } from "@/components/experimental/CardStack";
 
-export const VIEW_MODES = ["nested", "file", "messenger", "stack"] as const;
+export const VIEW_MODES = ["thread", "file", "chat", "stack"] as const;
 
 export type ViewMode = (typeof VIEW_MODES)[number];
 
@@ -21,7 +21,7 @@ const displayItems = signal<DisplayableItem[]>([
 	"displayName",
 	"handle",
 ]);
-const viewMode = signal<ViewMode>("messenger");
+const viewMode = signal<ViewMode>("chat");
 const showDisplayToggle = signal(false);
 
 const atUri = computed(() => {
@@ -108,9 +108,11 @@ function ThreadView({
 
 	// Component mapping for each view mode
 	const viewComponents: Record<ViewMode, React.ReactNode> = {
-		nested: <FullPost uri={uri} displayItems={items} />,
-		file: threadData && <FSPost threadData={threadData} displayItems={items} />,
-		messenger: threadData && (
+		thread: <FullPost uri={uri} displayItems={items} />,
+		file: threadData && (
+			<FileView threadData={threadData} displayItems={items} />
+		),
+		chat: threadData && (
 			<ChatView threadData={threadData} displayItems={items} />
 		),
 		stack: threadData && (
@@ -180,7 +182,7 @@ export function ThreadTest(props: ThreadTestProps) {
 					)}
 					<div className="flex items-center gap-3">
 						<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-							Thread Mode:
+							Mode:
 						</span>
 						<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
 							{VIEW_MODES.map((mode) => (
