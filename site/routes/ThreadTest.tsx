@@ -8,8 +8,15 @@ import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
 import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/experimental/ChatView";
 import { CardStack } from "@/components/experimental/CardStack";
+import { SlideshowView } from "@/components/experimental/SlideshowView";
 
-export const VIEW_MODES = ["thread", "file", "chat", "stack"] as const;
+export const VIEW_MODES = [
+	"thread",
+	"file",
+	"chat",
+	"stack",
+	"slideshow",
+] as const;
 
 export type ViewMode = (typeof VIEW_MODES)[number];
 
@@ -93,6 +100,29 @@ function DisplayToggle() {
 	);
 }
 
+function BookmarkletButton() {
+	const bookmarkletHref =
+		"javascript:(function(){var url = window.location.href; if (url.startsWith('https://bsky.app/')) { var newUrl = url.replace('https://bsky.app', 'https://annotation-demo.henryzoo.com'); window.location.href = newUrl; } else { alert('Not a bsky.app URL. Please navigate to a bsky.app page.'); }})();";
+
+	const handleClick = (event: MouseEvent) => {
+		event.preventDefault();
+		alert(
+			"Drag this button to your browser's bookmarks bar to use the 'annotate bsky' bookmarklet.",
+		);
+	};
+
+	return (
+		<a
+			href={bookmarkletHref}
+			onClick={handleClick}
+			title="Drag this to your bookmarks bar to quickly annotate bsky.app pages"
+			className="px-3 py-1 text-xs bg-sky-100 hover:bg-sky-200 dark:bg-sky-700 dark:hover:bg-sky-600 text-sky-800 dark:text-sky-200 rounded-sm border border-sky-300 dark:border-sky-600 whitespace-nowrap no-underline cursor-grab"
+		>
+			→ bookmarklet
+		</a>
+	);
+}
+
 // Thread view component to handle different rendering modes
 function ThreadView({
 	threadData,
@@ -117,6 +147,9 @@ function ThreadView({
 		),
 		stack: threadData && (
 			<CardStack threadData={threadData} displayItems={items} />
+		),
+		slideshow: threadData && (
+			<SlideshowView threadData={threadData} displayItems={items} />
 		),
 	};
 
@@ -149,6 +182,10 @@ export function ThreadTest(props: ThreadTestProps) {
 		queryFn: () => fetchProcessedThread(atUri.value),
 		staleTime: 1000 * 60 * 60 * 24,
 		enabled: !!atUri.value, // Only run query if atUri is set
+	});
+
+	const contentMaxWidthClass = computed(() => {
+		return viewMode.value === "slideshow" ? "max-w-[1280px]" : "max-w-[600px]";
 	});
 
 	return (
@@ -199,11 +236,12 @@ export function ThreadTest(props: ThreadTestProps) {
 								</button>
 							))}
 						</div>
+						<BookmarkletButton />
 					</div>
 				</>
 			</div>
 
-			<div className="max-w-[600px] mx-auto pt-2">
+			<div className={`mx-auto pt-2 ${contentMaxWidthClass.value}`}>
 				{isLoading ? (
 					<div className="p-4">Loading conversation...</div>
 				) : error ? (
