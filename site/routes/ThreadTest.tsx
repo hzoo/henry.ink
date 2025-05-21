@@ -29,6 +29,8 @@ const displayItems = signal<DisplayableItem[]>([
 	"handle",
 ]);
 const viewMode = signal<ViewMode>("messenger");
+const showDisplayToggle = signal(false);
+
 const atUri = computed(() => {
 	if (threadUri.value.startsWith("https://")) {
 		return getAtUriFromUrl(threadUri.value);
@@ -48,8 +50,11 @@ const toggleDisplayItem = (item: DisplayableItem) => {
 };
 
 function DisplayToggle() {
+	if (!showDisplayToggle.value) {
+		return null;
+	}
 	return (
-		<div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-lg z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+		<div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-lg z-10 transition-opacity duration-200">
 			<div className="p-2">
 				<div className="flex items-center pb-1">
 					<div className="flex flex-col min-w-0 w-full">
@@ -142,7 +147,7 @@ export function ThreadTest() {
 		<div className="p-2">
 			<div className="max-w-[720px] mx-auto space-y-2">
 				<div>
-					<div className="flex items-center gap-1 relative group">
+					<div className="flex items-center gap-1 relative">
 						<input
 							type="text"
 							id="threadUri"
@@ -154,7 +159,12 @@ export function ThreadTest() {
 							className="flex-grow px-2 py-1 border border-gray-300 rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
 						/>
 						<div className="absolute inset-y-0 right-0 flex items-center pr-2">
-							<div className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+							<div
+								className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+								onClick={() =>
+									(showDisplayToggle.value = !showDisplayToggle.value)
+								}
+							>
 								<Icon name="cog" className="size-4" />
 							</div>
 						</div>
