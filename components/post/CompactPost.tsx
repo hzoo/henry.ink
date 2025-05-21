@@ -15,6 +15,7 @@ import type { DisplayableItem } from "@/components/post/FullPost";
 import { getAuthorUrl, getPost } from "@/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
+import type { Thread } from "@/lib/threadUtils";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -24,12 +25,6 @@ interface CompactPostProps {
 	filters?: PostFilter[];
 	replies?: ThreadReply[] | null;
 	displayItems: DisplayableItem[];
-}
-
-interface ProcessedThreadData {
-	// This is what fetchProcessedThread returns for THIS post
-	post: AppBskyFeedDefs.PostView;
-	replies: ThreadReply[];
 }
 
 export function CompactPost({
@@ -46,10 +41,10 @@ export function CompactPost({
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
 
-	const {
-		data: fetchedRepliesData, // Contains { post: PostView (of this post), replies: ThreadReply[] (children of this post) }
-		error: repliesError,
-	} = useQuery<ProcessedThreadData, Error>({
+	const { data: fetchedRepliesData, error: repliesError } = useQuery<
+		Thread,
+		Error
+	>({
 		queryKey: ["thread", post.uri],
 		queryFn: () => {
 			return fetchProcessedThread(post.uri);
@@ -73,7 +68,8 @@ export function CompactPost({
 			<div className="flex-1 min-w-0 pb-1 text-gray-500">
 				<div className="flex items-center gap-x-1.5 flex-wrap text-sm">
 					{isExpanded.value ? (
-						displayItems.includes("avatar") && post.author.avatar && (
+						displayItems.includes("avatar") &&
+						post.author.avatar && (
 							<img
 								src={post.author.avatar}
 								alt={post.author.displayName}
@@ -118,7 +114,9 @@ export function CompactPost({
 						{timeAgo}
 					</a>
 				</div>
-				{isExpanded.value && <ExpandButton post={post} isExpanded={isExpanded} />}
+				{isExpanded.value && (
+					<ExpandButton post={post} isExpanded={isExpanded} />
+				)}
 				{isExpanded.value && (
 					<div className="pl-7.5">
 						<div className="text-sm break-words text-gray-900 dark:text-gray-100">

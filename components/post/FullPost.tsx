@@ -16,19 +16,15 @@ import type { PostFilter } from "@/lib/postFilters";
 import { applyFilters } from "@/lib/postFilters";
 import type { ThreadReply } from "@/lib/types";
 import type { Signal } from "@preact/signals-react";
+import type { Thread } from "@/lib/threadUtils";
 
-export type DisplayableItem = 'avatar' | 'displayName' | 'handle';
+export type DisplayableItem = "avatar" | "displayName" | "handle";
 
 interface FullPostProps {
 	uri?: string;
 	postUri?: string;
 	filters?: PostFilter[];
 	displayItems: DisplayableItem[];
-}
-
-interface ProcessedThreadData {
-	post: AppBskyFeedDefs.PostView;
-	replies: ThreadReply[];
 }
 
 function CollapsePost({
@@ -41,7 +37,11 @@ function CollapsePost({
 			className="font-mono flex items-center gap-0.5 text-xs pt-0.5"
 			onClick={() => (isExpanded.value = !isExpanded.value)}
 		>
-			{isExpanded.value ? <Icon name="minusCircle" className="size-4" /> : <Icon name="plusCircle" className="size-4" />}
+			{isExpanded.value ? (
+				<Icon name="minusCircle" className="size-4" />
+			) : (
+				<Icon name="plusCircle" className="size-4" />
+			)}
 		</span>
 	);
 }
@@ -75,7 +75,7 @@ export function FullPost({
 		data: threadData,
 		isLoading,
 		error,
-	} = useQuery<ProcessedThreadData, Error>({
+	} = useQuery<Thread, Error>({
 		queryKey: ["thread", finalPostUri],
 		queryFn: () => {
 			return fetchProcessedThread(finalPostUri!);
@@ -134,7 +134,7 @@ export function FullPost({
 			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md p-2">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
-						{displayItems.includes('avatar') && post.author.avatar && (
+						{displayItems.includes("avatar") && post.author.avatar && (
 							<img
 								src={post.author.avatar}
 								alt={authorName}
@@ -143,7 +143,7 @@ export function FullPost({
 						)}
 						<div className="flex flex-col text-sm">
 							<div className="flex items-center flex-wrap gap-x-1 min-w-0">
-								{displayItems.includes('displayName') && (
+								{displayItems.includes("displayName") && (
 									<a
 										href={postAuthorUrl}
 										target="_blank"
@@ -153,7 +153,7 @@ export function FullPost({
 										{authorName}
 									</a>
 								)}
-								{displayItems.includes('handle') && (
+								{displayItems.includes("handle") && (
 									<a
 										href={postAuthorUrl}
 										target="_blank"
@@ -163,7 +163,8 @@ export function FullPost({
 										{post.author.handle}
 									</a>
 								)}
-								{(displayItems.includes('displayName') || displayItems.includes('handle')) && (
+								{(displayItems.includes("displayName") ||
+									displayItems.includes("handle")) && (
 									<span className="text-gray-500">·</span>
 								)}
 								<a
