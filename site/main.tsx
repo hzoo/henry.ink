@@ -5,6 +5,7 @@ import { ThreadTest } from "@/site/routes/ThreadTest";
 import "@/lib/styles.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { MessengerView } from "./routes/MessengerView";
 
 render(
 	<QueryClientProvider client={queryClient}>
