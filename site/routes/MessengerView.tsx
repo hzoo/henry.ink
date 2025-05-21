@@ -1,28 +1,22 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { batch, useComputed } from "@preact/signals";
-import { FullPost } from "@/components/post/FullPost";
-import { ContinuousPost } from "@/components/post/ContinuousPost";
-import type { DisplayableItem } from "@/components/post/FullPost";
-import { Icon } from "@/components/Icon"; // Import Icon component
-import { FSPost } from "@/components/post/FSPost";
+import { Icon } from "@/components/Icon";
 import { getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { fetchProcessedThread } from "@/lib/threadUtils";
 import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/messenger/ChatView";
+import type { DisplayableItem } from "@/components/post/FullPost";
 
-export function ThreadTest() {
+export function MessengerView() {
 	const threadUri = useSignal(
 		"https://bsky.app/profile/henryzoo.com/post/3lltzjrnjnc2b",
 	);
-	// Removed isDropdownOpen signal, using CSS hover instead
 	const displayItems = useSignal<DisplayableItem[]>([
 		"avatar",
 		"displayName",
 		"handle",
 	]);
-	const viewMode = useSignal<"nested" | "continuous" | "fs" | "messenger">(
-		"messenger",
-	);
+	const showInputArea = useSignal<boolean>(true);
 
 	const toggleDisplayItem = (item: DisplayableItem) => {
 		batch(() => {
@@ -54,7 +48,7 @@ export function ThreadTest() {
 
 	return (
 		<div className="p-2">
-			<div className="max-w-[720px] mx-auto space-y-2">
+			<div className="max-w-[800px] mx-auto space-y-2">
 				<div>
 					<label
 						htmlFor="threadUri"
@@ -110,8 +104,6 @@ export function ThreadTest() {
 													>
 														@henryzoo.com
 													</div>
-													<span className="text-gray-400 text-xs">·</span>
-													<span className="text-gray-500 text-xs">10m</span>
 												</div>
 												<div className="text-gray-800 dark:text-gray-200 mt-0.5 text-xs">
 													Click each element to toggle visibility.
@@ -120,44 +112,34 @@ export function ThreadTest() {
 										</div>
 									</div>
 								</div>
+
+								{/* Toggle for input area */}
+								<div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+									<div
+										className="flex items-center gap-2 cursor-pointer"
+										onClick={() => (showInputArea.value = !showInputArea.value)}
+									>
+										<div
+											className={`w-4 h-4 rounded border ${
+												showInputArea.value
+													? "bg-blue-500 border-blue-600 flex items-center justify-center"
+													: "border-gray-400 dark:border-gray-600"
+											}`}
+										>
+											{showInputArea.value && (
+												<Icon name="check" className="size-3 text-white" />
+											)}
+										</div>
+										<span className="text-xs">Show input area</span>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-				<div className="flex items-center gap-3">
-					<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-						View Mode:
-					</span>
-					<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
-						<button
-							onClick={() => (viewMode.value = "nested")}
-							className={`px-3 py-1 text-xs ${viewMode.value === "nested" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
-						>
-							Nested
-						</button>
-						<button
-							onClick={() => (viewMode.value = "continuous")}
-							className={`px-3 py-1 text-xs ${viewMode.value === "continuous" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
-						>
-							Continuous
-						</button>
-						<button
-							onClick={() => (viewMode.value = "fs")}
-							className={`px-3 py-1 text-xs ${viewMode.value === "fs" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
-						>
-							File System
-						</button>
-						<button
-							onClick={() => (viewMode.value = "messenger")}
-							className={`px-3 py-1 text-xs ${viewMode.value === "messenger" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}
-						>
-							Messenger
-						</button>
-					</div>
-				</div>
 			</div>
 
-			<div className="max-w-[600px] mx-auto pt-2">
+			<div className="max-w-[800px] mx-auto mt-4">
 				{isLoading ? (
 					<div className="p-4">Loading conversation...</div>
 				) : error ? (
@@ -165,26 +147,13 @@ export function ThreadTest() {
 						Error loading thread:{" "}
 						{error instanceof Error ? error.message : "Unknown error"}
 					</div>
-				) : null}
-
-				{threadUri.value && viewMode.value === "nested" && (
-					<FullPost uri={threadUri.value} displayItems={displayItems.value} />
-				)}
-
-				{threadUri.value && viewMode.value === "continuous" && threadData && (
-					<ContinuousPost
+				) : threadData ? (
+					<ChatView
 						threadData={threadData}
 						displayItems={displayItems.value}
+						showInputArea={showInputArea.value}
 					/>
-				)}
-
-				{threadUri.value && viewMode.value === "fs" && threadData && (
-					<FSPost threadData={threadData} displayItems={displayItems.value} />
-				)}
-
-				{threadUri.value && viewMode.value === "messenger" && threadData && (
-					<ChatView threadData={threadData} displayItems={displayItems.value} />
-				)}
+				) : null}
 			</div>
 		</div>
 	);

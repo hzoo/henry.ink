@@ -373,7 +373,7 @@ export function FSPost({
 				case "r":
 					// Return to root
 					shouldPreventDefault();
-					navigateTo("0");
+					navigateTo(INITIAL_PATH);
 					break;
 
 				case "m":
