@@ -14,6 +14,7 @@ render(
 				<Router>
 					<Route path="/" component={App} />
 					<Route path="/thread" component={ThreadTest} />
+					<Route path="/profile/:user/post/:post?" component={ThreadTest} />
 				</Router>
 			</ErrorBoundary>
 		</LocationProvider>
