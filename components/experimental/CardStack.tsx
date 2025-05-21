@@ -10,6 +10,17 @@ import type { DisplayableItem } from "@/components/post/FullPost";
 import { getTimeAgo } from "@/lib/utils/time";
 import { formatCount } from "@/lib/utils/count";
 
+/* helper for full timestamp in main card */
+const formatFullDate = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
 interface CardStackProps {
   threadData: {
     post: AppBskyFeedDefs.PostView;
@@ -56,6 +67,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 
   const stack = useSignal<ThreadNode[]>([]);
   const focusIdx = useSignal(0); // highlighted preview-row
+  const hasNav = useSignal(false); // show highlight only after kb-nav
   /** remembers the last selection for every card we've already seen */
   const memo = useRef<WeakMap<ThreadNode, number>>(new WeakMap());
   const showKeyboard = useSignal(false);
@@ -89,6 +101,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 
     stack.value = [...stack.value, node];
     focusIdx.value = memo.current.get(node) ?? 0; // restore (or 0)
+    hasNav.value = false; // clear highlight on click-open
   };
 
   const goBack = () => {
@@ -109,6 +122,10 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
     const el = containerRef.current;
     if (!el) return;
 
+    /* reset highlight on any click/tap inside the stack */
+    const handleClick = () => (hasNav.value = false);
+    el.addEventListener("click", handleClick);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       showKeyboard.value = true;
       const current = stack.value[stack.value.length - 1];
@@ -123,6 +140,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
           const idx = clamp(focusIdx.value - 1, 0, current.children.length - 1);
           focusIdx.value = idx;
           memo.current.set(current, idx);
+          hasNav.value = true;
           break;
         }
         /* ⇩ / j – next row (no wrap) */
@@ -133,6 +151,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
           const idx = clamp(focusIdx.value + 1, 0, current.children.length - 1);
           focusIdx.value = idx;
           memo.current.set(current, idx);
+          hasNav.value = true;
           break;
         }
         /* ⇨ / l – open focused child */
@@ -142,6 +161,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
           if (current.children[focusIdx.value]) {
             openNode(current.children[focusIdx.value]);
           }
+          hasNav.value = true;
           break;
         }
         /* ⇦ / h / esc – back */
@@ -155,7 +175,12 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
     };
 
     el.addEventListener("keydown", handleKeyDown);
-    return () => el.removeEventListener("keydown", handleKeyDown);
+    /* focus as soon as the component mounts so keys work immediately */
+    requestAnimationFrame(() => el.focus({ preventScroll: true }));
+    return () => {
+      el.removeEventListener("keydown", handleKeyDown);
+      el.removeEventListener("click", handleClick);
+    };
   }, []);
 
   /* ——————————————————————————————————————————— ensure row stays visible ————————————————————————————————— */
@@ -232,20 +257,25 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
                   <PostText post={node.post} />
                 </div>
                 <PostEmbed post={node.post} />
-                {/* —— post stats (always show likes, show reposts too) —— */}
+                {/* —— post stats: reposts first, likes second —— */}
                 <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                  <div className="flex items-center gap-1">
-                    <Icon name="heart" className="size-3.5" />
-                    {formatCount(node.post.likeCount ?? 0)}
-                  </div>
                   <div className="flex items-center gap-1">
                     <Icon name="arrowPath" className="size-3.5" />
                     {formatCount(node.post.repostCount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
+                    <Icon name="heart" className="size-3.5" />
+                    {formatCount(node.post.likeCount ?? 0)}
+                  </div>
+                  <div className="flex items-center gap-1">
                     <Icon name="comment" className="size-3.5" />
                     {formatCount(node.post.replyCount ?? 0)}
                   </div>
+                </div>
+
+                {/* full timestamp just above metrics */}
+                <div className="text-xs text-gray-500 mt-3">
+                  {formatFullDate(node.post.indexedAt)}
                 </div>
               </div>
               {node.children.length > 0 && (
@@ -259,8 +289,10 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
                           ? selectedRowRef
                           : undefined
                       }
-                      className={`group flex items-start gap-2 w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                        isTop && focusIdx.value === cidx
+                      className={`group relative flex items-start gap-2 w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                        isTop &&
+                        focusIdx.value === cidx &&
+                        hasNav.value /* ← highlight only after kb-nav */
                           ? "bg-blue-50 dark:bg-blue-950"
                           : ""
                       }`}
@@ -276,21 +308,30 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
                         )}
 
                       <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-xs font-medium truncate">
-                          {displayItems.includes("displayName")
-                            ? child.post.author.displayName ||
-                              child.post.author.handle
-                            : child.post.author.handle}
-                        </span>
+                        {/* ───── header line: name  handle  •  time ───── */}
+                        <div className="flex items-center gap-1 text-xs min-w-0">
+                          {/* display-name (shrinks / ellipsis first) */}
+                          <span className="font-medium truncate min-w-0 max-w-[55%]">
+                            {displayItems.includes("displayName")
+                              ? child.post.author.displayName ||
+                                child.post.author.handle
+                              : child.post.author.handle}
+                          </span>
+                          {/* handle (shrinks second) */}
+                          {displayItems.includes("handle") && (
+                            <span className="text-gray-500 truncate min-w-0 max-w-[35%]">
+                              @{child.post.author.handle}
+                            </span>
+                          )}
+                          {/* bullet + relative time (never shrinks) */}
+                          <span className="text-gray-400 flex-shrink-0">•</span>
+                          <span className="text-gray-500 flex-shrink-0">
+                            {getTimeAgo(child.post.indexedAt)}
+                          </span>
+                        </div>
                         <span className="text-[11px] line-clamp-2">
                           <PostText post={child.post} />
                         </span>
-                        {/* replies counter */}
-                        {child.descendantCount > 0 && (
-                          <span className="text-[10px] text-gray-500">
-                            +{child.descendantCount}
-                          </span>
-                        )}
                       </div>
 
                       {/* thumbnail (image / link) */}
@@ -304,20 +345,32 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
                         <Icon name="link" className="size-4 text-gray-400" />
                       ) : null}
 
-                      {/* like + repost counters (hover-only unless >0) */}
-                      <div
-                        className={`flex items-center gap-1 text-xs ml-auto ${
-                          child.post.likeCount === 0 &&
-                          child.post.repostCount === 0
-                            ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-                            : ""
-                        }`}
-                      >
-                        <Icon name="heart" className="size-3.5" />
-                        {formatCount(child.post.likeCount ?? 0)}
-                        <Icon name="arrowPath" className="size-3.5 ml-2" />
-                        {formatCount(child.post.repostCount ?? 0)}
+                      {/* engagement counters: reposts → likes */}
+                      <div className="flex items-center gap-2 text-xs ml-auto">
+                        {/* reposts: hidden at 0 until hover */}
+                        <div
+                          className={`flex items-center gap-1 ${
+                            child.post.repostCount === 0
+                              ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                              : ""
+                          }`}
+                        >
+                          <Icon name="arrowPath" className="size-3.5" />
+                          {formatCount(child.post.repostCount ?? 0)}
+                        </div>
+                        {/* likes: always visible, even at 0 */}
+                        <div className="flex items-center gap-1">
+                          <Icon name="heart" className="size-3.5" />
+                          {formatCount(child.post.likeCount ?? 0)}
+                        </div>
                       </div>
+
+                      {/* ↓ replies counter moved to bottom-right */}
+                      {child.descendantCount > 0 && (
+                        <span className="absolute bottom-1.5 right-2 text-[10px] text-gray-500">
+                          +{child.descendantCount}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
