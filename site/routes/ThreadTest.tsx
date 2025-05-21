@@ -1,6 +1,5 @@
-import { batch, computed, signal } from "@preact/signals";
+import { batch, computed, signal, effect } from "@preact/signals";
 import { FullPost } from "@/components/post/FullPost";
-import { ContinuousPost } from "@/components/experimental/ContinuousPost";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { Icon } from "@/components/Icon";
 import { FSPost } from "@/components/experimental/FSPost";
@@ -10,13 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/experimental/ChatView";
 import { CardStack } from "@/components/experimental/CardStack";
 
-export const VIEW_MODES = [
-	"nested",
-	"continuous",
-	"fs",
-	"messenger",
-	"stack",
-] as const;
+export const VIEW_MODES = ["nested", "file", "messenger", "stack"] as const;
 
 export type ViewMode = (typeof VIEW_MODES)[number];
 
@@ -116,10 +109,7 @@ function ThreadView({
 	// Component mapping for each view mode
 	const viewComponents: Record<ViewMode, React.ReactNode> = {
 		nested: <FullPost uri={uri} displayItems={items} />,
-		continuous: threadData && (
-			<ContinuousPost threadData={threadData} displayItems={items} />
-		),
-		fs: threadData && <FSPost threadData={threadData} displayItems={items} />,
+		file: threadData && <FSPost threadData={threadData} displayItems={items} />,
 		messenger: threadData && (
 			<ChatView threadData={threadData} displayItems={items} />
 		),
@@ -132,7 +122,22 @@ function ThreadView({
 	return <>{viewComponents[mode]}</>;
 }
 
-export function ThreadTest() {
+export interface ThreadTestProps {
+	path: string;
+	user?: string;
+	post?: string;
+}
+
+export function ThreadTest(props: ThreadTestProps) {
+	effect(() => {
+		const { user, post } = props;
+		if (user && post) {
+			threadUri.value = `at://${user}/app.bsky.feed.post/${post}`;
+		} else if (user) {
+			threadUri.value = `at://${user}`;
+		}
+	});
+
 	const {
 		data: threadData,
 		isLoading,
@@ -141,56 +146,59 @@ export function ThreadTest() {
 		queryKey: ["thread", atUri.value],
 		queryFn: () => fetchProcessedThread(atUri.value),
 		staleTime: 1000 * 60 * 60 * 24,
+		enabled: !!atUri.value, // Only run query if atUri is set
 	});
 
 	return (
 		<div className="p-2">
 			<div className="max-w-[720px] mx-auto space-y-2">
-				<div>
-					<div className="flex items-center gap-1 relative">
-						<input
-							type="text"
-							id="threadUri"
-							value={threadUri.value}
-							onInput={(e) => {
-								threadUri.value = e.currentTarget.value;
-							}}
-							placeholder="e.g., at://did:plc:example/app.bsky.feed.post/abcdefghijk"
-							className="flex-grow px-2 py-1 border border-gray-300 rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
-						/>
-						<div className="absolute inset-y-0 right-0 flex items-center pr-2">
-							<div
-								className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-								onClick={() =>
-									(showDisplayToggle.value = !showDisplayToggle.value)
-								}
-							>
-								<Icon name="cog" className="size-4" />
+				<>
+					{!props.user && (
+						<div className="flex items-center gap-1 relative">
+							<input
+								type="text"
+								id="threadUri"
+								value={threadUri.value}
+								onInput={(e) => {
+									threadUri.value = e.currentTarget.value;
+								}}
+								placeholder="e.g., at://did:plc:example/app.bsky.feed.post/abcdefghijk"
+								className="flex-grow px-2 py-1 border border-gray-300 rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+							/>
+							<div className="absolute inset-y-0 right-0 flex items-center pr-2">
+								<div
+									className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+									onClick={() =>
+										(showDisplayToggle.value = !showDisplayToggle.value)
+									}
+								>
+									<Icon name="cog" className="size-4" />
+								</div>
 							</div>
+							<DisplayToggle />
 						</div>
-						<DisplayToggle />
+					)}
+					<div className="flex items-center gap-3">
+						<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+							Thread Mode:
+						</span>
+						<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
+							{VIEW_MODES.map((mode) => (
+								<button
+									key={mode}
+									onClick={() => (viewMode.value = mode)}
+									className={`px-3 py-1 text-xs ${
+										viewMode.value === mode
+											? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+											: "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+									}`}
+								>
+									{mode.charAt(0).toUpperCase() + mode.slice(1)}
+								</button>
+							))}
+						</div>
 					</div>
-				</div>
-				<div className="flex items-center gap-3">
-					<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-						Thread Mode:
-					</span>
-					<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
-						{VIEW_MODES.map((mode) => (
-							<button
-								key={mode}
-								onClick={() => (viewMode.value = mode)}
-								className={`px-3 py-1 text-xs ${
-									viewMode.value === mode
-										? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-										: "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-								}`}
-							>
-								{mode.charAt(0).toUpperCase() + mode.slice(1)}
-							</button>
-						))}
-					</div>
-				</div>
+				</>
 			</div>
 
 			<div className="max-w-[600px] mx-auto pt-2">

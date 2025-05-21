@@ -16,7 +16,7 @@ import { getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
 import type { Thread } from "@/lib/threadUtils";
 
-interface ContinuousPostProps {
+interface FSPostProps {
 	threadData: Thread;
 	displayItems: DisplayableItem[];
 	filters?: PostFilter[];
@@ -33,11 +33,7 @@ interface ThreadNode {
 
 const INITIAL_PATH = "n";
 
-export function FSPost({
-	threadData,
-	displayItems,
-	filters,
-}: ContinuousPostProps) {
+export function FSPost({ threadData, displayItems, filters }: FSPostProps) {
 	// Current navigation cursor position (path)
 	const activeCursor = useSignal<string>(INITIAL_PATH);
 	// For keyboard focus management
