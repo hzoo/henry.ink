@@ -5,17 +5,14 @@ import {
 } from "@preact/signals-react/runtime";
 import { useEffect, useRef } from "react";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
-import { useQuery } from "@tanstack/react-query";
 
 import { PostText } from "@/components/post/PostText";
 import { PostEmbed } from "@/components/post/PostEmbed";
 import { Icon } from "@/components/Icon";
-import { fetchProcessedThread } from "@/lib/threadUtils";
 import type { ThreadReply } from "@/lib/types";
 import type { DisplayableItem } from "@/components/post/FullPost";
 
-import { getAtUriFromUrl, getAuthorUrl, getPost } from "@/lib/utils/postUrls";
-import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
+import { getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
 
 interface ContinuousPostProps {

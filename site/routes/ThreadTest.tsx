@@ -1,14 +1,14 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { batch, useComputed } from "@preact/signals";
 import { FullPost } from "@/components/post/FullPost";
-import { ContinuousPost } from "@/components/post/ContinuousPost";
+import { ContinuousPost } from "@/components/experimental/ContinuousPost";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { Icon } from "@/components/Icon"; // Import Icon component
-import { FSPost } from "@/components/post/FSPost";
+import { FSPost } from "@/components/experimental/FSPost";
 import { getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { fetchProcessedThread } from "@/lib/threadUtils";
 import { useQuery } from "@tanstack/react-query";
-import { ChatView } from "@/components/messenger/ChatView";
+import { ChatView } from "@/components/experimental/ChatView";
 
 export function ThreadTest() {
 	const threadUri = useSignal(
