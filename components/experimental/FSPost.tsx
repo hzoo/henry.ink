@@ -14,12 +14,10 @@ import type { DisplayableItem } from "@/components/post/FullPost";
 
 import { getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
+import type { Thread } from "@/lib/threadUtils";
 
 interface ContinuousPostProps {
-	threadData: {
-		post: AppBskyFeedDefs.PostView;
-		replies: ThreadReply[];
-	};
+	threadData: Thread;
 	displayItems: DisplayableItem[];
 	filters?: PostFilter[];
 }
@@ -475,7 +473,7 @@ export function FSPost({
 						</div>
 						<div className="p-2">
 							{/* Render tree nodes recursively */}
-							{renderTreeNode(threadTree.value.root, 0)}
+							{threadTree.value && renderTreeNode(threadTree.value.root, 0)}
 						</div>
 					</div>
 				)}

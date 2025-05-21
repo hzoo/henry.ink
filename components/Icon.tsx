@@ -17,6 +17,7 @@ import ArrowUturnLeftIcon from "@/assets/arrow-uturn-left.svg?react";
 import PlusCircleIcon from "@/assets/plus-circle.svg?react";
 import MinusCircleIcon from "@/assets/minus-circle.svg?react";
 import ChevronRightIcon from "@/assets/chevron-right.svg?react";
+import Link from "@/assets/link.svg?react";
 
 // site
 import FirefoxIcon from "@/assets/firefox.svg?react";
@@ -57,6 +58,7 @@ const icons = {
 	photo: Photo,
 	faceSmile: FaceSmile,
 	send: PaperAirplane,
+	link: Link,
 } as const;
 
 export type IconName = keyof typeof icons;

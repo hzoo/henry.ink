@@ -7,12 +7,10 @@ import { Icon } from "@/components/Icon";
 import type { ThreadReply } from "@/lib/types";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { getTimeAgo } from "@/lib/utils/time";
+import type { Thread } from "@/lib/threadUtils";
 
 interface ChatViewProps {
-	threadData: {
-		post: AppBskyFeedDefs.PostView;
-		replies: ThreadReply[];
-	};
+	threadData: Thread;
 	displayItems: DisplayableItem[];
 	showInputArea?: boolean;
 }
