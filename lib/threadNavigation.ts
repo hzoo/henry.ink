@@ -2,13 +2,12 @@ import { signal, type Signal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { Thread } from "@/lib/threadUtils";
 
-// Simple tree node for navigation - just the structure, not the data
 interface TreeNode {
 	uri: string;
 	parentUri: string | null;
 	childUris: string[];
 	depth: number;
-	indexedAt: string; // for chronological sorting
+	indexedAt: string;
 }
 
 export class ThreadNavigator {

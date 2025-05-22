@@ -38,7 +38,7 @@ function ThreadView({
 	// Return early if we don't have a valid URI for some modes or no data
 	if (!atUri && viewMode === "thread") return null;
 	if (!threadData && viewMode === "thread") return null;
-	if (!navigator && (viewMode === "file" || viewMode === "chat" || viewMode === "stack" || viewMode === "slideshow"))
+	if (!navigator && (viewMode === "file" || viewMode === "chat" || viewMode === "slideshow" || viewMode === "stack"))
 		return null;
 
 	// Component mapping for each view mode
@@ -50,8 +50,8 @@ function ThreadView({
 		chat: navigator && (
 			<ChatView navigator={navigator} displayItems={displayItems} />
 		),
-		stack: threadData && (
-			<CardStack threadData={threadData} displayItems={displayItems} />
+		stack: navigator && (
+			<CardStack navigator={navigator} displayItems={displayItems} />
 		),
 		slideshow: navigator && (
 			<SlideshowView navigator={navigator} displayItems={displayItems} />
