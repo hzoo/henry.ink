@@ -1,10 +1,11 @@
-import { batch, computed, signal, effect } from "@preact/signals";
+import { useSignal, useComputed } from "@preact/signals-react/runtime";
 import { FullPost } from "@/components/post/FullPost";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { Icon } from "@/components/Icon";
 import { FileView } from "@/components/experimental/FileView";
 import { getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
+import { ThreadNavigator } from "@/lib/threadNavigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/components/experimental/ChatView";
 import { CardStack } from "@/components/experimental/CardStack";
@@ -20,87 +21,65 @@ export const VIEW_MODES = [
 
 export type ViewMode = (typeof VIEW_MODES)[number];
 
-const threadUri = signal(
-	"https://bsky.app/profile/henryzoo.com/post/3lltzjrnjnc2b",
-);
-const displayItems = signal<DisplayableItem[]>([
-	"avatar",
-	"displayName",
-	"handle",
-]);
-const viewMode = signal<ViewMode>("chat");
-const showDisplayToggle = signal(false);
-
-const atUri = computed(() => {
-	if (threadUri.value.startsWith("https://")) {
-		return getAtUriFromUrl(threadUri.value);
-	}
-	return threadUri.value;
-});
-
-const toggleDisplayItem = (item: DisplayableItem) => {
-	batch(() => {
-		const currentItems = displayItems.value;
-		if (currentItems.includes(item)) {
-			displayItems.value = currentItems.filter((i) => i !== item);
-		} else {
-			displayItems.value = [...currentItems, item];
-		}
-	});
-};
-
-function DisplayToggle() {
-	if (!showDisplayToggle.value) {
+// ThreadView component to handle different rendering modes
+function ThreadView({
+	threadData,
+	navigator,
+	viewMode,
+	displayItems,
+	atUri,
+}: {
+	threadData: Thread | undefined;
+	navigator: ThreadNavigator | null;
+	viewMode: ViewMode;
+	displayItems: DisplayableItem[];
+	atUri: string;
+}) {
+	// Return early if we don't have a valid URI for some modes or no data
+	if (!atUri && viewMode === "thread") return null;
+	if (!threadData && viewMode === "thread") return null;
+	if (!navigator && (viewMode === "file" || viewMode === "chat" || viewMode === "stack" || viewMode === "slideshow"))
 		return null;
-	}
-	return (
-		<div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-lg z-10 transition-opacity duration-200">
-			<div className="p-2">
-				<div className="flex items-center pb-1">
-					<div className="flex flex-col min-w-0 w-full">
-						<div className="flex items-center gap-1">
-							<div className="relative hover:bg-amber-200 dark:hover:bg-amber-700/50 rounded-full">
-								<img
-									src={
-										displayItems.value.includes("avatar")
-											? "https://cdn.bsky.app/img/avatar/plain/did:plc:3wng2qnttvtg23546ar6bawo/bafkreiep2suix67jfwu5uw23zxiyleesjkfdbynuitdbtowwwm3r2xsmha@jpeg"
-											: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Crect width='32' height='32' rx='16' fill='%23E5E7EB'/%3E%3C/svg%3E"
-									}
-									alt="Avatar"
-									className="w-8 h-8 rounded-full flex-shrink-0 cursor-pointer transition-opacity hover:opacity-70"
-									onClick={() => toggleDisplayItem("avatar")}
-								/>
-							</div>
-							<div className="flex flex-col">
-								<div className="flex items-center gap-0.5">
-									<div
-										className={`${displayItems.value.includes("displayName") ? "font-semibold text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"} cursor-pointer hover:opacity-70 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-opacity text-xs rounded-sm px-0.5`}
-										onClick={() => toggleDisplayItem("displayName")}
-									>
-										henry
-									</div>
-									<div
-										className={`${displayItems.value.includes("handle") ? "text-gray-500 dark:text-gray-400" : "text-gray-300 dark:text-gray-600"} cursor-pointer hover:opacity-70 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-opacity text-xs rounded-sm px-0.5`}
-										onClick={() => toggleDisplayItem("handle")}
-									>
-										@henryzoo.com
-									</div>
-									<span className="text-gray-400 text-xs">·</span>
-									<span className="text-gray-500 text-xs">10m</span>
-								</div>
-								<div className="text-gray-800 dark:text-gray-200 mt-0.5 text-xs">
-									Click each element to toggle visibility.
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+
+	// Component mapping for each view mode
+	const viewComponents: Record<ViewMode, React.ReactNode> = {
+		thread: <FullPost uri={atUri} displayItems={displayItems} />,
+		file: navigator && (
+			<FileView navigator={navigator} displayItems={displayItems} />
+		),
+		chat: navigator && (
+			<ChatView navigator={navigator} displayItems={displayItems} />
+		),
+		stack: threadData && (
+			<CardStack threadData={threadData} displayItems={displayItems} />
+		),
+		slideshow: navigator && (
+			<SlideshowView navigator={navigator} displayItems={displayItems} />
+		),
+	};
+
+	// Return the component for the current mode
+	return <>{viewComponents[viewMode]}</>;
 }
 
-function BookmarkletButton() {
+export interface ThreadTestProps {
+	path: string;
+	user?: string;
+	post?: string;
+}
+
+function initThreadUri(props: ThreadTestProps) {
+	const { user, post } = props;
+	if (user && post) {
+		return `at://${user}/app.bsky.feed.post/${post}`;
+	} else if (user) {
+		return `at://${user}`;
+	}
+
+	return "https://bsky.app/profile/henryzoo.com/post/3lltzjrnjnc2b";
+}
+
+const BookmarkletButton = () => {
 	const bookmarkletHref =
 		"javascript:(function(){var url = window.location.href; if (url.startsWith('https://bsky.app/')) { var newUrl = url.replace('https://bsky.app', 'https://annotation-demo.henryzoo.com'); window.location.href = newUrl; } else { alert('Not a bsky.app URL. Please navigate to a bsky.app page.'); }})();";
 
@@ -121,57 +100,39 @@ function BookmarkletButton() {
 			→ bookmarklet
 		</a>
 	);
-}
-
-// Thread view component to handle different rendering modes
-function ThreadView({
-	threadData,
-}: {
-	threadData: Thread | undefined;
-}) {
-	const mode = viewMode.value;
-	const uri = atUri.value;
-	const items = displayItems.value;
-
-	// Return early if we don't have a valid URI
-	if (!uri) return null;
-
-	// Component mapping for each view mode
-	const viewComponents: Record<ViewMode, React.ReactNode> = {
-		thread: <FullPost uri={uri} displayItems={items} />,
-		file: threadData && (
-			<FileView threadData={threadData} displayItems={items} />
-		),
-		chat: threadData && (
-			<ChatView threadData={threadData} displayItems={items} />
-		),
-		stack: threadData && (
-			<CardStack threadData={threadData} displayItems={items} />
-		),
-		slideshow: threadData && (
-			<SlideshowView threadData={threadData} displayItems={items} />
-		),
-	};
-
-	// Return the component for the current mode
-	return <>{viewComponents[mode]}</>;
-}
-
-export interface ThreadTestProps {
-	path: string;
-	user?: string;
-	post?: string;
-}
+};
 
 export function ThreadTest(props: ThreadTestProps) {
-	effect(() => {
-		const { user, post } = props;
-		if (user && post) {
-			threadUri.value = `at://${user}/app.bsky.feed.post/${post}`;
-		} else if (user) {
-			threadUri.value = `at://${user}`;
+	const threadUri = useSignal(initThreadUri(props));
+	const displayItems = useSignal<DisplayableItem[]>([
+		"avatar",
+		"displayName",
+		"handle",
+	]);
+	const viewMode = useSignal<ViewMode>("chat");
+	const showDisplayToggle = useSignal(false);
+
+	// Computed values
+	const atUri = useComputed(() => {
+		if (threadUri.value.startsWith("https://")) {
+			return getAtUriFromUrl(threadUri.value);
 		}
+		return threadUri.value;
 	});
+
+	const contentMaxWidthClass = useComputed(() => {
+		return viewMode.value === "slideshow" ? "max-w-[1280px]" : "max-w-[600px]";
+	});
+
+	// Helper function for toggling display items
+	const toggleDisplayItem = (item: DisplayableItem) => {
+		const currentItems = displayItems.value;
+		if (currentItems.includes(item)) {
+			displayItems.value = currentItems.filter((i) => i !== item);
+		} else {
+			displayItems.value = [...currentItems, item];
+		}
+	};
 
 	const {
 		data: threadData,
@@ -184,9 +145,66 @@ export function ThreadTest(props: ThreadTestProps) {
 		enabled: !!atUri.value, // Only run query if atUri is set
 	});
 
-	const contentMaxWidthClass = computed(() => {
-		return viewMode.value === "slideshow" ? "max-w-[1280px]" : "max-w-[600px]";
+	// Compute the navigator based on thread data
+	const threadNavigator = useComputed(() => {
+		if (!threadData) return null;
+		console.log('new navigator');
+		// Initialize with the atUri if it exists in the thread, otherwise use root
+		const initialUri = atUri.value && threadData.post.uri === atUri.value ? atUri.value : undefined;
+		return new ThreadNavigator(threadData, initialUri);
 	});
+
+	// Display toggle component
+	const DisplayToggle = () => {
+		if (!showDisplayToggle.value) {
+			return null;
+		}
+		return (
+			<div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-lg z-10 transition-opacity duration-200">
+				<div className="p-2">
+					<div className="flex items-center pb-1">
+						<div className="flex flex-col min-w-0 w-full">
+							<div className="flex items-center gap-1">
+								<div className="relative hover:bg-amber-200 dark:hover:bg-amber-700/50 rounded-full">
+									<img
+										src={
+											displayItems.value.includes("avatar")
+												? "https://cdn.bsky.app/img/avatar/plain/did:plc:3wng2qnttvtg23546ar6bawo/bafkreiep2suix67jfwu5uw23zxiyleesjkfdbynuitdbtowwwm3r2xsmha@jpeg"
+												: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Crect width='32' height='32' rx='16' fill='%23E5E7EB'/%3E%3C/svg%3E"
+										}
+										alt="Avatar"
+										className="w-8 h-8 rounded-full flex-shrink-0 cursor-pointer transition-opacity hover:opacity-70"
+										onClick={() => toggleDisplayItem("avatar")}
+									/>
+								</div>
+								<div className="flex flex-col">
+									<div className="flex items-center gap-0.5">
+										<div
+											className={`${displayItems.value.includes("displayName") ? "font-semibold text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"} cursor-pointer hover:opacity-70 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-opacity text-xs rounded-sm px-0.5`}
+											onClick={() => toggleDisplayItem("displayName")}
+										>
+											henry
+										</div>
+										<div
+											className={`${displayItems.value.includes("handle") ? "text-gray-500 dark:text-gray-400" : "text-gray-300 dark:text-gray-600"} cursor-pointer hover:opacity-70 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-opacity text-xs rounded-sm px-0.5`}
+											onClick={() => toggleDisplayItem("handle")}
+										>
+											@henryzoo.com
+										</div>
+										<span className="text-gray-400 text-xs">·</span>
+										<span className="text-gray-500 text-xs">10m</span>
+									</div>
+									<div className="text-gray-800 dark:text-gray-200 mt-0.5 text-xs">
+										Click each element to toggle visibility.
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	};
 
 	return (
 		<div className="p-2">
@@ -250,7 +268,13 @@ export function ThreadTest(props: ThreadTestProps) {
 						{error instanceof Error ? error.message : "Unknown error"}
 					</div>
 				) : (
-					<ThreadView threadData={threadData} />
+					<ThreadView
+						threadData={threadData}
+						navigator={threadNavigator.value}
+						viewMode={viewMode.value}
+						displayItems={displayItems.value}
+						atUri={atUri.value}
+					/>
 				)}
 			</div>
 		</div>

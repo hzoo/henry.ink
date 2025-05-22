@@ -1,101 +1,65 @@
 import { useSignal, useComputed, useSignalEffect } from "@preact/signals-react/runtime";
 import { useEffect, useRef } from "react";
-import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { PostText } from "@/components/post/PostText";
 import { PostEmbed } from "@/components/post/PostEmbed";
 import { Icon } from "@/components/Icon";
 import type { DisplayableItem } from "@/components/post/FullPost";
-import type { Thread } from "@/lib/threadUtils";
-import type { ThreadReply } from "@/lib/types";
+import type { ThreadNavigator } from "@/lib/threadNavigation";
 
 interface SlideshowViewProps {
-	threadData: Thread;
 	displayItems: DisplayableItem[];
-	linearMode?: boolean;
-}
-
-// Interface for slide items
-interface SlideItem {
-	post: AppBskyFeedDefs.PostView;
-	depth: number;
-	isRoot: boolean;
+	navigator: ThreadNavigator;
 }
 
 export function SlideshowView({
-	threadData,
 	displayItems,
-	linearMode = true,
+	navigator,
 }: SlideshowViewProps) {
-	const currentSlideIndex = useSignal(0);
 	const isTransitioning = useSignal(false);
 	const slideContainerRef = useRef<HTMLDivElement>(null);
 	const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
 	const autoplayEnabled = useSignal(false);
 	const showControls = useSignal(true);
 
-	// Flatten thread into items for slideshow
-	const slides = useComputed(() => {
-		if (!threadData?.post) return [];
+	const currentPost = useComputed(() => navigator?.getCurrentPost());
 
-		const items: SlideItem[] = [];
+	// Get all posts for total count and current index
+	const allUris = useComputed(() => navigator?.getChronologicalUris() || []);
 
-		// Add root post
-		items.push({
-			post: threadData.post,
-			depth: 0,
-			isRoot: true,
-		});
-
-		// Function to recursively process replies
-		function addReplies(replies: ThreadReply[] | undefined, depth: number) {
-			if (!replies) return;
-
-			// Sort replies by timestamp or other criteria
-			const sortedReplies = [...replies].sort((a, b) => {
-				return (
-					new Date(a.post.indexedAt).getTime() -
-					new Date(b.post.indexedAt).getTime()
-				);
-			});
-
-			sortedReplies.forEach((reply) => {
-				items.push({
-					post: reply.post,
-					depth: depth,
-					isRoot: false,
-				});
-
-				// Process nested replies
-				addReplies(reply.replies, depth + 1);
-			});
-		}
-
-		// Process all replies
-		addReplies(threadData.replies, 1);
-
-		return items;
+	const currentSlideIndex = useComputed(() => {
+		if (!navigator?.cursor.value || allUris.value.length === 0) return 0;
+		const index = allUris.value.findIndex(uri => uri === navigator.cursor.value);
+		return index === -1 ? 0 : index;
 	});
 
-	// Navigate to next slide
+	// Navigate to next slide using navigator
 	const goToNextSlide = () => {
-		if (slides.value.length === 0) return;
 		isTransitioning.value = true;
-		currentSlideIndex.value = (currentSlideIndex.value + 1) % slides.value.length;
 		
+		// Use chronological navigation for slideshow
+		if (!navigator.moveToNext()) {
+			// If at the end, loop back to beginning
+			const firstUri = allUris.value[0];
+			if (firstUri) navigator.moveTo(firstUri);
+		}
+
 		// Reset transition after delay
 		setTimeout(() => {
 			isTransitioning.value = false;
 		}, 300);
 	};
 
-	// Navigate to previous slide
+	// Navigate to previous slide using navigator
 	const goToPrevSlide = () => {
-		if (slides.value.length === 0) return;
 		isTransitioning.value = true;
-		currentSlideIndex.value = currentSlideIndex.value === 0 
-			? slides.value.length - 1 
-			: currentSlideIndex.value - 1;
-			
+		
+		// Use chronological navigation for slideshow
+		if (!navigator.moveToPrev()) {
+			// If at the beginning, loop to end
+			const lastUri = allUris.value[allUris.value.length - 1];
+			if (lastUri) navigator.moveTo(lastUri);
+		}
+
 		// Reset transition after delay
 		setTimeout(() => {
 			isTransitioning.value = false;
@@ -131,7 +95,7 @@ export function SlideshowView({
 		}, 3000);
 	};
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies:
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			switch(e.key) {
@@ -153,6 +117,11 @@ export function SlideshowView({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
 
+	if (!currentPost.value) return null;
+
+	const currentNode = navigator.getCurrentNode();
+	const isRoot = currentNode?.depth === 0;
+
 	return (
 		<div
 			className="relative h-[80vh] overflow-hidden bg-black rounded-xl"
@@ -168,27 +137,27 @@ export function SlideshowView({
 						: "scale(1) opacity(1)",
 				}}
 			>
-				{slides.value.length > 0 && (
+				{
 					<div
 						className="w-full max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-y-auto max-h-[90%] relative"
 						style={{
-							padding: slides.value[currentSlideIndex.value].isRoot
+							padding: isRoot
 								? "2rem"
 								: "1.5rem",
 						}}
 					>
 						<div
-							className={`absolute top-3 right-3 text-xs inline-block px-2 py-1 rounded-full ${slides.value[currentSlideIndex.value].isRoot ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}
+							className={`absolute top-3 right-3 text-xs inline-block px-2 py-1 rounded-full ${isRoot ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}
 						>
-							{currentSlideIndex.value + 1} / {slides.value.length}
+							{currentSlideIndex.value + 1} / {allUris.value.length}
 						</div>
 
 						{/* Author information */}
 						<div className="flex items-center mb-4 gap-2">
 							{displayItems.includes("avatar") && (
 								<img
-									src={slides.value[currentSlideIndex.value].post.author.avatar}
-									alt={slides.value[currentSlideIndex.value].post.author.displayName}
+									src={currentPost.value.author.avatar}
+									alt={currentPost.value.author.displayName}
 									className="w-12 h-12 rounded-full"
 								/>
 							)}
@@ -196,12 +165,12 @@ export function SlideshowView({
 							<div>
 								{displayItems.includes("displayName") && (
 									<div className="font-semibold text-gray-900 dark:text-white">
-										{slides.value[currentSlideIndex.value].post.author.displayName}
+										{currentPost.value.author.displayName}
 									</div>
 								)}
 								{displayItems.includes("handle") && (
 									<div className="text-gray-500 text-sm">
-										@{slides.value[currentSlideIndex.value].post.author.handle}
+										@{currentPost.value.author.handle}
 									</div>
 								)}
 							</div>
@@ -209,22 +178,22 @@ export function SlideshowView({
 
 						{/* Post content */}
 						<div
-							className={`prose prose-lg dark:prose-invert max-w-none mb-4 ${slides.value[currentSlideIndex.value].isRoot ? "text-xl" : "text-base"}`}
+							className={`prose prose-lg dark:prose-invert max-w-none mb-4 ${isRoot ? "text-xl" : "text-base"}`}
 						>
-							<PostText post={slides.value[currentSlideIndex.value].post} />
+							<PostText post={currentPost.value} />
 						</div>
 
 						{/* Embedded content */}
 						<div className="mt-4">
-							<PostEmbed post={slides.value[currentSlideIndex.value].post} />
+							<PostEmbed post={currentPost.value} />
 						</div>
 
 						{/* Reply indicators */}
-						{!linearMode && slides.value[currentSlideIndex.value].depth > 0 && (
+						{currentNode && currentNode.depth > 0 && (
 							<div className="absolute left-0 top-0 h-full w-1 bg-blue-500 opacity-80" />
 						)}
 					</div>
-				)}
+				}
 			</div>
 
 			{/* Navigation controls (visible on hover) */}
@@ -261,7 +230,7 @@ export function SlideshowView({
 				<div
 					className="h-full bg-blue-500 transition-all duration-300"
 					style={{
-						width: `${(currentSlideIndex.value / (slides.value.length - 1)) * 100}%`,
+						width: `${allUris.value.length > 1 ? (currentSlideIndex.value / (allUris.value.length - 1)) * 100 : 0}%`,
 					}}
 				/>
 			</div>

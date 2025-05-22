@@ -1,31 +1,23 @@
-import { useSignal, useComputed } from "@preact/signals-react/runtime";
+import { useSignal, useComputed, useSignalEffect } from "@preact/signals-react/runtime";
 import { useRef, useState, useEffect } from "react";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { PostText } from "@/components/post/PostText";
 import { PostEmbed } from "@/components/post/PostEmbed";
 import { Icon } from "@/components/Icon";
-import type { ThreadReply } from "@/lib/types";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { getTimeAgo } from "@/lib/utils/time";
-import type { Thread } from "@/lib/threadUtils";
+import type { ThreadNavigator } from "@/lib/threadNavigation";
 
 interface ChatViewProps {
-	threadData: Thread;
 	displayItems: DisplayableItem[];
 	showInputArea?: boolean;
-}
-
-// Interface for flattened thread messages
-interface ChatMessage {
-	post: AppBskyFeedDefs.PostView;
-	depth: number;
-	isRoot: boolean;
+	navigator: ThreadNavigator;
 }
 
 export function ChatView({
-	threadData,
 	displayItems,
 	showInputArea = true,
+	navigator,
 }: ChatViewProps) {
 	const [inputText, setInputText] = useState("");
 	const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -38,71 +30,35 @@ export function ChatView({
 			"https://cdn.bsky.app/img/avatar/plain/did:plc:current-user/placeholder",
 	});
 
-	// Flatten thread into chronologically ordered messages
+	// Get all posts in chronological order
 	const chatMessages = useComputed(() => {
-		if (!threadData?.post) return [];
-
-		const messages: ChatMessage[] = [];
-
-		// Add root post
-		messages.push({
-			post: threadData.post,
-			depth: 0,
-			isRoot: true,
-		});
-
-		// Function to recursively flatten replies
-		function addReplies(replies: ThreadReply[] | undefined, depth: number) {
-			if (!replies) return;
-
-			// Sort replies by timestamp
-			const sortedReplies = [...replies].sort((a, b) => {
-				return (
-					new Date(a.post.indexedAt).getTime() -
-					new Date(b.post.indexedAt).getTime()
-				);
-			});
-
-			sortedReplies.forEach((reply) => {
-				messages.push({
-					post: reply.post,
-					depth: depth,
-					isRoot: false,
-				});
-
-				// Process nested replies
-				addReplies(reply.replies, depth + 1);
-			});
-		}
-
-		// Process all replies
-		addReplies(threadData.replies, 1);
-
-		return messages;
+		return navigator.getChronologicalUris().map(uri => {
+			return navigator.getPost(uri);
+		}).filter((post): post is AppBskyFeedDefs.PostView => post !== null);
 	});
 
 	// Group messages by author for visual grouping
 	const groupedMessages = useComputed(() => {
 		const groups: {
 			author: string;
-			messages: ChatMessage[];
+			messages: AppBskyFeedDefs.PostView[];
 			timestamp: string;
 		}[] = [];
 
 		chatMessages.value.forEach((message) => {
-			const authorDid = message.post.author.did;
+			const authorDid = message.author.did;
 			const lastGroup = groups[groups.length - 1];
 
 			if (lastGroup && lastGroup.author === authorDid) {
 				// Add to existing group if the last message was from the same author
 				lastGroup.messages.push(message);
-				lastGroup.timestamp = message.post.indexedAt;
+				lastGroup.timestamp = message.indexedAt;
 			} else {
 				// Create new group for different author
 				groups.push({
 					author: authorDid,
 					messages: [message],
-					timestamp: message.post.indexedAt,
+					timestamp: message.indexedAt,
 				});
 			}
 		});
@@ -110,13 +66,44 @@ export function ChatView({
 		return groups;
 	});
 
-	// Scroll to bottom on load and when messages change
+	// Get current message index using the navigator's position
+	const currentMessageIndex = useComputed(() => {
+		const position = navigator.getCurrentPosition();
+		return position.index;
+	});
+
+	// Scroll to the current message when the cursor changes
+	useSignalEffect(() => {
+		if (chatContainerRef.current && currentMessageIndex.value >= 0) {
+			// Get all message elements
+			const messageElements = chatContainerRef.current.querySelectorAll('[data-message-uri]');
+			const currentElement = messageElements[currentMessageIndex.value];
+			
+			if (currentElement) {
+				// Scroll the element into view with a small offset
+				currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		}
+	});
+
+	// Initial scroll to bottom or to current message
 	useEffect(() => {
 		if (chatContainerRef.current) {
-			const container = chatContainerRef.current;
-			container.scrollTop = container.scrollHeight;
+			if (navigator.cursor?.value && currentMessageIndex.value >= 0) {
+				// If we have a cursor, scroll to that message
+				const messageElements = chatContainerRef.current.querySelectorAll('[data-message-uri]');
+				const currentElement = messageElements[currentMessageIndex.value];
+				
+				if (currentElement) {
+					currentElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+				}
+			} else {
+				// Otherwise, scroll to bottom (default behavior)
+				const container = chatContainerRef.current;
+				container.scrollTop = container.scrollHeight;
+			}
 		}
-	}, []);
+	}, [navigator.cursor?.value, currentMessageIndex.value]);
 
 	// Handle message submission
 	const handleSubmit = (e: React.FormEvent) => {
@@ -152,19 +139,50 @@ export function ChatView({
 		textarea.style.height = `${newHeight}px`;
 	};
 
+	// Handle message click to update navigator cursor
+	const handleMessageClick = (uri: string) => {
+		navigator.moveTo(uri);
+	};
+
+	// Navigation controls
+	const renderNavigationControls = () => {
+		const position = navigator.getCurrentPosition();
+		
+		return (
+			<div className="absolute bottom-16 right-4 flex flex-col gap-2 z-10">
+				<button 
+					onClick={() => navigator.moveToPrev()}
+					disabled={position.isFirst}
+					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					title="Previous message"
+				>
+					<Icon name="leftArrow" className="size-5 text-gray-700 dark:text-gray-300" />
+				</button>
+				<button 
+					onClick={() => navigator.moveToNext()}
+					disabled={position.isLast}
+					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					title="Next message"
+				>
+					<Icon name="rightArrow" className="size-5 text-gray-700 dark:text-gray-300" />
+				</button>
+			</div>
+		);
+	};
+
 	return (
-		<div className="flex flex-col h-[70vh] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+		<div className="flex flex-col h-[70vh] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 relative">
 			{/* Chat header */}
 			<div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750 flex items-center justify-between">
 				<div className="flex items-center space-x-3">
 					<div className="flex items-center -space-x-2">
 						{/* Group chat avatar stack */}
-						{[...new Set(chatMessages.value.map((m) => m.post.author.did))]
+						{[...new Set(chatMessages.value.map((m) => m.author.did))]
 							.slice(0, 3)
 							.map((did, idx) => {
 								const author = chatMessages.value.find(
-									(m) => m.post.author.did === did,
-								)?.post.author;
+									(m) => m.author.did === did,
+								)?.author;
 								return (
 									<div
 										key={did}
@@ -193,14 +211,14 @@ export function ChatView({
 								<>
 									{[
 										...new Set(
-											chatMessages.value.map((m) => m.post.author.did),
+											chatMessages.value.map((m) => m.author.did),
 										),
 									]
 										.slice(0, 3)
 										.map((did, idx, arr) => {
 											const author = chatMessages.value.find(
-												(m) => m.post.author.did === did,
-											)?.post.author;
+												(m) => m.author.did === did,
+											)?.author;
 											return (
 												<span key={did}>
 													{author?.displayName || author?.handle}
@@ -210,7 +228,7 @@ export function ChatView({
 										})}
 									{[
 										...new Set(
-											chatMessages.value.map((m) => m.post.author.did),
+											chatMessages.value.map((m) => m.author.did),
 										),
 									].length > 3 && (
 										<span>
@@ -218,7 +236,7 @@ export function ChatView({
 											+
 											{[
 												...new Set(
-													chatMessages.value.map((m) => m.post.author.did),
+													chatMessages.value.map((m) => m.author.did),
 												),
 											].length - 3}{" "}
 											others
@@ -231,7 +249,7 @@ export function ChatView({
 						</h2>
 						<p className="text-xs text-gray-500">
 							{
-								[...new Set(chatMessages.value.map((m) => m.post.author.did))]
+								[...new Set(chatMessages.value.map((m) => m.author.did))]
 									.length
 							}{" "}
 							participants
@@ -260,11 +278,11 @@ export function ChatView({
 			>
 				{groupedMessages.value.map((group, groupIndex) => {
 					const isCurrentUser = group.author === currentUser.value.did;
-					const author = group.messages[0].post.author;
+					const author = group.messages[0].author;
 
 					return (
 						<div
-							key={groupIndex}
+							key={`group-${group.author}-${groupIndex}`}
 							className={`flex ${isCurrentUser ? "justify-end" : "justify-start"} gap-2`}
 						>
 							{!isCurrentUser &&
@@ -296,29 +314,38 @@ export function ChatView({
 
 								{/* Message bubbles */}
 								<div className="space-y-1">
-									{group.messages.map((message, messageIndex) => (
-										<div
-											key={message.post.uri}
-											className={`rounded-2xl px-3 py-2 ${
-												isCurrentUser
-													? "bg-blue-500 text-white"
-													: "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-											}`}
-										>
-											<div className="prose prose-sm max-w-none break-words">
-												<PostText post={message.post} />
-											</div>
-
-											{/* Embedded content */}
-											{messageIndex === group.messages.length - 1 && (
-												<div
-													className={`mt-1 ${isCurrentUser ? "bg-blue-400 rounded-lg overflow-hidden" : ""}`}
-												>
-													<PostEmbed post={message.post} />
+									{group.messages.map((message, messageIndex) => {
+										const isCurrentMessage = navigator.cursor?.value === message.uri;
+										return (
+											<div
+												key={message.uri}
+												data-message-uri={message.uri}
+												className={`rounded-2xl px-3 py-2 ${
+													isCurrentUser
+														? "bg-blue-500 text-white"
+														: "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+												} ${
+													isCurrentMessage 
+														? "ring-2 ring-yellow-400 dark:ring-yellow-500" 
+														: ""
+												} cursor-pointer transition-all`}
+												onClick={() => handleMessageClick(message.uri)}
+											>
+												<div className="prose prose-sm max-w-none break-words">
+													<PostText post={message} />
 												</div>
-											)}
-										</div>
-									))}
+
+												{/* Embedded content */}
+												{messageIndex === group.messages.length - 1 && (
+													<div
+														className={`mt-1 ${isCurrentUser ? "bg-blue-400 rounded-lg overflow-hidden" : ""}`}
+													>
+														<PostEmbed post={message} />
+													</div>
+												)}
+											</div>
+										);
+									})}
 								</div>
 
 								{/* Timestamp (only shown for last message in group) */}
@@ -330,6 +357,9 @@ export function ChatView({
 					);
 				})}
 			</div>
+
+			{/* Navigation controls */}
+			{renderNavigationControls()}
 
 			{/* Message input area */}
 			{showInputArea && (
