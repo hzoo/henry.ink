@@ -27,17 +27,11 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 	const showMiniMap = useSignal<boolean>(true);
 	const postRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-	const activeNode = useComputed(() => {
-		return navigator.getCurrentNode();
-	});
-
-	const currentPost = useComputed(() => {
-		return navigator.getCurrentPost();
-	});
+	const activeNode = navigator.getCurrentNode();
 
 	// Build thread path from root to current node
 	const threadPath = useComputed(() => {
-		const currentNode = activeNode.value;
+		const currentNode = activeNode;
 		if (!currentNode) return [];
 
 		const pathUris: string[] = [];
@@ -58,7 +52,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 	});
 
 	const relatedNodes = useComputed(() => {
-		const node = activeNode.value;
+		const node = activeNode;
 		if (!node) return { siblings: [], children: [] };
 
 		// Get parent to find siblings
@@ -77,14 +71,14 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 
 	// Set up keyboard navigation
 	useEffect(() => {
-		if (!activeNode.value) return;
+		if (!activeNode) return;
 
 		const container = threadContainerRef.current;
 		if (!container) return;
 		container.focus();
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (!activeNode.value) return;
+			if (!activeNode) return;
 
 			const preventDefault = () => {
 				e.preventDefault();
@@ -97,7 +91,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 					navigator.moveToParent();
 					break;
 				case "ArrowDown":
-					if (activeNode.value.childUris.length > 0) {
+					if (activeNode.childUris.length > 0) {
 						navigator.moveToFirstChild();
 					} else {
 						handled = false;
@@ -110,7 +104,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 					navigator.moveToNextSibling();
 					break;
 				case "j":
-					if (activeNode.value.childUris.length > 0) {
+					if (activeNode.childUris.length > 0) {
 						navigator.moveToFirstChild();
 					} else {
 						navigator.moveToNextSibling();
@@ -149,7 +143,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		return () => {
 			container.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [navigator, activeNode.value, showMetadata, showMiniMap]);
+	}, [navigator, activeNode, showMetadata, showMiniMap]);
 
 	// Scroll to active post when cursor changes
 	useSignalEffect(() => {

@@ -1,4 +1,4 @@
-import { signal, type Signal } from "@preact/signals";
+import { signal, computed, type Signal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { Thread } from "@/lib/threadUtils";
 
@@ -14,10 +14,11 @@ export class ThreadNavigator {
 	// Core data structures
 	private nodeMap = new Map<string, TreeNode>();
 	private postMap = new Map<string, AppBskyFeedDefs.PostView>();
-	private chronologicalUris: string[] = [];
+	public chronologicalUris: readonly string[] = [];
 	
 	// Current position
 	public cursor: Signal<string | null>;
+	public currentPost: Signal<AppBskyFeedDefs.PostView | null>;
 	
 	// Root node URI for reference
 	public rootUri: string;
@@ -33,6 +34,12 @@ export class ThreadNavigator {
 			? initialCursorUri 
 			: this.rootUri;
 		this.cursor = signal(initialUri);
+		
+		// Set up computed current post
+		this.currentPost = computed(() => {
+			if (!this.cursor.value) return null;
+			return this.postMap.get(this.cursor.value) || null;
+		});
 	}
 
 	private buildTree(threadData: Thread) {
@@ -156,11 +163,6 @@ export class ThreadNavigator {
 
 	// === DATA ACCESS METHODS ===
 
-	getCurrentPost(): AppBskyFeedDefs.PostView | null {
-		if (!this.cursor.value) return null;
-		return this.postMap.get(this.cursor.value) || null;
-	}
-
 	getCurrentNode(): TreeNode | null {
 		if (!this.cursor.value) return null;
 		return this.nodeMap.get(this.cursor.value) || null;
@@ -174,29 +176,6 @@ export class ThreadNavigator {
 		return this.nodeMap.get(uri) || null;
 	}
 
-	// === UTILITY METHODS ===
-
-	getAllUris(): string[] {
-		return Array.from(this.nodeMap.keys());
-	}
-
-	getChronologicalUris(): string[] {
-		return [...this.chronologicalUris];
-	}
-
-	getAllPosts(): AppBskyFeedDefs.PostView[] {
-		return Array.from(this.postMap.values());
-	}
-
-	// Get posts in a specific range (useful for pagination)
-	getChronologicalRange(start: number, limit: number): AppBskyFeedDefs.PostView[] {
-		return this.chronologicalUris
-			.slice(start, start + limit)
-			.map(uri => this.postMap.get(uri))
-			.filter((post): post is AppBskyFeedDefs.PostView => post !== undefined);
-	}
-
-	// Get current position info (useful for UI)
 	getCurrentPosition(): {
 		index: number;
 		total: number;

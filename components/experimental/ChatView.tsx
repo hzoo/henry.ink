@@ -32,7 +32,7 @@ export function ChatView({
 
 	// Get all posts in chronological order
 	const chatMessages = useComputed(() => {
-		return navigator.getChronologicalUris().map(uri => {
+		return navigator.chronologicalUris.map(uri => {
 			return navigator.getPost(uri);
 		}).filter((post): post is AppBskyFeedDefs.PostView => post !== null);
 	});
