@@ -68,7 +68,6 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 	const hasNav = useSignal(false); // show highlight only after kb-nav
 	/** remembers the last selection for every card we've already seen */
 	const memo = useRef<WeakMap<ThreadNode, number>>(new WeakMap());
-	const showKeyboard = useSignal(false);
 
 	/* ——————————————————————————————————————————————————————————————— helpers ——————————————————————————————————— */
 	const clamp = (value: number, min: number, max: number) =>
@@ -124,12 +123,12 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 		const handleClick = () => (hasNav.value = false);
 		el.addEventListener("click", handleClick);
 
-		const handleKeyDown = (e: KeyboardEvent) => {
-			showKeyboard.value = true;
-			const current = stack.value[stack.value.length - 1];
-			if (!current) return;
+               const handleKeyDown = (e: KeyboardEvent) => {
+                       if (e.ctrlKey) return;
+                       const current = stack.value[stack.value.length - 1];
+                       if (!current) return;
 
-			switch (e.key) {
+                        switch (e.key) {
 				/* ⇧ / k – previous row (no wrap) */
 				case "ArrowUp":
 				case "k": {
@@ -152,9 +151,10 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 					hasNav.value = true;
 					break;
 				}
-				/* ⇨ / l – open focused child */
+				/* ⇨ / l / space – open focused child */
 				case "ArrowRight":
-				case "l": {
+				case "l":
+				case " ": {
 					e.preventDefault();
 					if (current.children[focusIdx.value]) {
 						openNode(current.children[focusIdx.value]);
@@ -166,18 +166,48 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 				case "ArrowLeft":
 				case "h":
 				case "Escape":
-					e.preventDefault();
-					goBack();
+					if (stack.value.length === 1 && document.activeElement === el) {
+						e.preventDefault();
+						el.blur();
+						hasNav.value = false;
+					} else {
+						e.preventDefault();
+						goBack();
+					}
 					break;
 			}
 		};
 
+		const handleWindowKeyDown = (e: KeyboardEvent) => {
+			if (!containerRef.current) return;
+			if (
+				document.activeElement !== containerRef.current &&
+				[
+					"ArrowUp",
+					"ArrowDown",
+					"ArrowLeft",
+					"ArrowRight",
+					"j",
+					"k",
+					"l",
+					"h",
+					" ",
+				].includes(e.key) &&
+				!e.ctrlKey
+			) {
+				containerRef.current.focus({ preventScroll: true });
+				hasNav.value = true;
+			}
+		};
+
 		el.addEventListener("keydown", handleKeyDown);
+		window.addEventListener("keydown", handleWindowKeyDown);
 		/* focus as soon as the component mounts so keys work immediately */
 		requestAnimationFrame(() => el.focus({ preventScroll: true }));
 		return () => {
 			el.removeEventListener("keydown", handleKeyDown);
 			el.removeEventListener("click", handleClick);
+			window.removeEventListener("keydown", handleWindowKeyDown);
 		};
 	}, []);
 
@@ -191,14 +221,14 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 		<div
 			ref={containerRef}
 			tabIndex={0}
-			className={`relative h-[70vh] w-full max-w-md mx-auto focus:outline-none ${showKeyboard.value ? "focus-visible:ring-2 focus-visible:ring-blue-500" : ""}`}
+			className="relative h-[70vh] w-full max-w-md mx-auto focus:outline-none"
 		>
 			<div className="p-2 text-xs text-gray-500 flex gap-3">
 				<div>
 					<kbd className="px-1">↑/k</kbd> <kbd className="px-1">↓</kbd> select
 				</div>
 				<div>
-					<kbd className="px-1">→/j</kbd> open
+					<kbd className="px-1">→/l/space</kbd> open
 				</div>
 				<div>
 					<kbd className="px-1">←/h</kbd> or <kbd className="px-1">esc</kbd>{" "}
