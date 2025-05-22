@@ -17,9 +17,9 @@ export class ThreadNavigator {
 	public chronologicalUris: readonly string[] = [];
 	
 	// Current position
-	public cursor: Signal<string | null>;
+	public cursor: Signal<string>;
 	public currentPost: Signal<AppBskyFeedDefs.PostView | null>;
-	
+	public currentNode: Signal<TreeNode | null>;
 	// Root node URI for reference
 	public rootUri: string;
 
@@ -35,10 +35,11 @@ export class ThreadNavigator {
 			: this.rootUri;
 		this.cursor = signal(initialUri);
 		
-		// Set up computed current post
 		this.currentPost = computed(() => {
-			if (!this.cursor.value) return null;
 			return this.postMap.get(this.cursor.value) || null;
+		});
+		this.currentNode = computed(() => {
+			return this.nodeMap.get(this.cursor.value) || null;
 		});
 	}
 

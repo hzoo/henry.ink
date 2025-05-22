@@ -96,6 +96,12 @@ export function SlideshowView({
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			switch(e.key) {
+				case "j":
+					goToNextSlide();
+					break;
+				case "k":
+					goToPrevSlide();
+					break;
 				case "ArrowRight":
 					goToNextSlide();
 					break;
