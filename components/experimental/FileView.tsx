@@ -15,6 +15,102 @@ import { applyFilters, type PostFilter } from "@/lib/postFilters";
 import type { ThreadNavigator } from "@/lib/threadNavigation";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
+// Helper functions for leaf traversal
+const findNextLeafInTraversal = (navigator: ThreadNavigator, startUri: string): string | null => {
+	const startNode = navigator.getNode(startUri);
+	if (!startNode) return null;
+
+	// If current node has children, go to first child and find first leaf in that subtree
+	if (startNode.childUris.length > 0) {
+		const firstChild = startNode.childUris[0];
+		const firstChildNode = navigator.getNode(firstChild);
+		if (firstChildNode) {
+			// If first child is a leaf, return it
+			if (firstChildNode.childUris.length === 0) {
+				return firstChild;
+			}
+			// Otherwise, recursively find first leaf in first child's subtree
+			return findNextLeafInTraversal(navigator, firstChild);
+		}
+	}
+
+	// No children, try to find next sibling
+	let currentUri = startUri;
+	let currentNode = startNode;
+
+	while (currentNode) {
+		if (currentNode.parentUri) {
+			const parent = navigator.getNode(currentNode.parentUri);
+			if (parent) {
+				const currentIndex = parent.childUris.indexOf(currentUri);
+				// Try next sibling
+				if (currentIndex < parent.childUris.length - 1) {
+					const nextSiblingUri = parent.childUris[currentIndex + 1];
+					const nextSiblingNode = navigator.getNode(nextSiblingUri);
+					if (nextSiblingNode) {
+						// If next sibling is a leaf, return it
+						if (nextSiblingNode.childUris.length === 0) {
+							return nextSiblingUri;
+						}
+						// Otherwise, find first leaf in next sibling's subtree
+						return findNextLeafInTraversal(navigator, nextSiblingUri);
+					}
+				}
+				// No next sibling, go up to parent and continue
+				currentUri = currentNode.parentUri;
+				currentNode = parent;
+			} else {
+				break;
+			}
+		} else {
+			// Reached root with no siblings, no next leaf
+			break;
+		}
+	}
+
+	return null;
+};
+
+const findPrevLeafInTraversal = (navigator: ThreadNavigator, startUri: string): string | null => {
+	const startNode = navigator.getNode(startUri);
+	if (!startNode) return null;
+
+	// Try to find previous sibling
+	if (startNode.parentUri) {
+		const parent = navigator.getNode(startNode.parentUri);
+		if (parent) {
+			const currentIndex = parent.childUris.indexOf(startUri);
+			if (currentIndex > 0) {
+				// Go to previous sibling and find its last leaf
+				const prevSiblingUri = parent.childUris[currentIndex - 1];
+				return findLastLeafInSubtree(navigator, prevSiblingUri);
+			} else {
+				// No previous sibling, go to parent
+				const parentNode = navigator.getNode(startNode.parentUri);
+				if (parentNode && parentNode.childUris.length === 0) {
+					// Parent is a leaf
+					return startNode.parentUri;
+				} else {
+					// Parent has children, find previous leaf from parent
+					return findPrevLeafInTraversal(navigator, startNode.parentUri);
+				}
+			}
+		}
+	}
+
+	return null;
+};
+
+const findLastLeafInSubtree = (navigator: ThreadNavigator, uri: string): string => {
+	const node = navigator.getNode(uri);
+	if (!node || node.childUris.length === 0) {
+		return uri; // This is a leaf
+	}
+	// Go to last child and find its last leaf
+	const lastChildUri = node.childUris[node.childUris.length - 1];
+	return findLastLeafInSubtree(navigator, lastChildUri);
+};
+
 interface FileViewProps {
 	navigator: ThreadNavigator;
 	displayItems: DisplayableItem[];
@@ -27,11 +123,9 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 	const showMiniMap = useSignal<boolean>(true);
 	const postRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-	const activeNode = navigator.getCurrentNode();
-
 	// Build thread path from root to current node
 	const threadPath = useComputed(() => {
-		const currentNode = activeNode;
+		const currentNode = navigator.currentNode.value;
 		if (!currentNode) return [];
 
 		const pathUris: string[] = [];
@@ -51,8 +145,66 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		return pathUris.map(uri => navigator.getPost(uri)).filter(Boolean) as AppBskyFeedDefs.PostView[];
 	});
 
+	// Get all leaf nodes (nodes with no children) for leaf navigation
+	const leafNodes = useComputed(() => {
+		const leaves: string[] = [];
+		
+		// Get all URIs from chronological list and filter for leaf nodes
+		for (const uri of navigator.chronologicalUris) {
+			const node = navigator.getNode(uri);
+			if (node && node.childUris.length === 0) {
+				leaves.push(uri);
+			}
+		}
+		
+		return leaves;
+	});
+
+
+
+	// Find adjacent leaf nodes for navigation
+	const adjacentLeaves = useComputed(() => {
+		const currentUri = navigator.cursor.value;
+		if (!currentUri) return { prev: null, next: null };
+		
+		const currentIndex = leafNodes.value.indexOf(currentUri);
+		
+		// If current node is not a leaf, find the closest leaves
+		if (currentIndex === -1) {
+			// Find next leaf chronologically
+			let nextLeafUri: string | null = null;
+			let prevLeafUri: string | null = null;
+			
+			const chronoIndex = navigator.chronologicalUris.indexOf(currentUri);
+			
+			// Look forward for next leaf
+			for (let i = chronoIndex + 1; i < navigator.chronologicalUris.length; i++) {
+				if (leafNodes.value.includes(navigator.chronologicalUris[i])) {
+					nextLeafUri = navigator.chronologicalUris[i];
+					break;
+				}
+			}
+			
+			// Look backward for previous leaf
+			for (let i = chronoIndex - 1; i >= 0; i--) {
+				if (leafNodes.value.includes(navigator.chronologicalUris[i])) {
+					prevLeafUri = navigator.chronologicalUris[i];
+					break;
+				}
+			}
+			
+			return { prev: prevLeafUri, next: nextLeafUri };
+		}
+		
+		// Current node is a leaf, get adjacent leaves
+		return {
+			prev: currentIndex > 0 ? leafNodes.value[currentIndex - 1] : null,
+			next: currentIndex < leafNodes.value.length - 1 ? leafNodes.value[currentIndex + 1] : null,
+		};
+	});
+
 	const relatedNodes = useComputed(() => {
-		const node = activeNode;
+		const node = navigator.currentNode.value;
 		if (!node) return { siblings: [], children: [] };
 
 		// Get parent to find siblings
@@ -71,13 +223,15 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 
 	// Set up keyboard navigation
 	useEffect(() => {
-		if (!activeNode) return;
+		const currentNode = navigator.currentNode.value;
+		if (!currentNode) return;
 
 		const container = threadContainerRef.current;
 		if (!container) return;
 		container.focus();
 
 		const handleKeyDown = (e: KeyboardEvent) => {
+			const activeNode = navigator.currentNode.value;
 			if (!activeNode) return;
 
 			const preventDefault = () => {
@@ -103,23 +257,33 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 				case "ArrowRight":
 					navigator.moveToNextSibling();
 					break;
-				case "j":
-					if (activeNode.childUris.length > 0) {
-						navigator.moveToFirstChild();
-					} else {
-						navigator.moveToNextSibling();
+				case "j": {
+					// Move to next leaf in traversal order
+					const nextLeaf = findNextLeafInTraversal(navigator, navigator.cursor.value);
+					if (nextLeaf) {
+						navigator.moveTo(nextLeaf);
 					}
 					break;
-				case "k":
-					if (!navigator.moveToPrevSibling()) {
-						navigator.moveToParent();
+				}
+				case "k": {
+					// Move to previous leaf in traversal order
+					const prevLeaf = findPrevLeafInTraversal(navigator, navigator.cursor.value);
+					if (prevLeaf) {
+						navigator.moveTo(prevLeaf);
 					}
 					break;
+				}
 				case "n":
-					navigator.moveToNext(); // chronological navigation
+					// Next leaf navigation
+					if (adjacentLeaves.value.next) {
+						navigator.moveTo(adjacentLeaves.value.next);
+					}
 					break;
 				case "p":
-					navigator.moveToPrev(); // chronological navigation
+					// Previous leaf navigation  
+					if (adjacentLeaves.value.prev) {
+						navigator.moveTo(adjacentLeaves.value.prev);
+					}
 					break;
 				case "r":
 					navigator.moveToRoot();
@@ -143,7 +307,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		return () => {
 			container.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [navigator, activeNode, showMetadata, showMiniMap]);
+	}, [navigator, showMetadata, showMiniMap, adjacentLeaves]);
 
 	// Scroll to active post when cursor changes
 	useSignalEffect(() => {
@@ -178,16 +342,16 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 					<kbd>→</kbd> Next sibling
 				</div>
 				<div>
-					<kbd>j</kbd> Next node (child or sibling)
+					<kbd>j</kbd> Next leaf (traversal order)
 				</div>
 				<div>
-					<kbd>k</kbd> Previous node (sibling or parent)
+					<kbd>k</kbd> Previous leaf (traversal order)
 				</div>
 				<div>
-					<kbd>n</kbd> Next (chronological)
+					<kbd>n</kbd> Next leaf
 				</div>
 				<div>
-					<kbd>p</kbd> Previous (chronological)
+					<kbd>p</kbd> Previous leaf
 				</div>
 				<div>
 					<kbd>r</kbd> Root post
@@ -202,7 +366,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		</div>
 	);
 
-	// Recursive function to render the tree minimap
+	// Recursive function to render the tree minimap - show more nodes
 	const renderTreeNode = (uri: string, level: number): React.ReactNode => {
 		const post = navigator.getPost(uri);
 		const node = navigator.getNode(uri);
@@ -211,6 +375,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 
 		const isActive = uri === navigator.cursor.value;
 		const isInPath = threadPath.value.some(p => p.uri === uri);
+		const isLeaf = node.childUris.length === 0;
 
 		return (
 			<div key={uri} className="mb-1">
@@ -225,10 +390,10 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 					style={{ paddingLeft: `${level * 12 + 4}px` }}
 					onClick={() => navigator.moveTo(uri)}
 				>
-					{node.childUris.length > 0 ? (
-						<Icon name="comment" className="size-3 mr-1 flex-shrink-0" />
+					{isLeaf ? (
+						<span className="w-3 mr-1 text-green-600 dark:text-green-400">•</span>
 					) : (
-						<span className="w-3 mr-1" />
+						<Icon name="comment" className="size-3 mr-1 flex-shrink-0" />
 					)}
 
 					{displayItems.includes("avatar") && post.author.avatar && (
@@ -245,18 +410,14 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 							: post.author.handle}
 					</span>
 				</div>
-				{/* Render children if this node is in the active path or is a sibling of an active path node */}
-				{node.childUris.length > 0 &&
-					(isInPath ||
-						node.childUris.some(childUri =>
-							threadPath.value.some(p => p.uri === childUri)
-						)) && (
-						<div>
-							{node.childUris.map(childUri =>
-								renderTreeNode(childUri, level + 1)
-							)}
-						</div>
-					)}
+				{/* Always render children if they exist - more permissive than before */}
+				{node.childUris.length > 0 && (
+					<div>
+						{node.childUris.map(childUri =>
+							renderTreeNode(childUri, level + 1)
+						)}
+					</div>
+				)}
 			</div>
 		);
 	};
@@ -296,6 +457,9 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 							>
 								<Icon name="magnifying" className="size-4" />
 							</button>
+							<div className="text-xs text-gray-500">
+								{navigator.getCurrentPosition().index + 1} / {navigator.getCurrentPosition().total}
+							</div>
 						</div>
 
 						<div className="flex items-center gap-2">
@@ -321,6 +485,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 						{threadPath.value.map((post) => {
 							const isActiveNode = post.uri === navigator.cursor.value;
 							const node = navigator.getNode(post.uri);
+							const isLeaf = node && node.childUris.length === 0;
 
 							return (
 								<div
@@ -363,6 +528,11 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 												>
 													D:{node?.depth || 0}
 												</span>
+												{isLeaf && (
+													<span className="text-green-600 dark:text-green-400 font-bold">
+														LEAF
+													</span>
+												)}
 											</div>
 										)}
 									</div>
@@ -431,29 +601,35 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 												</div>
 											)}
 
-											{/* Chronological navigation */}
+											{/* Leaf navigation */}
 											<div className="flex ml-auto">
-												<button
-													onClick={() => navigator.moveToPrev()}
-													className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-l hover:bg-gray-200 dark:hover:bg-gray-600 border-r border-gray-200 dark:border-gray-600"
-													title="Previous (chronological) (p)"
-												>
-													<Icon
-														name="arrowUturnLeft"
-														className="size-3 -rotate-90"
-													/>
-												</button>
+												{adjacentLeaves.value.prev && (
+													<button
+														onClick={() => navigator.moveTo(adjacentLeaves.value.prev!)}
+														className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900 rounded-l hover:bg-green-200 dark:hover:bg-green-800 border-r border-green-200 dark:border-green-700"
+														title="Previous leaf (p)"
+													>
+														<Icon
+															name="arrowUturnLeft"
+															className="size-3 -rotate-90"
+														/>
+														<span className="text-xs">Leaf</span>
+													</button>
+												)}
 
-												<button
-													onClick={() => navigator.moveToNext()}
-													className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-r hover:bg-gray-200 dark:hover:bg-gray-600"
-													title="Next (chronological) (n)"
-												>
-													<Icon
-														name="arrowUturnLeft"
-														className="size-3 rotate-90"
-													/>
-												</button>
+												{adjacentLeaves.value.next && (
+													<button
+														onClick={() => navigator.moveTo(adjacentLeaves.value.next!)}
+														className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900 rounded-r hover:bg-green-200 dark:hover:bg-green-800"
+														title="Next leaf (n)"
+													>
+														<span className="text-xs">Leaf</span>
+														<Icon
+															name="arrowUturnLeft"
+															className="size-3 rotate-90"
+														/>
+													</button>
+												)}
 											</div>
 										</div>
 									)}

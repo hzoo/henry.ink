@@ -30,6 +30,8 @@ export function ChatView({
 			"https://cdn.bsky.app/img/avatar/plain/did:plc:current-user/placeholder",
 	});
 
+	const activeNode = navigator.currentNode.value;
+
 	// Get all posts in chronological order
 	const chatMessages = useComputed(() => {
 		return navigator.chronologicalUris.map(uri => {
@@ -105,6 +107,28 @@ export function ChatView({
 		}
 	}, [navigator.cursor?.value, currentMessageIndex.value]);
 
+	useEffect(() => {
+		const container = chatContainerRef.current;
+		if (!container) return;
+		container.focus();
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			switch (e.key) {
+				case "j":
+					navigator.moveToNext();
+					break;
+				case "k":
+					navigator.moveToPrev();
+					break;
+			}
+		};
+
+		container.addEventListener("keydown", handleKeyDown);
+		return () => {
+			container.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [navigator]);
+
 	// Handle message submission
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -147,7 +171,7 @@ export function ChatView({
 	// Navigation controls
 	const renderNavigationControls = () => {
 		const position = navigator.getCurrentPosition();
-		
+
 		return (
 			<div className="absolute bottom-16 right-4 flex flex-col gap-2 z-10">
 				<button 
