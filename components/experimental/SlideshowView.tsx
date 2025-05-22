@@ -15,20 +15,17 @@ export function SlideshowView({
 	displayItems,
 	navigator,
 }: SlideshowViewProps) {
+	const allUris = navigator.chronologicalUris;
+
 	const isTransitioning = useSignal(false);
 	const slideContainerRef = useRef<HTMLDivElement>(null);
 	const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
 	const autoplayEnabled = useSignal(false);
 	const showControls = useSignal(true);
 
-	const currentPost = useComputed(() => navigator?.getCurrentPost());
-
-	// Get all posts for total count and current index
-	const allUris = useComputed(() => navigator?.getChronologicalUris() || []);
-
 	const currentSlideIndex = useComputed(() => {
-		if (!navigator?.cursor.value || allUris.value.length === 0) return 0;
-		const index = allUris.value.findIndex(uri => uri === navigator.cursor.value);
+		if (!navigator.cursor.value || allUris.length === 0) return 0;
+		const index = allUris.findIndex(uri => uri === navigator.cursor.value);
 		return index === -1 ? 0 : index;
 	});
 
@@ -39,7 +36,7 @@ export function SlideshowView({
 		// Use chronological navigation for slideshow
 		if (!navigator.moveToNext()) {
 			// If at the end, loop back to beginning
-			const firstUri = allUris.value[0];
+			const firstUri = allUris[0];
 			if (firstUri) navigator.moveTo(firstUri);
 		}
 
@@ -56,7 +53,7 @@ export function SlideshowView({
 		// Use chronological navigation for slideshow
 		if (!navigator.moveToPrev()) {
 			// If at the beginning, loop to end
-			const lastUri = allUris.value[allUris.value.length - 1];
+			const lastUri = allUris[allUris.length - 1];
 			if (lastUri) navigator.moveTo(lastUri);
 		}
 
@@ -117,7 +114,7 @@ export function SlideshowView({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
 
-	if (!currentPost.value) return null;
+	if (!navigator.currentPost.value) return null;
 
 	const currentNode = navigator.getCurrentNode();
 	const isRoot = currentNode?.depth === 0;
@@ -149,15 +146,15 @@ export function SlideshowView({
 						<div
 							className={`absolute top-3 right-3 text-xs inline-block px-2 py-1 rounded-full ${isRoot ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}
 						>
-							{currentSlideIndex.value + 1} / {allUris.value.length}
+							{currentSlideIndex.value + 1} / {allUris.length}
 						</div>
 
 						{/* Author information */}
 						<div className="flex items-center mb-4 gap-2">
 							{displayItems.includes("avatar") && (
 								<img
-									src={currentPost.value.author.avatar}
-									alt={currentPost.value.author.displayName}
+									src={navigator.currentPost.value.author.avatar}
+									alt={navigator.currentPost.value.author.displayName}
 									className="w-12 h-12 rounded-full"
 								/>
 							)}
@@ -165,12 +162,12 @@ export function SlideshowView({
 							<div>
 								{displayItems.includes("displayName") && (
 									<div className="font-semibold text-gray-900 dark:text-white">
-										{currentPost.value.author.displayName}
+										{navigator.currentPost.value.author.displayName}
 									</div>
 								)}
 								{displayItems.includes("handle") && (
 									<div className="text-gray-500 text-sm">
-										@{currentPost.value.author.handle}
+										@{navigator.currentPost.value.author.handle}
 									</div>
 								)}
 							</div>
@@ -180,12 +177,12 @@ export function SlideshowView({
 						<div
 							className={`prose prose-lg dark:prose-invert max-w-none mb-4 ${isRoot ? "text-xl" : "text-base"}`}
 						>
-							<PostText post={currentPost.value} />
+							<PostText post={navigator.currentPost.value} />
 						</div>
 
 						{/* Embedded content */}
 						<div className="mt-4">
-							<PostEmbed post={currentPost.value} />
+							<PostEmbed post={navigator.currentPost.value} />
 						</div>
 
 						{/* Reply indicators */}
@@ -230,7 +227,7 @@ export function SlideshowView({
 				<div
 					className="h-full bg-blue-500 transition-all duration-300"
 					style={{
-						width: `${allUris.value.length > 1 ? (currentSlideIndex.value / (allUris.value.length - 1)) * 100 : 0}%`,
+						width: `${allUris.length > 1 ? (currentSlideIndex.value / (allUris.length - 1)) * 100 : 0}%`,
 					}}
 				/>
 			</div>
