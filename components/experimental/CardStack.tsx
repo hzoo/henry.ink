@@ -5,7 +5,6 @@ import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { PostText } from "@/components/post/PostText";
 import { PostEmbed } from "@/components/post/PostEmbed";
 import { Icon } from "@/components/Icon";
-import type { ThreadReply } from "@/lib/types";
 import type { DisplayableItem } from "@/components/post/FullPost";
 import { getTimeAgo } from "@/lib/utils/time";
 import { formatCount } from "@/lib/utils/count";
@@ -41,7 +40,7 @@ export function CardStack({ threadData, displayItems }: CardStackProps) {
 
 		function build(
 			node: AppBskyFeedDefs.PostView,
-			replies?: ThreadReply[],
+			replies?: Thread[],
 			parent: ThreadNode | null = null,
 		): ThreadNode {
 			const res: ThreadNode = {

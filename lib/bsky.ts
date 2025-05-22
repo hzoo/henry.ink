@@ -1,7 +1,7 @@
 import { atCuteState } from '@/site/lib/oauth';
 import { Client, simpleFetchHandler } from '@atcute/client';
 import type { AppBskyFeedSearchPosts } from '@atcute/bluesky';
-import type { InferOutput, ResourceUri } from "@atcute/lexicons";
+import type { ActorIdentifier, InferOutput, ResourceUri } from "@atcute/lexicons";
 
 const rpc = new Client({ handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }) });
 
@@ -103,10 +103,33 @@ export async function searchBskyPosts(url: string, options?: { signal?: AbortSig
   }
 }
 
-export async function getPostThread(uri: string, options?: { depth?: number; signal?: AbortSignal }) {
+// window.getRecord = getRecord;
+// getRecord('henryzoo.com', 'app.bsky.feed.post', '3lltzjrnjnc2b')
+// .reply.root.uri
+export async function getRecord(repo: string, collection: string, rkey: string, options?: { signal?: AbortSignal }) {
+  try {
+    const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('com.atproto.repo.getRecord', {
+      params: { repo: repo as ActorIdentifier, collection: collection as `com.atproto.repo.${string}`, rkey },
+      signal: options?.signal,
+    });
+
+    if (!ok) {  
+      throw new Error(`Error fetching record: ${data.error}`);
+    }
+
+    return data.value;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('Error fetching record:', error);
+      throw error;
+    }
+  }
+}
+
+export async function getPostThread(uri: string, options?: { depth?: number; parentHeight?: number; signal?: AbortSignal }) {
   try {
     const {ok, data} = await (atCuteState.value?.rpc ?? rpc).get('app.bsky.feed.getPostThread', {
-      params: { uri: uri as ResourceUri, depth: options?.depth },
+      params: { uri: uri as ResourceUri, depth: options?.depth, parentHeight: options?.parentHeight },
       signal: options?.signal,
     });
 

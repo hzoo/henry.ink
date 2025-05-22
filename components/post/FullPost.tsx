@@ -10,13 +10,11 @@ import { PostText } from "@/components/post/PostText";
 
 import { getAuthorUrl, getPost, getAtUriFromUrl } from "@/lib/utils/postUrls";
 import { getTimeAgo } from "@/lib/utils/time";
-import { fetchProcessedThread } from "@/lib/threadUtils";
+import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
 import { isRecord } from "@/lib/postActions";
 import type { PostFilter } from "@/lib/postFilters";
 import { applyFilters } from "@/lib/postFilters";
-import type { ThreadReply } from "@/lib/types";
 import type { Signal } from "@preact/signals-react";
-import type { Thread } from "@/lib/threadUtils";
 
 export type DisplayableItem = "avatar" | "displayName" | "handle";
 
@@ -84,8 +82,7 @@ export function FullPost({
 	});
 
 	const post = threadData?.post;
-	const replies = threadData?.replies ?? null;
-
+	const replies = threadData?.replies;
 	const isExpanded = useSignal(true);
 
 	if (isLoading) {

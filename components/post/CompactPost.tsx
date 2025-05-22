@@ -7,15 +7,12 @@ import { PostReplies } from "@/components/post/PostReplies";
 import { CompactPostActions } from "@/components/post/CompactPostActions";
 import { ExpandButton } from "@/components/post/ExpandButton";
 import { PostEmbed } from "@/components/post/PostEmbed";
-import { fetchProcessedThread } from "@/lib/threadUtils";
-import type { ThreadReply } from "@/lib/types";
-import type { Signal } from "@preact/signals-react";
+import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
 import type { DisplayableItem } from "@/components/post/FullPost";
 
 import { getAuthorUrl, getPost } from "@/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/lib/postFilters";
-import type { Thread } from "@/lib/threadUtils";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -23,7 +20,7 @@ interface CompactPostProps {
 	expanded?: boolean;
 	op?: string;
 	filters?: PostFilter[];
-	replies?: ThreadReply[] | null;
+	replies?: Thread[] | null;
 	displayItems: DisplayableItem[];
 }
 
