@@ -330,7 +330,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 			<div className="font-medium mb-1">Keyboard Navigation:</div>
 			<div className="grid grid-cols-2 gap-x-4 gap-y-1">
 				<div>
-					<kbd>↑</kbd> Parent
+					<kbd>↑</kbd> Parent node
 				</div>
 				<div>
 					<kbd>↓</kbd> First child
@@ -342,10 +342,10 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 					<kbd>→</kbd> Next sibling
 				</div>
 				<div>
-					<kbd>j</kbd> Next leaf (traversal order)
+					<kbd>j</kbd> Next leaf (smart)
 				</div>
 				<div>
-					<kbd>k</kbd> Previous leaf (traversal order)
+					<kbd>k</kbd> Previous leaf (smart)
 				</div>
 				<div>
 					<kbd>n</kbd> Next leaf

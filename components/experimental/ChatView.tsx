@@ -113,13 +113,30 @@ export function ChatView({
 		container.focus();
 
 		const handleKeyDown = (e: KeyboardEvent) => {
+			const preventDefault = () => {
+				e.preventDefault();
+				e.stopPropagation();
+			};
+
+			let handled = true;
 			switch (e.key) {
-				case "j":
-					navigator.moveToNext();
-					break;
 				case "k":
+				case "p":
 					navigator.moveToPrev();
 					break;
+				case "j":
+				case "n":
+					navigator.moveToNext();
+					break;
+				case "r":
+					navigator.moveToRoot();
+					break;
+				default:
+					handled = false;
+					break;
+			}
+			if (handled) {
+				preventDefault();
 			}
 		};
 
@@ -168,6 +185,24 @@ export function ChatView({
 		navigator.moveTo(uri);
 	};
 
+	// Render the keyboard shortcuts help
+	const renderKeyboardHelp = () => (
+		<div className="p-3 bg-gray-50 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-300 rounded-md mb-4">
+			<div className="font-medium mb-1">Keyboard Navigation:</div>
+			<div className="grid grid-cols-2 gap-x-4 gap-y-1">
+				<div>
+					<kbd>k</kbd> / <kbd>p</kbd> Previous message
+				</div>
+				<div>
+					<kbd>j</kbd> / <kbd>n</kbd> Next message
+				</div>
+				<div>
+					<kbd>r</kbd> First message
+				</div>
+			</div>
+		</div>
+	);
+
 	// Navigation controls
 	const renderNavigationControls = () => {
 		const position = navigator.getCurrentPosition();
@@ -178,15 +213,18 @@ export function ChatView({
 					onClick={() => navigator.moveToPrev()}
 					disabled={position.isFirst}
 					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-					title="Previous message"
+					title="Previous message (k)"
 				>
 					<Icon name="leftArrow" className="size-5 text-gray-700 dark:text-gray-300" />
 				</button>
+				<div className="text-xs text-center text-gray-500 px-2">
+					{position.index + 1} / {position.total}
+				</div>
 				<button 
 					onClick={() => navigator.moveToNext()}
 					disabled={position.isLast}
 					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-					title="Next message"
+					title="Next message (j)"
 				>
 					<Icon name="rightArrow" className="size-5 text-gray-700 dark:text-gray-300" />
 				</button>
@@ -195,249 +233,255 @@ export function ChatView({
 	};
 
 	return (
-		<div className="flex flex-col h-[70vh] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 relative">
-			{/* Chat header */}
-			<div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750 flex items-center justify-between">
-				<div className="flex items-center space-x-3">
-					<div className="flex items-center -space-x-2">
-						{/* Group chat avatar stack */}
-						{[...new Set(chatMessages.value.map((m) => m.author.did))]
-							.slice(0, 3)
-							.map((did, idx) => {
-								const author = chatMessages.value.find(
-									(m) => m.author.did === did,
-								)?.author;
-								return (
-									<div
-										key={did}
-										className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 overflow-hidden"
-										style={{ zIndex: 10 - idx }}
-									>
-										{displayItems.includes("avatar") && author?.avatar ? (
+		<div className="flex flex-col">
+			{renderKeyboardHelp()}
+
+			<div className="flex flex-col h-[70vh] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 relative">
+				{/* Chat header */}
+				<div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750 flex items-center justify-between">
+					<div className="flex items-center space-x-3">
+						<div className="flex items-center -space-x-2">
+							{/* Group chat avatar stack */}
+							{[...new Set(chatMessages.value.map((m) => m.author.did))]
+								.slice(0, 3)
+								.map((did, idx) => {
+									const author = chatMessages.value.find(
+										(m) => m.author.did === did,
+									)?.author;
+									return (
+										<div
+											key={did}
+											className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 overflow-hidden"
+											style={{ zIndex: 10 - idx }}
+										>
+											{displayItems.includes("avatar") && author?.avatar ? (
+												<img
+													src={author.avatar}
+													alt={author.displayName || author.handle}
+													className="w-full h-full object-cover"
+												/>
+											) : (
+												<div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400">
+													<Icon name="user" className="size-4" />
+												</div>
+											)}
+										</div>
+									);
+								})}
+						</div>
+
+						<div>
+							<h2 className="font-medium text-sm">
+								{displayItems.includes("displayName") ? (
+									<>
+										{[
+											...new Set(
+												chatMessages.value.map((m) => m.author.did),
+											),
+										]
+											.slice(0, 3)
+											.map((did, idx, arr) => {
+												const author = chatMessages.value.find(
+													(m) => m.author.did === did,
+												)?.author;
+												return (
+													<span key={did}>
+														{author?.displayName || author?.handle}
+														{idx < arr.length - 1 && ", "}
+													</span>
+												);
+											})}
+										{[
+											...new Set(
+												chatMessages.value.map((m) => m.author.did),
+											),
+										].length > 3 && (
+											<span>
+												{" "}
+												+
+												{[
+													...new Set(
+														chatMessages.value.map((m) => m.author.did),
+													),
+												].length - 3}{" "}
+												others
+											</span>
+										)}
+									</>
+								) : (
+									<span>Group Chat</span>
+								)}
+							</h2>
+							<p className="text-xs text-gray-500">
+								{
+									[...new Set(chatMessages.value.map((m) => m.author.did))]
+										.length
+								}{" "}
+								participants
+							</p>
+						</div>
+					</div>
+
+					<div className="flex items-center space-x-2">
+						<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+							<Icon name="phone" className="size-5 text-blue-500" />
+						</button>
+						<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+							<Icon name="video" className="size-5 text-blue-500" />
+						</button>
+						<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+							<Icon name="information" className="size-5 text-gray-400" />
+						</button>
+					</div>
+				</div>
+
+				{/* Chat messages */}
+				<div
+					ref={chatContainerRef}
+					className="flex-1 overflow-y-auto p-4 space-y-3 outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-opacity-50"
+					style={{ backgroundColor: "rgb(240, 242, 245)" }}
+					// biome-ignore lint/a11y/noNoninteractiveTabindex: This div is intentionally focusable for keyboard navigation.
+					tabIndex={0}
+				>
+					{groupedMessages.value.map((group, groupIndex) => {
+						const isCurrentUser = group.author === currentUser.value.did;
+						const author = group.messages[0].author;
+
+						return (
+							<div
+								key={`group-${group.author}-${groupIndex}`}
+								className={`flex ${isCurrentUser ? "justify-end" : "justify-start"} gap-2`}
+							>
+								{!isCurrentUser &&
+									displayItems.includes("avatar") &&
+									author.avatar && (
+										<div className="flex-shrink-0 h-8 w-8 mt-1">
 											<img
 												src={author.avatar}
 												alt={author.displayName || author.handle}
-												className="w-full h-full object-cover"
+												className="rounded-full w-8 h-8"
 											/>
-										) : (
-											<div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400">
-												<Icon name="user" className="size-4" />
-											</div>
-										)}
-									</div>
-								);
-							})}
-					</div>
+										</div>
+									)}
 
-					<div>
-						<h2 className="font-medium text-sm">
-							{displayItems.includes("displayName") ? (
-								<>
-									{[
-										...new Set(
-											chatMessages.value.map((m) => m.author.did),
-										),
-									]
-										.slice(0, 3)
-										.map((did, idx, arr) => {
-											const author = chatMessages.value.find(
-												(m) => m.author.did === did,
-											)?.author;
-											return (
-												<span key={did}>
-													{author?.displayName || author?.handle}
-													{idx < arr.length - 1 && ", "}
+								<div
+									className={`flex flex-col max-w-[70%] ${isCurrentUser ? "items-end" : "items-start"}`}
+								>
+									{/* Author name (only shown for first message in group) */}
+									{displayItems.includes("displayName") && !isCurrentUser && (
+										<div className="text-xs font-medium text-gray-800 ml-1 mb-1">
+											{author.displayName || author.handle}
+											{displayItems.includes("handle") && (
+												<span className="text-gray-500 font-normal ml-1">
+													@{author.handle}
 												</span>
+											)}
+										</div>
+									)}
+
+									{/* Message bubbles */}
+									<div className="space-y-1">
+										{group.messages.map((message, messageIndex) => {
+											const isCurrentMessage = navigator.cursor?.value === message.uri;
+											return (
+												<div
+													key={message.uri}
+													data-message-uri={message.uri}
+													className={`rounded-2xl px-3 py-2 ${
+														isCurrentUser
+															? "bg-blue-500 text-white"
+															: "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+													} ${
+														isCurrentMessage 
+															? "ring-2 ring-yellow-400 dark:ring-yellow-500" 
+															: ""
+													} cursor-pointer transition-all`}
+													onClick={() => handleMessageClick(message.uri)}
+												>
+													<div className="prose prose-sm max-w-none break-words">
+														<PostText post={message} />
+													</div>
+
+													{/* Embedded content */}
+													{messageIndex === group.messages.length - 1 && (
+														<div
+															className={`mt-1 ${isCurrentUser ? "bg-blue-400 rounded-lg overflow-hidden" : ""}`}
+														>
+															<PostEmbed post={message} />
+														</div>
+													)}
+												</div>
 											);
 										})}
-									{[
-										...new Set(
-											chatMessages.value.map((m) => m.author.did),
-										),
-									].length > 3 && (
-										<span>
-											{" "}
-											+
-											{[
-												...new Set(
-													chatMessages.value.map((m) => m.author.did),
-												),
-											].length - 3}{" "}
-											others
-										</span>
-									)}
-								</>
-							) : (
-								<span>Group Chat</span>
-							)}
-						</h2>
-						<p className="text-xs text-gray-500">
-							{
-								[...new Set(chatMessages.value.map((m) => m.author.did))]
-									.length
-							}{" "}
-							participants
-						</p>
-					</div>
-				</div>
-
-				<div className="flex items-center space-x-2">
-					<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-						<Icon name="phone" className="size-5 text-blue-500" />
-					</button>
-					<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-						<Icon name="video" className="size-5 text-blue-500" />
-					</button>
-					<button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-						<Icon name="information" className="size-5 text-gray-400" />
-					</button>
-				</div>
-			</div>
-
-			{/* Chat messages */}
-			<div
-				ref={chatContainerRef}
-				className="flex-1 overflow-y-auto p-4 space-y-3"
-				style={{ backgroundColor: "rgb(240, 242, 245)" }}
-			>
-				{groupedMessages.value.map((group, groupIndex) => {
-					const isCurrentUser = group.author === currentUser.value.did;
-					const author = group.messages[0].author;
-
-					return (
-						<div
-							key={`group-${group.author}-${groupIndex}`}
-							className={`flex ${isCurrentUser ? "justify-end" : "justify-start"} gap-2`}
-						>
-							{!isCurrentUser &&
-								displayItems.includes("avatar") &&
-								author.avatar && (
-									<div className="flex-shrink-0 h-8 w-8 mt-1">
-										<img
-											src={author.avatar}
-											alt={author.displayName || author.handle}
-											className="rounded-full w-8 h-8"
-										/>
 									</div>
-								)}
 
-							<div
-								className={`flex flex-col max-w-[70%] ${isCurrentUser ? "items-end" : "items-start"}`}
+									{/* Timestamp (only shown for last message in group) */}
+									<div className="text-[10px] text-gray-500 mt-1 mx-1">
+										{getTimeAgo(group.timestamp)}
+									</div>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+
+				{/* Navigation controls */}
+				{renderNavigationControls()}
+
+				{/* Message input area */}
+				{showInputArea && (
+					<form
+						onSubmit={handleSubmit}
+						className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750"
+					>
+						<div className="flex items-center gap-2">
+							<div className="flex-grow relative flex items-center">
+								<textarea
+									ref={inputRef}
+									value={inputText}
+									onChange={autoResizeTextarea}
+									placeholder="Aa"
+									className="w-full border border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none max-h-[150px] min-h-[40px]"
+									style={{ height: "40px" }}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											handleSubmit(e);
+										}
+									}}
+								/>
+
+								<div className="absolute right-3 top-1/2 -translate-y-1/2 flex space-x-2">
+									<button
+										type="button"
+										className="text-gray-500 hover:text-gray-700"
+									>
+										<Icon name="photo" className="size-5" />
+									</button>
+									<button
+										type="button"
+										className="text-gray-500 hover:text-gray-700"
+									>
+										<Icon name="faceSmile" className="size-5" />
+									</button>
+								</div>
+							</div>
+
+							<button
+								type="submit"
+								disabled={!inputText.trim()}
+								className={`p-2 rounded-full h-10 w-10 flex items-center justify-center ${
+									inputText.trim()
+										? "bg-blue-500 text-white"
+										: "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+								}`}
 							>
-								{/* Author name (only shown for first message in group) */}
-								{displayItems.includes("displayName") && !isCurrentUser && (
-									<div className="text-xs font-medium text-gray-800 ml-1 mb-1">
-										{author.displayName || author.handle}
-										{displayItems.includes("handle") && (
-											<span className="text-gray-500 font-normal ml-1">
-												@{author.handle}
-											</span>
-										)}
-									</div>
-								)}
-
-								{/* Message bubbles */}
-								<div className="space-y-1">
-									{group.messages.map((message, messageIndex) => {
-										const isCurrentMessage = navigator.cursor?.value === message.uri;
-										return (
-											<div
-												key={message.uri}
-												data-message-uri={message.uri}
-												className={`rounded-2xl px-3 py-2 ${
-													isCurrentUser
-														? "bg-blue-500 text-white"
-														: "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-												} ${
-													isCurrentMessage 
-														? "ring-2 ring-yellow-400 dark:ring-yellow-500" 
-														: ""
-												} cursor-pointer transition-all`}
-												onClick={() => handleMessageClick(message.uri)}
-											>
-												<div className="prose prose-sm max-w-none break-words">
-													<PostText post={message} />
-												</div>
-
-												{/* Embedded content */}
-												{messageIndex === group.messages.length - 1 && (
-													<div
-														className={`mt-1 ${isCurrentUser ? "bg-blue-400 rounded-lg overflow-hidden" : ""}`}
-													>
-														<PostEmbed post={message} />
-													</div>
-												)}
-											</div>
-										);
-									})}
-								</div>
-
-								{/* Timestamp (only shown for last message in group) */}
-								<div className="text-[10px] text-gray-500 mt-1 mx-1">
-									{getTimeAgo(group.timestamp)}
-								</div>
-							</div>
+								<Icon name="send" className="size-5" />
+							</button>
 						</div>
-					);
-				})}
+					</form>
+				)}
 			</div>
-
-			{/* Navigation controls */}
-			{renderNavigationControls()}
-
-			{/* Message input area */}
-			{showInputArea && (
-				<form
-					onSubmit={handleSubmit}
-					className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-750"
-				>
-					<div className="flex items-center gap-2">
-						<div className="flex-grow relative flex items-center">
-							<textarea
-								ref={inputRef}
-								value={inputText}
-								onChange={autoResizeTextarea}
-								placeholder="Aa"
-								className="w-full border border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none max-h-[150px] min-h-[40px]"
-								style={{ height: "40px" }}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										handleSubmit(e);
-									}
-								}}
-							/>
-
-							<div className="absolute right-3 top-1/2 -translate-y-1/2 flex space-x-2">
-								<button
-									type="button"
-									className="text-gray-500 hover:text-gray-700"
-								>
-									<Icon name="photo" className="size-5" />
-								</button>
-								<button
-									type="button"
-									className="text-gray-500 hover:text-gray-700"
-								>
-									<Icon name="faceSmile" className="size-5" />
-								</button>
-							</div>
-						</div>
-
-						<button
-							type="submit"
-							disabled={!inputText.trim()}
-							className={`p-2 rounded-full h-10 w-10 flex items-center justify-center ${
-								inputText.trim()
-									? "bg-blue-500 text-white"
-									: "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-							}`}
-						>
-							<Icon name="send" className="size-5" />
-						</button>
-					</div>
-				</form>
-			)}
 		</div>
 	);
 }
