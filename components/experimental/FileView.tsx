@@ -119,7 +119,6 @@ interface FileViewProps {
 
 export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 	const threadContainerRef = useRef<HTMLDivElement>(null);
-	const showMetadata = useSignal<boolean>(true);
 	const showMiniMap = useSignal<boolean>(true);
 	const postRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -288,9 +287,6 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 				case "r":
 					navigator.moveToRoot();
 					break;
-				case "m":
-					showMetadata.value = !showMetadata.value;
-					break;
 				case "t":
 					showMiniMap.value = !showMiniMap.value;
 					break;
@@ -307,7 +303,7 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		return () => {
 			container.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [navigator, showMetadata, showMiniMap, adjacentLeaves]);
+	}, [navigator, showMiniMap, adjacentLeaves]);
 
 	// Scroll to active post when cursor changes
 	useSignalEffect(() => {
@@ -355,9 +351,6 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 				</div>
 				<div>
 					<kbd>r</kbd> Root post
-				</div>
-				<div>
-					<kbd>m</kbd> Toggle metadata
 				</div>
 				<div>
 					<kbd>t</kbd> Toggle tree map
@@ -464,13 +457,6 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 
 						<div className="flex items-center gap-2">
 							<button
-								onClick={() => (showMetadata.value = !showMetadata.value)}
-								className={`p-1 rounded ${showMetadata.value ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-								title="Toggle metadata (m)"
-							>
-								<Icon name="cog" className="size-4" />
-							</button>
-							<button
 								onClick={() => (showMiniMap.value = !showMiniMap.value)}
 								className={`p-1 rounded ${showMiniMap.value ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`}
 								title="Toggle tree map (t)"
@@ -520,21 +506,9 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 											</div>
 										</div>
 
-										{showMetadata.value && (
-											<div className="text-xs text-gray-500 flex items-center gap-2">
-												{getTimeAgo(post.indexedAt)}
-												<span
-													className={`px-1.5 py-0.5 rounded ${isActiveNode ? "bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}
-												>
-													D:{node?.depth || 0}
-												</span>
-												{isLeaf && (
-													<span className="text-green-600 dark:text-green-400 font-bold">
-														LEAF
-													</span>
-												)}
-											</div>
-										)}
+										<div className="text-xs text-gray-500 flex items-center gap-2">
+											{getTimeAgo(post.indexedAt)}
+										</div>
 									</div>
 
 									{/* Post content */}
