@@ -30,8 +30,6 @@ export function ChatView({
 			"https://cdn.bsky.app/img/avatar/plain/did:plc:current-user/placeholder",
 	});
 
-	const activeNode = navigator.currentNode.value;
-
 	// Get all posts in chronological order
 	const chatMessages = useComputed(() => {
 		return navigator.chronologicalUris.map(uri => {
@@ -208,26 +206,10 @@ export function ChatView({
 		const position = navigator.getCurrentPosition();
 
 		return (
-			<div className="absolute bottom-16 right-4 flex flex-col gap-2 z-10">
-				<button 
-					onClick={() => navigator.moveToPrev()}
-					disabled={position.isFirst}
-					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-					title="Previous message (k)"
-				>
-					<Icon name="leftArrow" className="size-5 text-gray-700 dark:text-gray-300" />
-				</button>
+			<div className="absolute bottom-16 right-1 flex flex-col gap-2 z-10">
 				<div className="text-xs text-center text-gray-500 px-2">
 					{position.index + 1} / {position.total}
 				</div>
-				<button 
-					onClick={() => navigator.moveToNext()}
-					disabled={position.isLast}
-					className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-					title="Next message (j)"
-				>
-					<Icon name="rightArrow" className="size-5 text-gray-700 dark:text-gray-300" />
-				</button>
 			</div>
 		);
 	};
