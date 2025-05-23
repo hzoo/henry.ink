@@ -119,8 +119,10 @@ interface FileViewProps {
 
 export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 	const threadContainerRef = useRef<HTMLDivElement>(null);
+	const minimapContainerRef = useRef<HTMLDivElement>(null);
 	const showMiniMap = useSignal<boolean>(true);
 	const postRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+	const treeNodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
 	// Build thread path from root to current node
 	const threadPath = useComputed(() => {
@@ -318,6 +320,15 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 				ref.scrollIntoView({ behavior: "smooth", block: "nearest" });
 			}, 50);
 		}
+
+		// Also scroll the minimap to show the active tree node
+		if (minimapContainerRef.current) {
+			setTimeout(() => {
+				const treeNodeRef = treeNodeRefs.current.get(uri);
+				if (!treeNodeRef) return;
+				treeNodeRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
+			}, 50);
+		}
 	});
 
 	// Render the keyboard shortcuts help
@@ -373,6 +384,9 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 		return (
 			<div key={uri} className="mb-1">
 				<div
+					ref={(el) => {
+						if (el) treeNodeRefs.current.set(uri, el);
+					}}
 					className={`flex items-center py-0.5 px-1 text-xs rounded cursor-pointer ${
 						isActive
 							? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
@@ -422,7 +436,10 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 			<div className="flex gap-4">
 				{/* Thread minimap (navigation tree) */}
 				{showMiniMap.value && (
-					<div className="w-52 shrink-0 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 overflow-auto h-[70vh]">
+					<div 
+						ref={minimapContainerRef}
+						className="w-52 shrink-0 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 overflow-auto h-[70vh]"
+					>
 						<div className="p-2 font-medium text-xs border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
 							Thread Map
 						</div>

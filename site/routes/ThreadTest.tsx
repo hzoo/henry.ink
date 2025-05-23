@@ -207,58 +207,62 @@ export function ThreadTest(props: ThreadTestProps) {
 	};
 
 	return (
-		<div className="p-2">
-			<div className="max-w-[720px] mx-auto space-y-2">
-				<>
-					{!props.user && (
-						<div className="flex items-center gap-1 relative">
-							<input
-								type="text"
-								id="threadUri"
-								value={threadUri.value}
-								onInput={(e) => {
-									threadUri.value = e.currentTarget.value;
-								}}
-								placeholder="e.g., at://did:plc:example/app.bsky.feed.post/abcdefghijk"
-								className="flex-grow px-2 py-1 border border-gray-300 rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
-							/>
-							<div className="absolute inset-y-0 right-0 flex items-center pr-2">
-								<div
-									className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-									onClick={() =>
-										(showDisplayToggle.value = !showDisplayToggle.value)
-									}
-								>
-									<Icon name="cog" className="size-4" />
+		<div className="min-h-screen">
+			{/* Sticky Header */}
+			<div className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+				<div className="p-2">
+					<div className="max-w-[720px] mx-auto space-y-2">
+						{!props.user && (
+							<div className="flex items-center gap-1 relative">
+								<input
+									type="text"
+									id="threadUri"
+									value={threadUri.value}
+									onInput={(e) => {
+										threadUri.value = e.currentTarget.value;
+									}}
+									placeholder="e.g., at://did:plc:example/app.bsky.feed.post/abcdefghijk"
+									className="flex-grow px-2 py-1 border border-gray-300 rounded-sm shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+								/>
+								<div className="absolute inset-y-0 right-0 flex items-center pr-2">
+									<div
+										className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+										onClick={() =>
+											(showDisplayToggle.value = !showDisplayToggle.value)
+										}
+									>
+										<Icon name="cog" className="size-4" />
+									</div>
 								</div>
+								<DisplayToggle />
 							</div>
-							<DisplayToggle />
+						)}
+						<div className="flex items-center gap-3">
+							<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+								Mode:
+							</span>
+							<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
+								{VIEW_MODES.map((mode) => (
+									<button
+										key={mode}
+										onClick={() => (viewMode.value = mode)}
+										className={`px-3 py-1 text-xs ${
+											viewMode.value === mode
+												? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+												: "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+										}`}
+									>
+										{mode.charAt(0).toUpperCase() + mode.slice(1)}
+									</button>
+								))}
+							</div>
+							<BookmarkletButton />
 						</div>
-					)}
-					<div className="flex items-center gap-3">
-						<span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-							Mode:
-						</span>
-						<div className="flex border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden">
-							{VIEW_MODES.map((mode) => (
-								<button
-									key={mode}
-									onClick={() => (viewMode.value = mode)}
-									className={`px-3 py-1 text-xs ${
-										viewMode.value === mode
-											? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-											: "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-									}`}
-								>
-									{mode.charAt(0).toUpperCase() + mode.slice(1)}
-								</button>
-							))}
-						</div>
-						<BookmarkletButton />
 					</div>
-				</>
+				</div>
 			</div>
 
+			{/* Main Content */}
 			<div className={`mx-auto pt-2 ${contentMaxWidthClass.value}`}>
 				{isLoading ? (
 					<div className="p-4">Loading conversation...</div>
