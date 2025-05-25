@@ -428,7 +428,7 @@ export function CardStack({ navigator, displayItems }: CardStackProps) {
 														: undefined
 												}
 												className={`group relative flex items-start gap-2 w-full text-left p-2 rounded ${
-													isCurrentChild
+													isCurrentChild && isTop
 														? "bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700"
 														: isTop &&
 														  focusIdx.value === cidx &&
