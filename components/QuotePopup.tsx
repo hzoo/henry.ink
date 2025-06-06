@@ -45,7 +45,7 @@ export function QuotePopup() {
 			// Selection exists, format the text
 			const url = currentUrl.value;
 			const quoteLines = currentSelection.split('\n').map(line => `> ${line}`).join('\n');
-			const newInitialText = `${quoteLines}\n\n\+++\n\n${url}`;
+			const newInitialText = `${quoteLines}\n\n${url}`;
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
