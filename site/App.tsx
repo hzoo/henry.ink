@@ -29,6 +29,11 @@ interface SampleUrl {
 // Sample URLs for badges
 const sampleUrls: SampleUrl[] = [
 	{
+		name: "Archive",
+		category: "iframe-test",
+		url: "https://ciechanow.ski",
+	},
+	{
 		name: "example.com",
 		category: "unblocked",
 		url: "https://example.com",
@@ -84,6 +89,8 @@ function MockBrowser() {
 	const CurrentMockComponent = useSignal<FunctionComponent | null>(
 		initialSample.mockComponent ?? null,
 	);
+	const iframeUrl = useSignal<string | null>(null);
+	const isLoading = useSignal(false); // Added for iframe loading state
 
 	useEffect(() => {
 		currentUrl.value = initialUrl;
@@ -105,9 +112,19 @@ function MockBrowser() {
 			inputUrl.value = finalUrl;
 			currentUrl.value = finalUrl;
 			ensureDomainIsAllowedForDemo(finalUrl);
+
+			if (mockComponent === null) {
+				// Prepend archive.org to the URL for the iframe
+				iframeUrl.value = `https://web.archive.org/web/${finalUrl}`;
+				isLoading.value = true; // Start loading when iframe src is set
+			} else {
+				iframeUrl.value = null;
+				isLoading.value = false; // Not an iframe, so not loading
+			}
 		} catch (error) {
 			console.error("Invalid URL:", error);
 			CurrentMockComponent.value = null;
+			isLoading.value = false; // Clear loading on error
 			alert("Please enter a valid URL (e.g., https://example.com)");
 		}
 	};
@@ -170,6 +187,32 @@ function MockBrowser() {
 				{CurrentMockComponent.value ? (
 					// Render Mock Component if active
 					<CurrentMockComponent.value />
+				) : iframeUrl.value ? (
+					<div class="flex flex-col h-full"> {/* Wrapper for vertical layout */}
+						<div class="p-2 bg-blue-100 dark:bg-blue-800 border-b border-blue-200 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-200 text-center sticky top-0 z-10 shrink-0">
+							<p>
+								<Icon name="information" className="inline-block w-4 h-4 mr-1.5 align-middle" /> {/* Corrected icon */}
+								This is a sandboxed view from the <strong>Internet Archive</strong>. Site functionality may be limited.
+								{isLoading.value && ( /* Show loading text if isLoading is true */
+									<span class="italic ml-2">Loading content, this may take a moment...</span>
+								)}
+							</p>
+						</div>
+						<iframe
+							key={iframeUrl.value} // Ensures iframe reloads when src changes
+							src={iframeUrl.value}
+							class="w-full flex-1 border-0"
+							title="Mocked website content via Internet Archive"
+							sandbox="allow-scripts allow-same-origin"
+							onLoad={() => {
+								isLoading.value = false;
+							}}
+							onError={() => {
+								isLoading.value = false;
+							}}
+							style={{ visibility: isLoading.value ? 'hidden' : 'visible' }} // Hide iframe while loading
+						/> {/* Self-closing iframe */}
+					</div>
 				) : (
 					// Placeholder if no mock is active (e.g., invalid typed URL)
 					<div class="w-full h-full flex items-center justify-center text-gray-500 p-4 text-center">
@@ -256,7 +299,7 @@ export function App() {
 				<LoginButton />
 			</header>
 			<div class="flex flex-1 overflow-hidden">
-				<div ref={mockContainerRef}>
+				<div ref={mockContainerRef} class="flex flex-col flex-1 overflow-auto">
 					<MockBrowser />
 				</div>
 				<aside class="w-[600px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
