@@ -1,13 +1,1 @@
 @import "tailwindcss";
-
-@theme {
-  --color-bg-dark: #161e27;
-  --color-text-dark: #fff;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    background-color: var(--color-bg-dark);
-    color: var(--color-text-dark);
-  }
-}
