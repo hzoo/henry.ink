@@ -3,8 +3,16 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { Sidebar } from "@/components/Sidebar";
 import { LoginButton } from "@/components/LoginButton";
-import { currentUrl, extractBaseDomain, quotedSelection } from "@/lib/messaging";
-import { showQuotePopupOnSelection, domainSettings, setDomainStatus } from "@/lib/settings";
+import {
+	currentUrl,
+	extractBaseDomain,
+	quotedSelection,
+} from "@/lib/messaging";
+import {
+	showQuotePopupOnSelection,
+	domainSettings,
+	setDomainStatus,
+} from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
@@ -14,8 +22,6 @@ import { MockArxiv } from "@/site/components/mock-pages/MockArxiv";
 import { MockYouTube } from "@/site/components/mock-pages/MockYouTube";
 import { MockGitHub } from "@/site/components/mock-pages/MockGitHub";
 import { MockBlog } from "@/site/components/mock-pages/MockBlog";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
 
 // Define the shape of our sample URLs
 interface SampleUrl {
@@ -76,8 +82,8 @@ const sampleUrls: SampleUrl[] = [
 
 const ensureDomainIsAllowedForDemo = (url: string) => {
 	const domain = extractBaseDomain(url);
-	if (domain && domainSettings.value[domain] !== 'a') {
-		setDomainStatus(domain, 'a');
+	if (domain && domainSettings.value[domain] !== "a") {
+		setDomainStatus(domain, "a");
 	}
 };
 
@@ -178,9 +184,7 @@ function MockBrowser() {
 			</div>
 
 			{/* Content Area: Only Mock Component or Placeholder */}
-			<div
-				class="flex-1 border border-dashed rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
-			>
+			<div class="flex-1 border border-dashed rounded dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
 				<span class="absolute top-1 right-2 text-xs text-yellow-400 dark:text-yellow-600 italic z-10 select-none">
 					Mock View
 				</span>
@@ -188,13 +192,23 @@ function MockBrowser() {
 					// Render Mock Component if active
 					<CurrentMockComponent.value />
 				) : iframeUrl.value ? (
-					<div class="flex flex-col h-full"> {/* Wrapper for vertical layout */}
+					<div class="flex flex-col h-full">
+						{" "}
+						{/* Wrapper for vertical layout */}
 						<div class="p-2 bg-blue-100 dark:bg-blue-800 border-b border-blue-200 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-200 text-center sticky top-0 z-10 shrink-0">
 							<p>
-								<Icon name="information" className="inline-block w-4 h-4 mr-1.5 align-middle" /> {/* Corrected icon */}
-								This is a sandboxed view from the <strong>Internet Archive</strong>. Site functionality may be limited.
-								{isLoading.value && ( /* Show loading text if isLoading is true */
-									<span class="italic ml-2">Loading content, this may take a moment...</span>
+								<Icon
+									name="information"
+									className="inline-block w-4 h-4 mr-1.5 align-middle"
+								/>{" "}
+								{/* Corrected icon */}
+								This is a sandboxed view from the{" "}
+								<strong>Internet Archive</strong>. Site functionality may be
+								limited.
+								{isLoading.value /* Show loading text if isLoading is true */ && (
+									<span class="italic ml-2">
+										Loading content, this may take a moment...
+									</span>
 								)}
 							</p>
 						</div>
@@ -210,8 +224,9 @@ function MockBrowser() {
 							onError={() => {
 								isLoading.value = false;
 							}}
-							style={{ visibility: isLoading.value ? 'hidden' : 'visible' }} // Hide iframe while loading
-						/> {/* Self-closing iframe */}
+							style={{ visibility: isLoading.value ? "hidden" : "visible" }} // Hide iframe while loading
+						/>{" "}
+						{/* Self-closing iframe */}
 					</div>
 				) : (
 					// Placeholder if no mock is active (e.g., invalid typed URL)

@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "site": "vite",
+    "notes": "vite note.henryzoo.com",
+    "build:note": "vite build --config note.henryzoo.com/vite.config.ts",
     "dev": "wxt",
     "dev:ff": "wxt -b firefox",
     "build": "wxt build",
@@ -17,7 +19,10 @@
     "postinstall": "wxt prepare",
     "release": "bun scripts/release.ts",
     "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo",
-    "deploy:w": "bunx wrangler deploy"
+    "deploy:note": "bun run build:note && bunx wrangler pages deploy note.henryzoo.com/dist --project-name=henry-note-reader",
+    "deploy:w": "bunx wrangler deploy",
+    "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
+    "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml"
   },
   "dependencies": {
     "@atcute/atproto": "^3.0.0",
@@ -28,11 +33,14 @@
     "@atcute/oauth-browser-client": "^1.0.19",
     "@preact/signals": "^2.0.4",
     "@preact/signals-react": "^3.0.1",
+    "@tailwindcss/typography": "^0.5.16",
     "@tailwindcss/vite": "^4.1.7",
     "@tanstack/query-persist-client-core": "^5.76.1",
     "@tanstack/query-sync-storage-persister": "^5.76.1",
     "@tanstack/react-query": "^5.76.1",
     "@tanstack/react-query-persist-client": "^5.76.1",
+    "dompurify": "^3.2.6",
+    "marked": "^15.0.12",
     "preact": "^10.26.6",
     "preact-iso": "^2.9.1"
   },

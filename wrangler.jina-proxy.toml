@@ -1,0 +1,20 @@
+name = "jina_proxy_worker"
+main = "lib/jina-proxy-worker.ts"
+compatibility_date = "2025-02-04"
+
+[[kv_namespaces]]
+binding = "JINA_CACHE"
+id = "859895fbcf8a4907905012a07b562c75"
+
+[vars]
+JINA_API_KEY = "jina_599225b203a441c3b893412506a48d1aaKd5ncI42PErNLt3EpEmzzS8cH_u" # It's better to set this in the Cloudflare dashboard
+
+# Add routes here if you want this worker to respond to specific paths
+# For example, to handle all requests to jina-proxy.yourdomain.com
+# routes = [
+#  { pattern = "jina-proxy.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+# Or to handle a specific path on your main domain, e.g., yourdomain.com/jina-proxy/*
+# routes = [
+#  { pattern = "yourdomain.com/jina-proxy/*", zone_name = "yourdomain.com" }
+# ]
