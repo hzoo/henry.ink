@@ -5,7 +5,7 @@ import {
 	errorSignal,
 	markdownContentSignal,
 	inputValueSignal,
-} from "./signals";
+} from "@/site/signals";
 import { currentUrl } from "@/lib/messaging";
 import { batch } from "@preact/signals";
 
@@ -47,10 +47,10 @@ async function fetchSimplifiedContent(targetUrl: string) {
 
 // Custom hook to sync URL path from address bar with currentUrl
 export function useUrlPathSyncer() {
-	const location = useLocation(); // Accesses { url, path, query, route }
+	const location = useLocation();
 
 	useEffect(() => {
-		const currentPath = location.path; // Use location.path as per your interface
+		const currentPath = location.path;
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
 			if (potentialUrl.startsWith("http")) {
@@ -58,22 +58,19 @@ export function useUrlPathSyncer() {
 					currentUrl.value = potentialUrl;
 				}
 				if (inputValueSignal.peek() !== potentialUrl) {
-					inputValueSignal.value = potentialUrl; // Keep input field in sync
-				}
-			} else {
-				// Path doesn't look like a URL, clear current URL if it was set by path
-				// This avoids clearing if it was set by input form more recently.
-				if (currentUrl.peek() && currentUrl.peek() === potentialUrl) {
-					currentUrl.value = "";
+					inputValueSignal.value = potentialUrl;
 				}
 			}
-		} else {
-			// Root path or no specific URL in path
-			if (currentUrl.peek() !== "") {
-				// currentUrl.value = ""; // Decide if root clears the target or not
+		} else if (currentPath === "/") {
+			// Clear everything when at root
+			if (currentUrl.peek()) {
+				currentUrl.value = "";
+			}
+			if (inputValueSignal.peek()) {
+				inputValueSignal.value = "";
 			}
 		}
-	}, [location.path]); // Re-run when path changes
+	}, [location.path]);
 }
 
 // Effect to fetch content when currentUrl changes

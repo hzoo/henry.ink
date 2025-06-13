@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "site": "vite",
-    "notes": "vite note.henryzoo.com",
+    "notes": "vite --config note.henryzoo.com/vite.config.ts",
     "build:note": "vite build --config note.henryzoo.com/vite.config.ts",
     "dev": "wxt",
     "dev:ff": "wxt -b firefox",
@@ -19,7 +19,6 @@
     "postinstall": "wxt prepare",
     "release": "bun scripts/release.ts",
     "deploy": "vite build && bunx wrangler pages deploy dist --project-name=annotation-sidebar-demo",
-    "deploy:note": "bun run build:note && bunx wrangler pages deploy note.henryzoo.com/dist --project-name=henry-note-reader",
     "deploy:w": "bunx wrangler deploy",
     "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
     "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml"
