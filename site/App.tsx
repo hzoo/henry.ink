@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MarkdownSite } from "@/site/components/MarkdownSite";
+import { QuickUrlButtons } from "@/site/components/QuickUrlButtons";
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
 
@@ -88,9 +89,9 @@ export function App() {
 				{/* Sidebar */}
 				<aside class="w-[600px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">
-						<span class="text-xs text-gray-500 dark:text-gray-400 italic">
-							↓ Extension Sidebar (Actual Bluesky Posts) ↓
-						</span>
+						<div class="flex flex-wrap gap-2 items-center justify-center text-sm">
+							<QuickUrlButtons />
+						</div>
 					</div>
 					<Sidebar />
 					<SelectionPopupManager
