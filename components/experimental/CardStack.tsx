@@ -342,11 +342,11 @@ export function CardStack({ navigator, displayItems }: CardStackProps) {
 						className="absolute inset-0 transition-transform"
 						style={{ transform: `translateX(${offset}px)` }}
 					>
-						<div className={`border border-gray-200 dark:border-gray-700 rounded-md shadow-md h-full overflow-y-auto ${
-							isCurrentCard 
-								? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700" 
-								: "bg-white dark:bg-gray-800"
-						}`}>
+							<div
+								className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-md h-full overflow-y-auto ${
+									isCurrentCard ? "border-blue-300 dark:border-blue-700" : ""
+								}`}
+							>
 							<div className={`p-2 flex items-center justify-between sticky top-0 border-b border-gray-200 dark:border-gray-700 z-10 ${
 								isCurrentCard 
 									? "bg-blue-50 dark:bg-blue-950" 
@@ -428,7 +428,7 @@ export function CardStack({ navigator, displayItems }: CardStackProps) {
 														: undefined
 												}
 												className={`group relative flex items-start gap-2 w-full text-left p-2 rounded ${
-													isCurrentChild
+													isCurrentChild && isTop
 														? "bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700"
 														: isTop &&
 														  focusIdx.value === cidx &&
