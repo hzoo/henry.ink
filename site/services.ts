@@ -6,7 +6,7 @@ import {
 	markdownContentSignal,
 	inputValueSignal,
 } from "@/site/signals";
-import { currentUrl } from "@/lib/messaging";
+import { currentUrl } from "@/src/lib/messaging";
 import { batch } from "@preact/signals";
 
 const WORKER_BASE_URL = "https://jina_proxy_worker.hi-899.workers.dev";

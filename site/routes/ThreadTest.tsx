@@ -1,15 +1,15 @@
 import { useSignal, useComputed } from "@preact/signals-react/runtime";
-import { FullPost } from "@/components/post/FullPost";
-import type { DisplayableItem } from "@/components/post/FullPost";
-import { Icon } from "@/components/Icon";
-import { FileView } from "@/components/experimental/FileView";
-import { getAtUriFromUrl } from "@/lib/utils/postUrls";
-import { fetchProcessedThread, type Thread } from "@/lib/threadUtils";
-import { ThreadNavigator } from "@/lib/threadNavigation";
+import { FullPost } from "@/src/components/post/FullPost";
+import type { DisplayableItem } from "@/src/components/post/FullPost";
+import { Icon } from "@/src/components/Icon";
+import { FileView } from "@/src/components/experimental/FileView";
+import { getAtUriFromUrl } from "@/src/lib/utils/postUrls";
+import { fetchProcessedThread, type Thread } from "@/src/lib/threadUtils";
+import { ThreadNavigator } from "@/src/lib/threadNavigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChatView } from "@/components/experimental/ChatView";
-import { CardStack } from "@/components/experimental/CardStack";
-import { SlideshowView } from "@/components/experimental/SlideshowView";
+import { ChatView } from "@/src/components/experimental/ChatView";
+import { CardStack } from "@/src/components/experimental/CardStack";
+import { SlideshowView } from "@/src/components/experimental/SlideshowView";
 
 export const VIEW_MODES = [
 	"thread",
@@ -38,7 +38,13 @@ function ThreadView({
 	// Return early if we don't have a valid URI for some modes or no data
 	if (!atUri && viewMode === "thread") return null;
 	if (!threadData && viewMode === "thread") return null;
-	if (!navigator && (viewMode === "file" || viewMode === "chat" || viewMode === "slideshow" || viewMode === "stack"))
+	if (
+		!navigator &&
+		(viewMode === "file" ||
+			viewMode === "chat" ||
+			viewMode === "slideshow" ||
+			viewMode === "stack")
+	)
 		return null;
 
 	// Component mapping for each view mode
@@ -148,9 +154,12 @@ export function ThreadTest(props: ThreadTestProps) {
 	// Compute the navigator based on thread data
 	const threadNavigator = useComputed(() => {
 		if (!threadData) return null;
-		console.log('new navigator');
+		console.log("new navigator");
 		// Initialize with the atUri if it exists in the thread, otherwise use root
-		const initialUri = atUri.value && threadData.post.uri === atUri.value ? atUri.value : undefined;
+		const initialUri =
+			atUri.value && threadData.post.uri === atUri.value
+				? atUri.value
+				: undefined;
 		return new ThreadNavigator(threadData, initialUri);
 	});
 

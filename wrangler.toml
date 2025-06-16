@@ -1,5 +1,5 @@
 name = "bsky_search_posts"
-main = "lib/worker.ts"
+main = "src/lib/worker.ts"
 compatibility_date = "2025-02-04"
 
 [[kv_namespaces]]

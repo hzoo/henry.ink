@@ -1,15 +1,20 @@
-import { useRef } from "preact/hooks";
-import { Sidebar } from "@/components/Sidebar";
-import { LoginButton } from "@/components/LoginButton";
-import { quotedSelection } from "@/lib/messaging";
-import { showQuotePopupOnSelection } from "@/lib/settings";
-import { Icon } from "@/components/Icon";
+import { useEffect, useRef } from "preact/hooks";
+import { Sidebar } from "@/src/components/Sidebar";
+import { LoginButton } from "@/src/components/LoginButton";
+import { currentUrl, quotedSelection } from "@/src/lib/messaging";
+import { showQuotePopupOnSelection } from "@/src/lib/settings";
+import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MarkdownSite } from "@/site/components/MarkdownSite";
 import { QuickUrlButtons } from "@/site/components/QuickUrlButtons";
+
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		currentUrl.value = "https://overreacted.io/static-as-a-server";
+	}, []);
 
 	return (
 		<div class="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-gray-900 text-gray-900 dark:text-gray-100 font-sans">
