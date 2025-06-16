@@ -1,9 +1,10 @@
 import { render } from "preact";
 import { ErrorBoundary, LocationProvider, Router, Route } from "preact-iso";
 import { App } from "@/note-site/App";
-import "@/site/styles.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/src/lib/queryClient";
+
+import "@/note-site/styles.css";
 
 render(
 	<QueryClientProvider client={queryClient}>
