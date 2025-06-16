@@ -104,7 +104,13 @@ export function MarkdownSite() {
 									readable text
 								</p>
 								<p className="text-sm mt-2 opacity-75">
-									Or navigate to /https://your-target-url.com directly
+									Example:{" "}
+									<a
+										href="/https://overreacted.io/static-as-a-server/"
+										className="text-blue-600 dark:text-blue-400 hover:underline"
+									>
+										/https://overreacted.io/static-as-a-server/
+									</a>
 								</p>
 							</div>
 						</div>

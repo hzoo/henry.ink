@@ -7,6 +7,7 @@ export interface Env {
 	BLUESKY_IDENTIFIER: string;
 	BLUESKY_APP_PASSWORD: string;
 	BLUESKY_SESSION_KV: KVNamespace;
+	SITE_URL: string;
 }
 
 const SESSION_KV_KEY = "bluesky_bot_session";
@@ -15,6 +16,7 @@ const allowedOrigins = [
 	"http://127.0.0.1:3003",
 	"https://annotation-demo.henryzoo.com",
 	"https://annotation-sidebar-demo.pages.dev",
+	"https://henry.ink",
 	"chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni",
 	"moz-extension://e620cfe1-59a8-429f-8265-a7c22dc42136/_generated_background_page.html",
 ];
@@ -68,7 +70,7 @@ export default {
 			// @ts-ignore Property 'default' does not exist on type 'CacheStorage'.
 			const cachedResponse = await caches.default.match(cacheKey);
 			if (cachedResponse) {
-				console.log("Cache hit:", url);
+				// console.log("Cache hit:", url);
 				// Add CORS headers to the cached response before returning
 				const response = new Response(cachedResponse.body, cachedResponse);
 				setCorsHeaders(response, origin);
@@ -90,14 +92,12 @@ export default {
 
 			// Login if no session or session is invalid (manager handles refresh)
 			if (!manager.session) {
-				console.log("No session loaded, performing login.");
+				// console.log("No session loaded, performing login.");
 				await manager.login({
 					identifier: env.BLUESKY_IDENTIFIER,
 					password: env.BLUESKY_APP_PASSWORD,
 				});
-				console.log("Login successful.");
-			} else {
-				console.log("Session loaded, attempting API call.");
+				// console.log("Login successful.");
 			}
 
 			const rpc = new Client({ handler: manager });
