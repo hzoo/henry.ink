@@ -9,12 +9,8 @@ import { MarkdownSite } from "@/site/components/MarkdownSite";
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		currentUrl.value = "https://overreacted.io/static-as-a-server";
-	}, []);
-
 	return (
-		<div class="flex flex-col h-screen bg-gradient-to-br from-amber-50 via-stone-50 to-yellow-50 dark:from-stone-900 dark:via-amber-950 dark:to-stone-900 text-stone-800 dark:text-amber-100 font-serif">
+		<div class="flex flex-col h-screen bg-gradient-to-br from-amber-50 via-stone-50 to-yellow-50 dark:from-stone-900 dark:via-amber-950 dark:to-stone-900 text-stone-800 dark:text-amber-100">
 			{/* Cozy/Lofi Header */}
 			<header class="px-6 py-4 border-b border-amber-200/50 dark:border-amber-800/30 bg-amber-50/80 dark:bg-stone-900/80 backdrop-blur-sm flex justify-between items-center shadow-sm">
 				<div>
