@@ -85,9 +85,9 @@ export function MarkdownSite() {
 					!errorSignal.value &&
 					location.path === "/" && (
 						<div className="flex-1 flex items-center justify-center text-amber-600 dark:text-amber-400">
-							<div className="max-w-md mx-auto text-center">
+							<div className="max-w-2xl mx-auto text-center px-8">
 								<svg
-									className="w-16 h-16 mx-auto mb-4 text-amber-400 dark:text-amber-500"
+									className="w-20 h-20 mx-auto mb-6 text-amber-400 dark:text-amber-500"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -99,19 +99,78 @@ export function MarkdownSite() {
 										d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
 									/>
 								</svg>
-								<p className="text-lg font-light">
-									Enter a URL above to transform any website into clean,
-									readable text
+								<h2 className="text-2xl font-light mb-4 text-amber-900 dark:text-amber-200">
+									Welcome to Henry's Note
+								</h2>
+								<p className="text-lg font-light mb-8 text-amber-700 dark:text-amber-300">
+									Transform any website into clean, readable text with social
+									annotations
 								</p>
-								<p className="text-sm mt-2 opacity-75">
-									Example:{" "}
-									<a
-										href="/https://overreacted.io/static-as-a-server/"
-										className="text-blue-600 dark:text-blue-400 hover:underline"
-									>
-										/https://overreacted.io/static-as-a-server/
-									</a>
-								</p>
+
+								<div className="bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm rounded-2xl p-8 border border-amber-200/50 dark:border-amber-800/30 shadow-lg">
+									<h3 className="text-lg font-medium mb-6 text-amber-900 dark:text-amber-200">
+										How to use:
+									</h3>
+									<div className="space-y-4 text-left">
+										<div className="flex items-start gap-4">
+											<div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center text-amber-700 dark:text-amber-300 font-medium text-sm">
+												1
+											</div>
+											<div>
+												<p className="font-medium text-amber-900 dark:text-amber-200 mb-1">
+													Read any website
+												</p>
+												<p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+													Add any URL to the end of henry.ink to get a clean,
+													readable version
+												</p>
+												<code className="bg-amber-100 dark:bg-amber-900/50 px-3 py-1 rounded text-sm text-amber-800 dark:text-amber-200">
+													henry.ink/https://example.com
+												</code>
+											</div>
+										</div>
+
+										<div className="flex items-start gap-4">
+											<div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center text-amber-700 dark:text-amber-300 font-medium text-sm">
+												2
+											</div>
+											<div>
+												<p className="font-medium text-amber-900 dark:text-amber-200 mb-1">
+													See social discussions
+												</p>
+												<p className="text-sm text-amber-700 dark:text-amber-300">
+													View related Bluesky posts and conversations in the
+													sidebar
+												</p>
+											</div>
+										</div>
+									</div>
+
+									<div className="mt-8 pt-6 border-t border-amber-200/50 dark:border-amber-700/50">
+										<p className="text-sm text-amber-600 dark:text-amber-400 mb-3">
+											Try it out:
+										</p>
+										<a
+											href="/https://overreacted.io/static-as-a-server/"
+											className="inline-flex items-center px-4 py-2 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors text-sm font-medium"
+										>
+											<svg
+												className="w-4 h-4 mr-2"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+												/>
+											</svg>
+											Example: Static as a Server
+										</a>
+									</div>
+								</div>
 							</div>
 						</div>
 					)}
