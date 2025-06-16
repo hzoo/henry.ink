@@ -90,14 +90,18 @@ function SidebarBody() {
 	);
 }
 
-export function Sidebar() {
+export function Sidebar({
+	hidePopup = false,
+}: {
+	hidePopup?: boolean;
+}) {
 	useAtCute();
 
 	return (
 		<div className="flex flex-col h-svh relative">
 			<SidebarHeader />
 			<SidebarBody />
-			<FirstTimePopup />
+			{!hidePopup && <FirstTimePopup />}
 			<QuotePopup />
 		</div>
 	);
