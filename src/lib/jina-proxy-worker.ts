@@ -89,12 +89,16 @@ export default {
 						headers: {
 							"Content-Type": "text/markdown; charset=UTF-8",
 							"X-Cache-Status": "HIT",
+							"Cache-Control": "public, max-age=31536000, immutable", // 1 year, immutable
 						},
 					}),
 				);
 			}
-		} catch (e: any) {
-			console.error(`KV Cache read error for ${targetUrlStr}:`, e.message);
+		} catch (e: unknown) {
+			console.error(
+				`KV Cache read error for ${targetUrlStr}:`,
+				e instanceof Error ? e.message : String(e),
+			);
 			// Optionally, proceed to fetch from origin even if cache read fails
 		}
 
@@ -202,6 +206,7 @@ export default {
 					headers: {
 						"Content-Type": "text/markdown; charset=UTF-8",
 						"X-Cache-Status": "MISS",
+						"Cache-Control": "public, max-age=31536000, immutable", // 1 year, immutable
 					},
 				}),
 			);
