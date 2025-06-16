@@ -16,7 +16,9 @@ export function App() {
 				<div>
 					<div class="flex items-center gap-3 group relative">
 						<h1 class="text-xl font-light text-amber-900 dark:text-amber-200 tracking-wide">
-							Henry's Note
+							<a href="https://henry.ink" class="hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
+								Henry's Note
+							</a>
 						</h1>
 					</div>
 				</div>
