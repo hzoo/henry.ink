@@ -1,6 +1,6 @@
 import { useLocation } from "preact-iso";
 import { inputValueSignal, errorSignal } from "@/site/signals";
-import { currentUrl } from "@/lib/messaging";
+import { currentUrl } from "@/src/lib/messaging";
 
 interface SampleUrl {
 	name: string;

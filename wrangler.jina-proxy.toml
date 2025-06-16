@@ -1,5 +1,5 @@
 name = "jina_proxy_worker"
-main = "lib/jina-proxy-worker.ts"
+main = "src/lib/jina-proxy-worker.ts"
 compatibility_date = "2025-02-04"
 
 [[kv_namespaces]]

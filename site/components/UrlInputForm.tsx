@@ -1,5 +1,5 @@
 import { inputValueSignal, errorSignal, isLoadingSignal } from "@/site/signals";
-import { currentUrl } from "@/lib/messaging";
+import { currentUrl } from "@/src/lib/messaging";
 import { useLocation } from "preact-iso";
 
 export function UrlInputForm() {

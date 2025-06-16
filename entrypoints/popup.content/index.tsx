@@ -1,7 +1,7 @@
 import type { ContentScriptContext } from "#imports";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
-import "@/lib/styles.css";
+import "@entrypoints/styles.css";
 import SelectionPopupManager from "./SelectionPopupManager";
 
 const pingMessage = {
@@ -30,7 +30,7 @@ function sendSelection() {
 		data: { selection },
 	};
 	browser.runtime.sendMessage(message).catch(console.error);
-};
+}
 
 export default defineContentScript({
 	matches: ["<all_urls>"],
