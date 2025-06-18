@@ -23,32 +23,32 @@
     "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml"
   },
   "dependencies": {
-    "@atcute/atproto": "^3.0.0",
-    "@atcute/bluesky": "^3.0.0",
-    "@atcute/bluesky-richtext-segmenter": "^2.0.1",
-    "@atcute/client": "^4.0.0",
-    "@atcute/lexicons": "^1.0.0",
-    "@atcute/oauth-browser-client": "^1.0.19",
-    "@preact/signals": "^2.0.4",
-    "@preact/signals-react": "^3.0.1",
+    "@atcute/atproto": "^3.1.0",
+    "@atcute/bluesky": "^3.1.2",
+    "@atcute/bluesky-richtext-segmenter": "^2.0.3",
+    "@atcute/client": "^4.0.3",
+    "@atcute/lexicons": "^1.0.4",
+    "@atcute/oauth-browser-client": "^1.0.26",
+    "@preact/signals": "^2.2.0",
+    "@preact/signals-react": "^3.2.0",
     "@tailwindcss/typography": "^0.5.16",
-    "@tailwindcss/vite": "^4.1.7",
-    "@tanstack/query-persist-client-core": "^5.76.1",
-    "@tanstack/query-sync-storage-persister": "^5.76.1",
-    "@tanstack/react-query": "^5.76.1",
-    "@tanstack/react-query-persist-client": "^5.76.1",
+    "@tailwindcss/vite": "^4.1.10",
+    "@tanstack/query-persist-client-core": "^5.80.7",
+    "@tanstack/query-sync-storage-persister": "^5.80.7",
+    "@tanstack/react-query": "^5.80.7",
+    "@tanstack/react-query-persist-client": "^5.80.7",
     "dompurify": "^3.2.6",
     "marked": "^15.0.12",
-    "preact": "^10.26.6",
-    "preact-iso": "^2.9.1"
+    "preact": "^10.26.9",
+    "preact-iso": "^2.9.2"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
-    "@types/bun": "^1.2.13",
+    "@types/bun": "^1.2.16",
     "@types/chrome": "^0.0.322",
     "typescript": "^5.8.3",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-svgr": "^4.3.0",
-    "wxt": "^0.20.6"
+    "wxt": "^0.20.7"
   }
 }
