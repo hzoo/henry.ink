@@ -70,6 +70,7 @@ export function MarkdownSite() {
 				{markdownContentSignal.value && !isLoadingSignal.value && (
 					<div
 						className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitize
 						dangerouslySetInnerHTML={{
 							__html: DOMPurify.sanitize(
 								marked.parse(markdownContentSignal.value) as string,
