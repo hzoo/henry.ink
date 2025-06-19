@@ -11,8 +11,6 @@ import { MarkdownSite } from "@/note-site/components/MarkdownSite";
 const sidebarWidth = signal(384);
 const isResizing = signal(false);
 const isMobileSidebarOpen = signal(false);
-const headerVisible = signal(true);
-const lastScrollY = signal(0);
 
 // Reusable Sidebar Header Component
 const SidebarHeader = ({ onClose }: { onClose?: () => void }) => (
@@ -80,26 +78,6 @@ export function App() {
 		}
 	}, []);
 
-	// Handle scroll-aware header
-	useEffect(() => {
-		const handleScroll = () => {
-			const currentScrollY = window.scrollY;
-			const scrollingDown = currentScrollY > lastScrollY.value;
-			const scrolledPastThreshold = currentScrollY > 60;
-
-			if (scrollingDown && scrolledPastThreshold) {
-				headerVisible.value = false;
-			} else {
-				headerVisible.value = true;
-			}
-
-			lastScrollY.value = currentScrollY;
-		};
-
-		window.addEventListener("scroll", handleScroll, { passive: true });
-		return () => window.removeEventListener("scroll", handleScroll);
-	}, []);
-
 	// Handle sidebar resize
 	const handleMouseDown = (e: MouseEvent) => {
 		e.preventDefault();
@@ -132,9 +110,11 @@ export function App() {
 				ref={mockContainerRef}
 				class={`flex-1 flex flex-col overflow-auto ${!hasUrl && "lg:mr-0"}`}
 			>
-				{/* Sticky Header */}
+				{/* Header */}
 				<header
-					class={`sticky top-0 z-30 px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm transition-transform duration-300 ${headerVisible.value ? "translate-y-0" : "-translate-y-full"}`}
+					class={
+						"px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95"
+					}
 				>
 					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
 						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">

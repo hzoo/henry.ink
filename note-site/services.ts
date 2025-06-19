@@ -30,7 +30,7 @@ async function fetchSimplifiedContent(targetUrl: string) {
 		}
 		const content = await response.text();
 		contentStateSignal.value = { type: "success", content };
-	} catch (e: any) {
+	} catch (e: unknown) {
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
 			type: "error",
@@ -49,13 +49,13 @@ export function useUrlPathSyncer() {
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
 			if (potentialUrl.startsWith("http")) {
-				if (currentUrl.peek() !== potentialUrl) {
+				if (currentUrl.value !== potentialUrl) {
 					currentUrl.value = potentialUrl;
 				}
 			}
 		} else if (currentPath === "/") {
 			// Clear everything when at root
-			if (currentUrl.peek()) {
+			if (currentUrl.value) {
 				currentUrl.value = "";
 			}
 		}
