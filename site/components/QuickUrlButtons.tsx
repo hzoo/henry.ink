@@ -1,5 +1,5 @@
 import { useLocation } from "preact-iso";
-import { inputValueSignal, errorSignal } from "@/site/signals";
+import { contentStateSignal } from "@/note-site/signals";
 import { currentUrl } from "@/src/lib/messaging";
 
 interface SampleUrl {
@@ -40,10 +40,9 @@ export function QuickUrlButtons() {
 	const location = useLocation();
 
 	const loadUrl = (url: string) => {
-		inputValueSignal.value = url;
 		currentUrl.value = url;
 		location.route(`/${url}`);
-		errorSignal.value = null;
+		contentStateSignal.value = { type: "loading" };
 	};
 
 	return (

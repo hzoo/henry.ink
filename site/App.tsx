@@ -6,7 +6,7 @@ import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
-import { MarkdownSite } from "@/site/components/MarkdownSite";
+import { MarkdownSite } from "@/note-site/components/MarkdownSite";
 import { QuickUrlButtons } from "@/site/components/QuickUrlButtons";
 
 export function App() {
@@ -23,12 +23,12 @@ export function App() {
 				<div>
 					<div class="flex items-center gap-2 group relative">
 						<h1 class="text-xl font-medium text-gray-700 dark:text-gray-300 tracking-tight">
-							Annotation Sidebar Demo
+							Extension: Annotation Sidebar Demo
 						</h1>
 						<Icon name="cog" className="w-4 h-4 text-slate-950 cursor-help" />
 						<span class="absolute top-full left-0 mt-1 w-max max-w-xs p-2 bg-gray-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 z-20">
-							This demo uses static mock views for websites. The sidebar on the
-							right shows real Bluesky posts related to the current mock URL.
+							This demo renders a reader view of each site. The sidebar on the
+							right shows real Bluesky posts related to the URL.
 						</span>
 					</div>
 					<div class="flex items-center gap-3 mt-1">
@@ -89,8 +89,11 @@ export function App() {
 			<div class="flex flex-1 overflow-hidden">
 				<div ref={mockContainerRef} class="flex flex-col flex-1 overflow-auto">
 					{/* <MockBrowser /> */}
-					<MarkdownSite />
+					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 flex-1 flex flex-col w-full">
+						<MarkdownSite />
+					</div>
 				</div>
+
 				{/* Sidebar */}
 				<aside class="w-[600px] border-l border-slate-200 dark:border-gray-700 h-full flex flex-col bg-white dark:bg-gray-800/50 p-2">
 					<div class="p-2 border-b border-slate-200 dark:border-gray-700 text-center">

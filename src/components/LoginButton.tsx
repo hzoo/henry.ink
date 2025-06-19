@@ -112,11 +112,6 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 
 	return (
 		<>
-			{isLoadingSession.value && !currentAtCute && (
-				<div className="text-xs text-center text-gray-500 dark:text-gray-400 pb-2">
-					Checking login status...
-				</div>
-			)}
 			{currentAtCute ? (
 				<div className="flex items-center justify-between gap-2">
 					<span
