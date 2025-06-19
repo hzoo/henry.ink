@@ -1,28 +1,21 @@
-import { useEffect } from "preact/hooks";
+import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import {
-	isLoadingSignal,
-	errorSignal,
-	markdownContentSignal,
-	inputValueSignal,
-} from "@/site/signals";
+import { contentStateSignal } from "@/note-site/signals";
 import { currentUrl } from "@/src/lib/messaging";
-import { batch } from "@preact/signals";
+import { useEffect } from "preact/hooks";
 
 const WORKER_BASE_URL = "https://jina_proxy_worker.hi-899.workers.dev";
 
 async function fetchSimplifiedContent(targetUrl: string) {
 	if (!targetUrl || !targetUrl.startsWith("http")) {
-		errorSignal.value = "Invalid URL provided for fetching.";
-		markdownContentSignal.value = null;
+		contentStateSignal.value = {
+			type: "error",
+			message: "Invalid URL provided for fetching.",
+		};
 		return;
 	}
 
-	batch(() => {
-		isLoadingSignal.value = true;
-		errorSignal.value = null;
-		markdownContentSignal.value = null;
-	});
+	contentStateSignal.value = { type: "loading" };
 
 	try {
 		// The worker expects the target URL as a path segment AFTER the initial slash.
@@ -35,13 +28,15 @@ async function fetchSimplifiedContent(targetUrl: string) {
 				`Worker error: ${response.status} ${response.statusText}. ${errorText}`,
 			);
 		}
-		markdownContentSignal.value = await response.text();
+		const content = await response.text();
+		contentStateSignal.value = { type: "success", content };
 	} catch (e: any) {
 		console.error("Fetch error:", e);
-		errorSignal.value =
-			e.message || "An unexpected error occurred while fetching content.";
-	} finally {
-		isLoadingSignal.value = false;
+		contentStateSignal.value = {
+			type: "error",
+			message:
+				e.message || "An unexpected error occurred while fetching content.",
+		};
 	}
 }
 
@@ -57,17 +52,11 @@ export function useUrlPathSyncer() {
 				if (currentUrl.peek() !== potentialUrl) {
 					currentUrl.value = potentialUrl;
 				}
-				if (inputValueSignal.peek() !== potentialUrl) {
-					inputValueSignal.value = potentialUrl;
-				}
 			}
 		} else if (currentPath === "/") {
 			// Clear everything when at root
 			if (currentUrl.peek()) {
 				currentUrl.value = "";
-			}
-			if (inputValueSignal.peek()) {
-				inputValueSignal.value = "";
 			}
 		}
 	}, [location.path]);
@@ -75,16 +64,14 @@ export function useUrlPathSyncer() {
 
 // Effect to fetch content when currentUrl changes
 export function useContentFetcher() {
-	useEffect(() => {
+	useSignalEffect(() => {
 		if (currentUrl.value?.startsWith("http")) {
 			fetchSimplifiedContent(currentUrl.value);
 		} else {
-			// If targetUrl is cleared or invalid, clear content and potentially error
-			markdownContentSignal.value = null;
-			if (!currentUrl.value && !inputValueSignal.value) {
-				// Only clear error if both are empty
-				errorSignal.value = null;
+			// If targetUrl is cleared or invalid, reset to idle
+			if (!currentUrl.value) {
+				contentStateSignal.value = { type: "idle" };
 			}
 		}
-	}, [currentUrl.value]); // Re-run when current URL signal changes
+	});
 }

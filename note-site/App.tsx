@@ -5,7 +5,7 @@ import { LoginButton } from "@/src/components/LoginButton";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
-import { MarkdownSite } from "@/site/components/MarkdownSite";
+import { MarkdownSite } from "@/note-site/components/MarkdownSite";
 
 // UI state signals
 const sidebarWidth = signal(384);
@@ -16,7 +16,7 @@ const lastScrollY = signal(0);
 
 // Reusable Sidebar Header Component
 const SidebarHeader = ({ onClose }: { onClose?: () => void }) => (
-	<div class="flex-shrink-0 px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+	<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
 		<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
 			Bluesky Discussion
 		</h2>
@@ -45,9 +45,11 @@ const SidebarHeader = ({ onClose }: { onClose?: () => void }) => (
 );
 
 // Reusable Sidebar Content Component
-const SidebarContent = ({ containerRef }: { containerRef: React.RefObject<HTMLDivElement> }) => (
+const SidebarContent = ({
+	containerRef,
+}: { containerRef: React.RefObject<HTMLDivElement> }) => (
 	<>
-		<div class="flex-1 overflow-hidden px-4 py-3">
+		<div class="flex-1 overflow-hidden px-2">
 			<Sidebar hidePopup />
 		</div>
 		<SelectionPopupManager
@@ -80,29 +82,22 @@ export function App() {
 
 	// Handle scroll-aware header
 	useEffect(() => {
-		const contentContainer = mockContainerRef.current?.querySelector(
-			".flex-1.overflow-auto",
-		);
-		if (!contentContainer) return;
-
 		const handleScroll = () => {
-			const currentScrollY = contentContainer.scrollTop;
-			const scrollingUp = currentScrollY < lastScrollY.value;
-			const scrolledPastHeader = currentScrollY > 150;
+			const currentScrollY = window.scrollY;
+			const scrollingDown = currentScrollY > lastScrollY.value;
+			const scrolledPastThreshold = currentScrollY > 60;
 
-			if (scrollingUp || !scrolledPastHeader) {
-				headerVisible.value = true;
-			} else {
+			if (scrollingDown && scrolledPastThreshold) {
 				headerVisible.value = false;
+			} else {
+				headerVisible.value = true;
 			}
 
 			lastScrollY.value = currentScrollY;
 		};
 
-		contentContainer.addEventListener("scroll", handleScroll, {
-			passive: true,
-		});
-		return () => contentContainer.removeEventListener("scroll", handleScroll);
+		window.addEventListener("scroll", handleScroll, { passive: true });
+		return () => window.removeEventListener("scroll", handleScroll);
 	}, []);
 
 	// Handle sidebar resize
@@ -133,25 +128,32 @@ export function App() {
 	return (
 		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 			{/* Main Content Area */}
-			<main ref={mockContainerRef} class={`flex-1 flex flex-col overflow-hidden ${!hasUrl && 'lg:mr-0'}`}>
-				{/* Clean Header */}
+			<main
+				ref={mockContainerRef}
+				class={`flex-1 flex flex-col overflow-auto ${!hasUrl && "lg:mr-0"}`}
+			>
+				{/* Sticky Header */}
 				<header
-					class={`fixed top-0 left-0 right-0 z-30 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm flex justify-between items-center transition-transform duration-300 ${headerVisible.value ? "translate-y-0" : "-translate-y-full"}`}
+					class={`sticky top-0 z-30 px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm transition-transform duration-300 ${headerVisible.value ? "translate-y-0" : "-translate-y-full"}`}
 				>
-					<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-						<a
-							href="https://henry.ink"
-							class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-						>
-							Henry's Note
-						</a>
-					</h1>
-					<LoginButton />
+					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
+						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+							<a
+								href="https://henry.ink"
+								class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+							>
+								Henry's Note
+							</a>
+						</h1>
+						<div class="min-w-[200px]">
+							<LoginButton />
+						</div>
+					</div>
 				</header>
 
 				{/* Reader Content */}
-				<div class="flex-1 overflow-auto pt-20">
-					<div class="max-w-4xl mx-auto px-6 sm:px-8 py-8 sm:py-12">
+				<div class="flex-1 flex flex-col">
+					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 flex-1 flex flex-col w-full">
 						<MarkdownSite />
 					</div>
 				</div>
@@ -216,7 +218,9 @@ export function App() {
 
 						{/* Mobile Sidebar Content - Wider on mobile */}
 						<div class="w-full max-w-sm sm:max-w-md bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
-							<SidebarHeader onClose={() => (isMobileSidebarOpen.value = false)} />
+							<SidebarHeader
+								onClose={() => (isMobileSidebarOpen.value = false)}
+							/>
 							<SidebarContent containerRef={mockContainerRef} />
 						</div>
 					</div>
