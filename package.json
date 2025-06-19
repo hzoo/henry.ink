@@ -3,6 +3,9 @@
   "description": "see annotations on your current page",
   "private": true,
   "version": "0.0.10",
+  "workspaces": [
+    "styled-content-service"
+  ],
   "type": "module",
   "scripts": {
     "site": "vite --config site/vite.config.ts",
