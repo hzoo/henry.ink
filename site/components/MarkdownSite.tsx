@@ -21,9 +21,9 @@ export function MarkdownSite() {
 			<div className="h-full flex flex-col">
 				{isLoadingSignal.value && (
 					<div className="text-center p-8">
-						<div className="inline-flex items-center px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+						<div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
 							<svg
-								className="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-500"
+								className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500"
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
 								viewBox="0 0 24 24"
@@ -68,26 +68,24 @@ export function MarkdownSite() {
 				)}
 
 				{markdownContentSignal.value && !isLoadingSignal.value && (
-					<div className="flex-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl m-4">
-						<div
-							className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 p-4 bg-amber-50/50 dark:bg-gray-900/50 rounded-xl border border-amber-100 dark:border-gray-700 overflow-auto h-full"
-							dangerouslySetInnerHTML={{
-								__html: DOMPurify.sanitize(
-									marked.parse(markdownContentSignal.value) as string,
-								),
-							}}
-						/>
-					</div>
+					<div
+						className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed"
+						dangerouslySetInnerHTML={{
+							__html: DOMPurify.sanitize(
+								marked.parse(markdownContentSignal.value) as string,
+							),
+						}}
+					/>
 				)}
 
 				{!markdownContentSignal.value &&
 					!isLoadingSignal.value &&
 					!errorSignal.value &&
 					location.path === "/" && (
-						<div className="flex-1 flex items-center justify-center text-amber-600 dark:text-amber-400">
+						<div className="flex-1 flex items-center justify-center text-gray-600 dark:text-gray-400">
 							<div className="max-w-2xl mx-auto text-center px-8">
 								<svg
-									className="w-20 h-20 mx-auto mb-6 text-amber-400 dark:text-amber-500"
+									className="w-20 h-20 mx-auto mb-6 text-blue-400 dark:text-blue-500"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -99,46 +97,46 @@ export function MarkdownSite() {
 										d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
 									/>
 								</svg>
-								<h2 className="text-2xl font-light mb-4 text-amber-900 dark:text-amber-200">
+								<h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
 									Welcome to Henry's Note
 								</h2>
-								<p className="text-lg font-light mb-8 text-amber-700 dark:text-amber-300">
+								<p className="text-lg mb-8 text-gray-700 dark:text-gray-300">
 									Transform any website into clean, readable text with social
 									annotations
 								</p>
 
-								<div className="bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm rounded-2xl p-8 border border-amber-200/50 dark:border-amber-800/30 shadow-lg">
-									<h3 className="text-lg font-medium mb-6 text-amber-900 dark:text-amber-200">
+								<div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
+									<h3 className="text-lg font-medium mb-6 text-gray-900 dark:text-gray-100">
 										How to use:
 									</h3>
 									<div className="space-y-4 text-left">
 										<div className="flex items-start gap-4">
-											<div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center text-amber-700 dark:text-amber-300 font-medium text-sm">
+											<div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium text-sm">
 												1
 											</div>
 											<div>
-												<p className="font-medium text-amber-900 dark:text-amber-200 mb-1">
+												<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
 													Read any website
 												</p>
-												<p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+												<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
 													Add any URL to the end of henry.ink to get a clean,
 													readable version
 												</p>
-												<code className="bg-amber-100 dark:bg-amber-900/50 px-3 py-1 rounded text-sm text-amber-800 dark:text-amber-200">
+												<code className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded text-sm text-gray-800 dark:text-gray-200">
 													henry.ink/https://example.com
 												</code>
 											</div>
 										</div>
 
 										<div className="flex items-start gap-4">
-											<div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center text-amber-700 dark:text-amber-300 font-medium text-sm">
+											<div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium text-sm">
 												2
 											</div>
 											<div>
-												<p className="font-medium text-amber-900 dark:text-amber-200 mb-1">
+												<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
 													See social discussions
 												</p>
-												<p className="text-sm text-amber-700 dark:text-amber-300">
+												<p className="text-sm text-gray-600 dark:text-gray-400">
 													View related Bluesky posts and conversations in the
 													sidebar
 												</p>
@@ -146,13 +144,13 @@ export function MarkdownSite() {
 										</div>
 									</div>
 
-									<div className="mt-8 pt-6 border-t border-amber-200/50 dark:border-amber-700/50">
-										<p className="text-sm text-amber-600 dark:text-amber-400 mb-3">
+									<div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+										<p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
 											Try it out:
 										</p>
 										<a
 											href="/https://overreacted.io/static-as-a-server/"
-											className="inline-flex items-center px-4 py-2 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors text-sm font-medium"
+											className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
 										>
 											<svg
 												className="w-4 h-4 mr-2"

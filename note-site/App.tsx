@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { signal } from "@preact/signals";
 import { Sidebar } from "@/src/components/Sidebar";
 import { LoginButton } from "@/src/components/LoginButton";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
@@ -6,55 +7,202 @@ import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MarkdownSite } from "@/site/components/MarkdownSite";
 
+// UI state signals
+const sidebarWidth = signal(384);
+const isResizing = signal(false);
+const isMobileSidebarOpen = signal(false);
+const headerVisible = signal(true);
+const lastScrollY = signal(0);
+
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
 
+	// Load saved sidebar width from localStorage
+	useEffect(() => {
+		const saved = localStorage.getItem("sidebar-width");
+		if (saved) {
+			const width = parseInt(saved, 10);
+			if (width >= 384 && width <= 600) {
+				sidebarWidth.value = width;
+			}
+		}
+	}, []);
+
+	// Handle scroll-aware header
+	useEffect(() => {
+		const contentContainer = mockContainerRef.current?.querySelector(
+			".flex-1.overflow-auto",
+		);
+		if (!contentContainer) return;
+
+		const handleScroll = () => {
+			const currentScrollY = contentContainer.scrollTop;
+			const scrollingUp = currentScrollY < lastScrollY.value;
+			const scrolledPastHeader = currentScrollY > 150;
+
+			if (scrollingUp || !scrolledPastHeader) {
+				headerVisible.value = true;
+			} else {
+				headerVisible.value = false;
+			}
+
+			lastScrollY.value = currentScrollY;
+		};
+
+		contentContainer.addEventListener("scroll", handleScroll, {
+			passive: true,
+		});
+		return () => contentContainer.removeEventListener("scroll", handleScroll);
+	}, []);
+
+	// Handle sidebar resize
+	const handleMouseDown = (e: MouseEvent) => {
+		e.preventDefault();
+		isResizing.value = true;
+
+		const startX = e.clientX;
+		const startWidth = sidebarWidth.value;
+
+		const handleMouseMove = (e: MouseEvent) => {
+			const delta = startX - e.clientX;
+			const newWidth = Math.min(600, Math.max(384, startWidth + delta));
+			sidebarWidth.value = newWidth;
+		};
+
+		const handleMouseUp = () => {
+			isResizing.value = false;
+			localStorage.setItem("sidebar-width", sidebarWidth.value.toString());
+			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("mouseup", handleMouseUp);
+		};
+
+		document.addEventListener("mousemove", handleMouseMove);
+		document.addEventListener("mouseup", handleMouseUp);
+	};
+
 	return (
-		<div class="flex flex-col h-screen bg-gradient-to-br from-amber-50 via-stone-50 to-yellow-50 dark:from-stone-900 dark:via-amber-950 dark:to-stone-900 text-stone-800 dark:text-amber-100">
-			{/* Cozy/Lofi Header */}
-			<header class="px-6 py-4 border-b border-amber-200/50 dark:border-amber-800/30 bg-amber-50/80 dark:bg-stone-900/80 backdrop-blur-sm flex justify-between items-center shadow-sm">
-				<div>
-					<div class="flex items-center gap-3 group relative">
-						<h1 class="text-xl font-light text-amber-900 dark:text-amber-200 tracking-wide">
-							<a href="https://henry.ink" class="hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
-								Henry's Note
-							</a>
-						</h1>
+		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+			{/* Main Content Area */}
+			<main ref={mockContainerRef} class="flex-1 flex flex-col overflow-hidden">
+				{/* Clean Header */}
+				<header
+					class={`fixed top-0 left-0 right-0 z-30 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm flex justify-between items-center transition-transform duration-300 ${headerVisible.value ? "translate-y-0" : "-translate-y-full"}`}
+				>
+					<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+						<a
+							href="https://henry.ink"
+							class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+						>
+							Henry's Note
+						</a>
+					</h1>
+					<LoginButton />
+				</header>
+
+				{/* Reader Content */}
+				<div class="flex-1 overflow-auto pt-20">
+					<div class="max-w-4xl mx-auto px-8 py-12">
+						<MarkdownSite />
 					</div>
 				</div>
-				<LoginButton />
-			</header>
-			{/* Desktop: Centered content + sidebar group */}
-			<div class="flex flex-1 overflow-hidden justify-center">
-				<div class="flex w-full max-w-[1400px] overflow-hidden">
-					<div
-						ref={mockContainerRef}
-						class="flex flex-col flex-1 overflow-auto lg:max-w-[800px] bg-gradient-to-b from-amber-25/30 to-stone-50/30 dark:from-stone-900/50 dark:to-amber-950/30"
-					>
-						<div class="w-full px-8 py-12">
-							<MarkdownSite />
-						</div>
-					</div>
-					{/* Desktop Sidebar */}
-					<aside class="hidden lg:flex w-[600px] border-l border-amber-200/40 dark:border-amber-800/20 h-full flex-col bg-stone-50/60 dark:bg-stone-900/60 backdrop-blur-sm p-4">
-						<Sidebar hidePopup />
-						<SelectionPopupManager
-							canShowPopup={() => showQuotePopupOnSelection.peek()}
-							popupTitle="Quote"
-							sendSelection={() => {
-								const selection = window.getSelection()?.toString();
-								if (!selection) return;
-								quotedSelection.value = selection;
-							}}
-							targetContainerRef={mockContainerRef}
-						/>
-					</aside>
+			</main>
+
+			{/* Resize Handle */}
+			<div
+				class={`hidden lg:block w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-col-resize transition-colors ${isResizing.value ? "bg-blue-500" : ""}`}
+				onMouseDown={handleMouseDown}
+			></div>
+
+			{/* Resizable Sidebar */}
+			<aside
+				class="hidden lg:flex flex-col bg-gray-50 dark:bg-gray-850 border-l border-gray-200 dark:border-gray-700"
+				style={{ width: `${sidebarWidth.value}px` }}
+			>
+				{/* Sidebar Header */}
+				<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/95 dark:bg-gray-850/95 backdrop-blur-sm">
+					<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+						Bluesky Discussion
+					</h2>
 				</div>
 
-				{/* Mobile/Tablet Bottom Sheet or Overlay */}
-				<div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-stone-50/95 dark:bg-stone-900/95 border-t border-amber-200/50 dark:border-amber-800/30 h-1/3 overflow-auto backdrop-blur-sm">
-					<div class="p-6">
-						<Sidebar hidePopup />
+				{/* Sidebar Content */}
+				<div class="flex-1 overflow-hidden px-3">
+					<Sidebar hidePopup />
+				</div>
+
+				<SelectionPopupManager
+					canShowPopup={() => showQuotePopupOnSelection.peek()}
+					popupTitle="Quote"
+					sendSelection={() => {
+						const selection = window.getSelection()?.toString();
+						if (!selection) return;
+						quotedSelection.value = selection;
+					}}
+					targetContainerRef={mockContainerRef}
+				/>
+			</aside>
+
+			{/* Mobile Floating Action Button */}
+			<div class="lg:hidden fixed bottom-6 right-6 z-50">
+				<button
+					class="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+					onClick={() => (isMobileSidebarOpen.value = true)}
+				>
+					<svg
+						class="w-6 h-6"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+						/>
+					</svg>
+				</button>
+			</div>
+
+			{/* Mobile Sidebar Overlay */}
+			<div
+				class={`lg:hidden fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${isMobileSidebarOpen.value ? "translate-x-0" : "translate-x-full"}`}
+			>
+				<div class="flex h-full">
+					{/* Backdrop */}
+					<div
+						class="flex-1 bg-black/50 backdrop-blur-sm"
+						onClick={() => (isMobileSidebarOpen.value = false)}
+					></div>
+
+					{/* Mobile Sidebar Content */}
+					<div class="w-80 bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700">
+						<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+							<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+								Bluesky Discussion
+							</h2>
+							<button
+								class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+								onClick={() => (isMobileSidebarOpen.value = false)}
+							>
+								<svg
+									class="w-5 h-5"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M6 18L18 6M6 6l12 12"
+									/>
+								</svg>
+							</button>
+						</div>
+						<div class="flex-1 overflow-hidden px-3">
+							<Sidebar hidePopup />
+						</div>
 						<SelectionPopupManager
 							canShowPopup={() => showQuotePopupOnSelection.peek()}
 							popupTitle="Quote"
