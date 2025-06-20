@@ -165,17 +165,15 @@ export function App() {
 	}, []);
 
 	return (
-		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
 			{/* Main Content Area */}
-			<main ref={mockContainerRef} class={"flex-1 flex flex-col overflow-auto"}>
+			<main ref={mockContainerRef} class="flex-1 flex flex-col overflow-auto min-w-0">
 				{/* Header */}
 				<header
-					class={
-						"px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95"
-					}
+					class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 flex-shrink-0"
 				>
 					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
-						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
 							<a
 								href="https://henry.ink"
 								class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -183,13 +181,15 @@ export function App() {
 								Henry's Note
 							</a>
 						</h1>
-						<LoginButton />
+						<div class="flex-shrink-0">
+							<LoginButton />
+						</div>
 					</div>
 				</header>
 
 				{/* Reader Content */}
-				<div class="flex-1 flex flex-col">
-					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 flex-1 flex flex-col w-full">
+				<div class="flex-1 flex flex-col overflow-auto">
+					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 flex-1 flex flex-col w-full min-w-0">
 						<MarkdownSite />
 					</div>
 				</div>
@@ -216,23 +216,43 @@ export function App() {
 			{/* Mobile Floating Action Button */}
 			<div class="lg:hidden fixed bottom-6 right-6 z-50">
 				<button
-					class="w-14 h-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform active:scale-95"
-					onClick={() => (isMobileSidebarOpen.value = true)}
-					aria-label="Open comments"
+					class={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform active:scale-95 ${
+						isMobileSidebarOpen.value 
+							? "bg-gray-600 hover:bg-gray-700 active:bg-gray-800" 
+							: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+					}`}
+					onClick={() => (isMobileSidebarOpen.value = !isMobileSidebarOpen.value)}
+					aria-label={isMobileSidebarOpen.value ? "Close comments" : "Open comments"}
 				>
-					<svg
-						class="w-6 h-6"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-						/>
-					</svg>
+					{isMobileSidebarOpen.value ? (
+						<svg
+							class="w-6 h-6"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					) : (
+						<svg
+							class="w-6 h-6"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+							/>
+						</svg>
+					)}
 				</button>
 			</div>
 

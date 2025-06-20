@@ -6,6 +6,7 @@ import { CompactPostActions } from "@/src/components/post/CompactPostActions";
 import { Icon } from "@/src/components/Icon";
 import { PostEmbed } from "@/src/components/post/PostEmbed";
 import { PostText } from "@/src/components/post/PostText";
+import { QuoteIndicator } from "@/src/components/highlights/QuoteIndicator";
 
 import {
 	getAuthorUrl,
@@ -137,7 +138,10 @@ export function FullPost({
 			: null;
 
 	return (
-		<article className="border-b border-gray-300 dark:border-gray-600">
+		<article 
+			className="border-b border-gray-300 dark:border-gray-600"
+			data-post-uri={post.uri}
+		>
 			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md p-2">
 				<div className="flex flex-col">
 					<div className="flex items-center pb-1">
@@ -182,6 +186,7 @@ export function FullPost({
 								>
 									{timeAgo}
 								</a>
+								<QuoteIndicator postUri={post.uri} />
 							</div>
 							<div className="flex items-center gap-x-1 text-gray-500">
 								{rootPost && (

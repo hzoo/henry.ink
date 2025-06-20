@@ -1,20 +1,23 @@
 import { useLocation } from "preact-iso";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { useRef } from "preact/hooks";
 
 import { contentStateSignal } from "@/note-site/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/note-site/services";
+import { HighlightController } from "@/src/components/highlights/HighlightController";
 
 export function MarkdownSite() {
 	const location = useLocation();
 	const contentState = contentStateSignal.value;
+	const contentRef = useRef<HTMLDivElement>(null);
 
 	// Use the custom hooks for URL syncing and content fetching
 	useUrlPathSyncer();
 	useContentFetcher();
 
 	return (
-		<div className="flex-1 h-full flex flex-col">
+		<div className="flex-1 h-full flex flex-col min-w-0">
 			{contentState.type === "loading" && (
 				<div className="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
@@ -67,15 +70,19 @@ export function MarkdownSite() {
 			)}
 
 			{contentState.type === "success" && (
-				<div
-					className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 leading-relaxed"
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitize
-					dangerouslySetInnerHTML={{
-						__html: DOMPurify.sanitize(
-							marked.parse(contentState.content) as string,
-						),
-					}}
-				/>
+				<>
+					<div
+						ref={contentRef}
+						className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 leading-relaxed overflow-wrap-anywhere break-words"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitize
+						dangerouslySetInnerHTML={{
+							__html: DOMPurify.sanitize(
+								marked.parse(contentState.content) as string,
+							),
+						}}
+					/>
+					<HighlightController contentRef={contentRef} />
+				</>
 			)}
 
 			{contentState.type === "idle" && location.path === "/" && (
