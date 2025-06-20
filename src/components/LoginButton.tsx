@@ -10,14 +10,17 @@ import type { JSX } from "preact/jsx-runtime";
 import { sleep } from "@/src/lib/utils/sleep";
 
 const getStorageKey = (did: string) => `bskyUserHandle_${did}`;
+const getAvatarStorageKey = (did: string) => `bskyUserAvatar_${did}`;
 const LAST_ENTERED_HANDLE_KEY = "lastEnteredHandle";
 
-export function LoginButton({ minimal = false }: { minimal?: boolean }) {
+export function LoginButton() {
 	const userHandle = useSignal<string | null>(null);
+	const userAvatar = useSignal<string | null>(null);
 	const isFetchingProfile = useSignal(false);
 	const handleInput = useSignal("");
 	const prevAtCuteValue = useRef(atCuteState.value);
 	const currentAtCute = atCuteState.value;
+	const isDropdownOpen = useSignal(false);
 
 	useEffect(() => {
 		if (!currentAtCute) {
@@ -26,21 +29,29 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 				handleInput.value = lastHandle;
 			}
 			userHandle.value = null;
+			userAvatar.value = null;
 		} else {
 			if (!prevAtCuteValue.current) {
 				handleInput.value = "";
 			}
-			const cachedHandle = localStorage.getItem(
-				getStorageKey(currentAtCute.session.info.sub),
-			);
+			const did = currentAtCute.session.info.sub;
+			const cachedHandle = localStorage.getItem(getStorageKey(did));
+			const cachedAvatar = localStorage.getItem(getAvatarStorageKey(did));
+			
 			if (cachedHandle) {
 				userHandle.value = cachedHandle;
 			} else {
 				userHandle.value = null;
 			}
+			
+			if (cachedAvatar) {
+				userAvatar.value = cachedAvatar;
+			} else {
+				userAvatar.value = null;
+			}
 		}
 		prevAtCuteValue.current = currentAtCute;
-	}, [currentAtCute, handleInput, userHandle]);
+	}, [currentAtCute, handleInput, userHandle, userAvatar]);
 
 	useEffect(() => {
 		if (currentAtCute && !isFetchingProfile.value && !userHandle.value) {
@@ -63,15 +74,28 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 					}
 
 					const fetchedHandle = data.handle;
+					const fetchedAvatar = data.avatar;
+					const avatarStorageKey = getAvatarStorageKey(did);
+					
 					if (fetchedHandle) {
 						userHandle.value = fetchedHandle;
+						userAvatar.value = fetchedAvatar || null;
 						localStorage.setItem(storageKey, fetchedHandle);
+						
+						if (fetchedAvatar) {
+							localStorage.setItem(avatarStorageKey, fetchedAvatar);
+						} else {
+							localStorage.removeItem(avatarStorageKey);
+						}
 					} else {
 						localStorage.removeItem(storageKey);
+						localStorage.removeItem(avatarStorageKey);
 					}
 				} catch (error) {
 					console.error("Failed to fetch user profile handle:", error);
+					const avatarStorageKey = getAvatarStorageKey(did);
 					localStorage.removeItem(storageKey);
+					localStorage.removeItem(avatarStorageKey);
 					if (
 						error instanceof Error &&
 						error.message.includes("invalid_token")
@@ -87,7 +111,21 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 			};
 			fetchProfile();
 		}
-	}, [currentAtCute, isFetchingProfile, userHandle]);
+	}, [currentAtCute, isFetchingProfile, userHandle, userAvatar]);
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (isDropdownOpen.value) {
+				isDropdownOpen.value = false;
+			}
+		};
+
+		if (isDropdownOpen.value) {
+			document.addEventListener("click", handleClickOutside);
+			return () => document.removeEventListener("click", handleClickOutside);
+		}
+	}, [isDropdownOpen.value]);
 
 	const handleSubmit = (e: JSX.TargetedEvent<HTMLFormElement, Event>) => {
 		e.preventDefault();
@@ -100,7 +138,9 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 
 	const handleLogout = () => {
 		if (currentAtCute) {
-			localStorage.removeItem(getStorageKey(currentAtCute.session.info.sub));
+			const did = currentAtCute.session.info.sub;
+			localStorage.removeItem(getStorageKey(did));
+			localStorage.removeItem(getAvatarStorageKey(did));
 		}
 		logout();
 	};
@@ -113,20 +153,40 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 	return (
 		<>
 			{currentAtCute ? (
-				<div className="flex items-center justify-between gap-2">
-					<span
-						className="px-2.5 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full dark:bg-blue-900 dark:text-blue-300 truncate"
-						title={currentAtCute.session.info.sub}
-					>
-						{displayName}
-					</span>
+				<div className="relative">
 					<button
-						onClick={handleLogout}
-						className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500/50 transition-colors"
-						aria-label="Logout"
+						onClick={(e) => {
+							e.stopPropagation();
+							isDropdownOpen.value = !isDropdownOpen.value;
+						}}
+						className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+						aria-label="Account menu"
 					>
-						Logout
+						{userAvatar.value ? (
+							<img
+								src={userAvatar.value}
+								alt={displayName}
+								className="w-8 h-8 rounded-full"
+							/>
+						) : (
+							<div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+								{displayName ? displayName[0]?.toUpperCase() : "?"}
+							</div>
+						)}
 					</button>
+					{isDropdownOpen.value && (
+						<div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[120px]">
+							<div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+								{displayName}
+							</div>
+							<button
+								onClick={handleLogout}
+								className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+							>
+								Logout
+							</button>
+						</div>
+					)}
 				</div>
 			) : (
 				<form onSubmit={handleSubmit} className="flex items-center gap-1">

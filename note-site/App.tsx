@@ -128,9 +128,7 @@ export function App() {
 								Henry's Note
 							</a>
 						</h1>
-						<div class="min-w-[200px]">
-							<LoginButton />
-						</div>
+						<LoginButton />
 					</div>
 				</header>
 
