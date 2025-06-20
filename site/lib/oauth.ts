@@ -8,6 +8,7 @@ import {
 	deleteStoredSession,
 	OAuthUserAgent,
 	resolveFromIdentity,
+	resolveFromService,
 } from "@atcute/oauth-browser-client";
 import { useEffect } from "preact/hooks";
 import { sleep } from "@/src/lib/utils/sleep";
@@ -188,22 +189,31 @@ class LoginAbortError extends Error {
 	}
 }
 
-export const startLoginProcess = async (handleOrDid: string) => {
-	if (!handleOrDid) {
-		alert("Please enter your Bluesky handle (e.g., yourname.bsky.social)");
-		return;
-	}
+export const startLoginProcess = async (handleOrDid?: string) => {
 	try {
-		console.log(`Starting login process for: ${handleOrDid}`);
-		const { identity, metadata } = await resolveFromIdentity(handleOrDid);
-		// Removed detailed metadata log
-		console.log("Resolved Identity (DID):", identity);
-
-		const authUrl = await createAuthorizationUrl({
-			metadata: metadata,
-			identity: identity,
-			scope: import.meta.env.VITE_OAUTH_SCOPE,
-		});
+		let authUrl: URL;
+		
+		if (handleOrDid && handleOrDid.trim()) {
+			// Traditional flow with handle/DID provided
+			console.log(`Starting login process for: ${handleOrDid}`);
+			const { identity, metadata } = await resolveFromIdentity(handleOrDid);
+			console.log("Resolved Identity (DID):", identity);
+			
+			authUrl = await createAuthorizationUrl({
+				metadata: metadata,
+				identity: identity,
+				scope: import.meta.env.VITE_OAUTH_SCOPE,
+			});
+		} else {
+			// Generic flow - use default bsky.social metadata
+			console.log("Starting generic login process");
+			const { metadata } = await resolveFromService('https://bsky.social');
+			
+			authUrl = await createAuthorizationUrl({
+				metadata: metadata,
+				scope: import.meta.env.VITE_OAUTH_SCOPE,
+			});
+		}
 
 		if (isBrowserExtension) {
 			console.log("Launching web auth flow for extension...");
