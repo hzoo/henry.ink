@@ -261,8 +261,11 @@ export async function extractContent(
 				const cssVariables: Record<string, string> = {};
 
 				// Collect all style rules first, then process them in order
-				const allStyleRules: Array<{ selector: string; styleRule: CSSStyleRule }> = [];
-				
+				const allStyleRules: Array<{
+					selector: string;
+					styleRule: CSSStyleRule;
+				}> = [];
+
 				try {
 					for (const sheet of document.styleSheets) {
 						try {
@@ -270,7 +273,10 @@ export async function extractContent(
 							for (const rule of rules) {
 								if (rule.type === CSSRule.STYLE_RULE) {
 									const styleRule = rule as CSSStyleRule;
-									allStyleRules.push({ selector: styleRule.selectorText, styleRule });
+									allStyleRules.push({
+										selector: styleRule.selectorText,
+										styleRule,
+									});
 								}
 							}
 						} catch (e) {
@@ -299,28 +305,33 @@ export async function extractContent(
 					if (isUniversalSelector) {
 						const style = styleRule.style;
 
-						const fontFeatureSettings = style.getPropertyValue("font-feature-settings");
+						const fontFeatureSettings = style.getPropertyValue(
+							"font-feature-settings",
+						);
 						const fontKerning = style.getPropertyValue("font-kerning");
-						const webkitFontSmoothing = style.getPropertyValue("-webkit-font-smoothing");
-						const mozOsxFontSmoothing = style.getPropertyValue("-moz-osx-font-smoothing");
+						const webkitFontSmoothing = style.getPropertyValue(
+							"-webkit-font-smoothing",
+						);
+						const mozOsxFontSmoothing = style.getPropertyValue(
+							"-moz-osx-font-smoothing",
+						);
 						const textRendering = style.getPropertyValue("text-rendering");
 
 						if (fontFeatureSettings)
 							globalFontSettings.fontFeatureSettings = fontFeatureSettings;
-						if (fontKerning)
-							globalFontSettings.fontKerning = fontKerning;
+						if (fontKerning) globalFontSettings.fontKerning = fontKerning;
 						if (webkitFontSmoothing)
 							globalFontSettings.webkitFontSmoothing = webkitFontSmoothing;
 						if (mozOsxFontSmoothing)
 							globalFontSettings.mozOsxFontSmoothing = mozOsxFontSmoothing;
-						if (textRendering)
-							globalFontSettings.textRendering = textRendering;
+						if (textRendering) globalFontSettings.textRendering = textRendering;
 
 						// Extract CSS custom properties (CSS variables)
 						for (let i = 0; i < style.length; i++) {
 							const propertyName = style.item(i);
 							if (propertyName.startsWith("--")) {
-								cssVariables[propertyName] = style.getPropertyValue(propertyName);
+								cssVariables[propertyName] =
+									style.getPropertyValue(propertyName);
 							}
 						}
 					}
@@ -333,18 +344,24 @@ export async function extractContent(
 							if (propertyName.startsWith("--font-")) {
 								const cssVarValue = style.getPropertyValue(propertyName);
 								// Extract the first font family from the CSS variable value
-								const firstFontFamily = cssVarValue.split(",")[0].replace(/['"]/g, "").trim();
+								const firstFontFamily = cssVarValue
+									.split(",")[0]
+									.replace(/['"]/g, "")
+									.trim();
 
 								// Find matching @font-face rule
-								const matchingFontFace = fontFaces.find((ff) => ff.family === firstFontFamily);
+								const matchingFontFace = fontFaces.find(
+									(ff) => ff.family === firstFontFamily,
+								);
 
 								if (matchingFontFace) {
 									// Create semantic font name based on CSS variable name
 									const baseName = propertyName.replace("--font-", "");
 									// Convert kebab-case to PascalCase (e.g., "graphik-compact" -> "GraphikCompact")
-									const pascalCaseName = baseName.split('-').map(part => 
-										part.charAt(0).toUpperCase() + part.slice(1)
-									).join('');
+									const pascalCaseName = baseName
+										.split("-")
+										.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+										.join("");
 									const semanticName = `Captured${pascalCaseName}Font`;
 
 									// Map CSS class to semantic name and URL
@@ -366,7 +383,6 @@ export async function extractContent(
 						}
 					}
 				}
-
 
 				// Now process content CSS rules with completed font mappings
 				for (const { selector, styleRule } of allStyleRules) {
@@ -394,7 +410,6 @@ export async function extractContent(
 								selector.includes(`.${cls} em`),
 						);
 
-
 					if (appliesToContent) {
 						// Use the unified font mapping to replace font-family references
 						let processedCssText = styleRule.cssText;
@@ -402,100 +417,94 @@ export async function extractContent(
 
 						// Replace font-family declarations with semantic font names
 						processedCssText = processedCssText.replace(
-											/font-family:\s*([^;]+);?/g,
-											(fontMatch, fontValue) => {
-												// If it contains var() or generated identifiers, try to resolve and replace
-												if (
-													fontValue.includes("var(") ||
-													fontValue.includes("__")
-												) {
-													// Try to resolve CSS variables first
-													if (fontValue.includes("var(")) {
-														const varMatch = fontValue.match(/var\(([^)]+)\)/);
-														if (varMatch) {
-															const varName = varMatch[1];
+							/font-family:\s*([^;]+);?/g,
+							(fontMatch, fontValue) => {
+								// If it contains var() or generated identifiers, try to resolve and replace
+								if (fontValue.includes("var(") || fontValue.includes("__")) {
+									// Try to resolve CSS variables first
+									if (fontValue.includes("var(")) {
+										const varMatch = fontValue.match(/var\(([^)]+)\)/);
+										if (varMatch) {
+											const varName = varMatch[1];
 
-															// Check if we have a direct mapping for this CSS variable
-															const directMapping = cssFontMapping[varName];
-															if (directMapping) {
-																console.log(`✅ Replacing: ${selector} -> ${directMapping.semanticName}`);
-																wasModified = true;
-																const fallbackStack =
-																	'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-																return `font-family: "${directMapping.semanticName}", ${fallbackStack};`;
-															}
+											// Check if we have a direct mapping for this CSS variable
+											const directMapping = cssFontMapping[varName];
+											if (directMapping) {
+												console.log(
+													`✅ Replacing: ${selector} -> ${directMapping.semanticName}`,
+												);
+												wasModified = true;
+												const fallbackStack =
+													'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+												return `font-family: "${directMapping.semanticName}", ${fallbackStack};`;
+											}
 
-															// Fallback: try to resolve through cssVariables
-															const cssVarValue = cssVariables[varName];
-															if (cssVarValue) {
-																// Extract the first font family from the CSS variable value
-																const firstFontFamily = cssVarValue
-																	.split(",")[0]
-																	.replace(/['"]/g, "")
-																	.trim();
+											// Fallback: try to resolve through cssVariables
+											const cssVarValue = cssVariables[varName];
+											if (cssVarValue) {
+												// Extract the first font family from the CSS variable value
+												const firstFontFamily = cssVarValue
+													.split(",")[0]
+													.replace(/['"]/g, "")
+													.trim();
 
-																// Find matching font face and mapping
-																const matchingFontFace = fontFaces.find(
-																	(ff) => ff.family === firstFontFamily,
-																);
-																if (matchingFontFace) {
-																	// Find the CSS class that maps to this font
-																	const mappingEntry = Object.entries(
-																		cssFontMapping,
-																	).find(
-																		([_, mapping]: [string, any]) =>
-																			mapping.url === matchingFontFace.src,
-																	);
+												// Find matching font face and mapping
+												const matchingFontFace = fontFaces.find(
+													(ff) => ff.family === firstFontFamily,
+												);
+												if (matchingFontFace) {
+													// Find the CSS class that maps to this font
+													const mappingEntry = Object.entries(
+														cssFontMapping,
+													).find(
+														([_, mapping]: [string, any]) =>
+															mapping.url === matchingFontFace.src,
+													);
 
-																	if (mappingEntry) {
-																		const [_, mapping] = mappingEntry;
-																		wasModified = true;
-																		const fallbackStack =
-																			'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-																		return `font-family: "${mapping.semanticName}", ${fallbackStack};`;
-																	}
-																}
-															}
-														}
-													}
-
-													// Handle direct __ identifiers in font-family
-													if (fontValue.includes("__")) {
-														// Try to find a mapping by matching the identifier
-														const matchingEntry = Object.entries(
-															cssFontMapping,
-														).find(([_, mapping]: [string, any]) => {
-															const fontFace = fontFaces.find(
-																(ff) => ff.src === mapping.url,
-															);
-															return (
-																fontFace && fontValue.includes(fontFace.family)
-															);
-														});
-
-														if (matchingEntry) {
-															const [_, mapping] = matchingEntry;
-															wasModified = true;
-															const fallbackStack =
-																'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-															return `font-family: "${mapping.semanticName}", ${fallbackStack};`;
-														}
+													if (mappingEntry) {
+														const [_, mapping] = mappingEntry;
+														wasModified = true;
+														const fallbackStack =
+															'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+														return `font-family: "${mapping.semanticName}", ${fallbackStack};`;
 													}
 												}
-												return fontMatch;
+											}
+										}
+									}
+
+									// Handle direct __ identifiers in font-family
+									if (fontValue.includes("__")) {
+										// Try to find a mapping by matching the identifier
+										const matchingEntry = Object.entries(cssFontMapping).find(
+											([_, mapping]: [string, any]) => {
+												const fontFace = fontFaces.find(
+													(ff) => ff.src === mapping.url,
+												);
+												return fontFace && fontValue.includes(fontFace.family);
 											},
 										);
 
+										if (matchingEntry) {
+											const [_, mapping] = matchingEntry;
+											wasModified = true;
+											const fallbackStack =
+												'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+											return `font-family: "${mapping.semanticName}", ${fallbackStack};`;
+										}
+									}
+								}
+								return fontMatch;
+							},
+						);
 
-										extractedCSS.push({
-											selector: selector,
-											cssText: processedCssText,
-											originalCssText: styleRule.cssText,
-										});
-
+						extractedCSS.push({
+							selector: selector,
+							cssText: processedCssText,
+							originalCssText: styleRule.cssText,
+						});
 					}
 				}
-
 
 				// Extract images and ensure full URLs
 				const images: Array<{ src: string; alt: string; caption?: string }> =
@@ -535,21 +544,25 @@ export async function extractContent(
 				// Helper to find the effective background color
 				const getEffectiveBackgroundColor = (element: Element): string => {
 					let currentElement: Element | null = element;
-					
+
 					while (currentElement) {
 						const style = window.getComputedStyle(currentElement);
 						const bgColor = style.backgroundColor;
-						
+
 						// Check if this element has a non-transparent background
-						if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+						if (
+							bgColor &&
+							bgColor !== "rgba(0, 0, 0, 0)" &&
+							bgColor !== "transparent"
+						) {
 							return bgColor;
 						}
-						
+
 						currentElement = currentElement.parentElement;
 					}
-					
+
 					// Default to white if no background found
-					return 'rgb(255, 255, 255)';
+					return "rgb(255, 255, 255)";
 				};
 
 				// Get the effective background color
@@ -582,7 +595,6 @@ export async function extractContent(
 					return pxValue;
 				};
 
-
 				// Get link styles - try to find a link that's visible and has content
 				const links = article.querySelectorAll("a");
 				let bestLink = null;
@@ -594,7 +606,6 @@ export async function extractContent(
 				}
 				const linkStyle = bestLink ? window.getComputedStyle(bestLink) : null;
 
-
 				// Helper function to transform font families
 				const transformFontFamily = (fontFamily: string): string => {
 					// Check if font family contains generated identifiers
@@ -603,13 +614,16 @@ export async function extractContent(
 						for (const fontFace of fontFaces) {
 							if (fontFamily.includes(fontFace.family)) {
 								// Find the mapping for this font URL
-								const mappingEntry = Object.entries(cssFontMapping).find(([_, mapping]: [string, any]) => 
-									mapping.url === fontFace.src
+								const mappingEntry = Object.entries(cssFontMapping).find(
+									([_, mapping]: [string, any]) => mapping.url === fontFace.src,
 								);
 								if (mappingEntry) {
 									const [_, mapping] = mappingEntry;
 									// Replace the generated identifier with semantic name
-									return fontFamily.replace(fontFace.family, `"${mapping.semanticName}"`);
+									return fontFamily.replace(
+										fontFace.family,
+										`"${mapping.semanticName}"`,
+									);
 								}
 							}
 						}
@@ -720,7 +734,10 @@ export async function extractContent(
 					url: location.href,
 				};
 
-				console.log("✅ Extraction complete, HTML length:", extractedData.html.length);
+				console.log(
+					"✅ Extraction complete, HTML length:",
+					extractedData.html.length,
+				);
 
 				return extractedData;
 			} catch (error) {
@@ -734,10 +751,39 @@ export async function extractContent(
 
 		// Sanitize HTML on the backend for security
 		result.html = DOMPurify.sanitize(result.html, {
-			ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'div', 'span', 'figure', 'figcaption', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-			ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
+			ALLOWED_TAGS: [
+				"p",
+				"br",
+				"strong",
+				"em",
+				"a",
+				"img",
+				"h1",
+				"h2",
+				"h3",
+				"h4",
+				"h5",
+				"h6",
+				"blockquote",
+				"ul",
+				"ol",
+				"li",
+				"div",
+				"span",
+				"figure",
+				"figcaption",
+				"pre",
+				"code",
+				"table",
+				"thead",
+				"tbody",
+				"tr",
+				"th",
+				"td",
+			],
+			ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id"],
 			ALLOW_DATA_ATTR: false,
-			KEEP_CONTENT: true
+			KEEP_CONTENT: true,
 		});
 
 		console.log("📁 Network font requests:", fontRequests.length);
