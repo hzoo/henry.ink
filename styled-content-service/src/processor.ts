@@ -716,10 +716,38 @@ export async function extractContent(
 						.querySelector(`meta[property="${name}"], meta[name="${name}"]`)
 						?.getAttribute("content") || "";
 
+				// Get published time from various sources
+				const getPublishedTime = () => {
+					// Try meta tags first
+					const metaTime = getMeta("article:published_time") || 
+									getMeta("article:published") || 
+									getMeta("datePublished") ||
+									getMeta("publish_date");
+					if (metaTime) return metaTime;
+
+					// Try <time> elements
+					const timeElements = document.querySelectorAll("time[datetime]");
+					if (timeElements.length > 0) {
+						return timeElements[0].getAttribute("datetime") || "";
+					}
+
+					// Try schema.org structured data
+					const jsonLd = document.querySelector('script[type="application/ld+json"]');
+					if (jsonLd) {
+						try {
+							const data = JSON.parse(jsonLd.textContent || "{}");
+							if (data.datePublished) return data.datePublished;
+						} catch (e) {}
+					}
+
+					return "";
+				};
+
 				const extractedData = {
 					html: cleanedArticle.innerHTML,
 					title: getMeta("og:title") || document.title,
 					author: getMeta("author") || getMeta("article:author") || "",
+					publishedTime: getPublishedTime(),
 					domain: location.hostname.replace(/^www\./, ""),
 					image: getMeta("og:image") || "",
 					images,

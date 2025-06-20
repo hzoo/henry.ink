@@ -65,7 +65,7 @@ export const defaultConfig: ExtractionConfig = {
 // Domain-specific configurations
 export const domainConfigs: Record<string, Partial<ExtractionConfig>> = {
 	"time.com": {
-		contentSelectors: ["#article-body"],
+		// contentSelectors: ["#article-body"],
 	},
 };
 
