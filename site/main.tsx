@@ -2,6 +2,7 @@ import { render } from "preact";
 import { ErrorBoundary, LocationProvider, Router, Route } from "preact-iso";
 import { App } from "@/site/App";
 import { ThreadTest } from "@/site/routes/ThreadTest";
+import { RSSTest } from "@/site/routes/RSSTest";
 import "@/site/styles.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/src/lib/queryClient";
@@ -12,6 +13,7 @@ render(
 		<LocationProvider>
 			<ErrorBoundary>
 				<Router>
+					<Route path="/rss" component={RSSTest} />
 					<Route path="/thread" component={ThreadTest} />
 					<Route path="/profile/:user/post/:post?" component={ThreadTest} />
 					<Route path="/:params*" component={App} />
