@@ -1,7 +1,7 @@
 import type { ContentScriptContext } from "#imports";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
-import "@entrypoints/styles.css";
+import "../styles.css";
 import SelectionPopupManager from "./SelectionPopupManager";
 
 const pingMessage = {
