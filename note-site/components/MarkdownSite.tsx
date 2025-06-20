@@ -95,8 +95,7 @@ export function MarkdownSite() {
 							Welcome to Henry's Note
 						</h2>
 						<p className="text-lg mb-8 text-gray-700 dark:text-gray-300">
-							Transform any website into clean, readable text with social
-							annotations
+							reader* mode with social annotations
 						</p>
 
 						<div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
@@ -113,7 +112,8 @@ export function MarkdownSite() {
 											Quick access bookmarklet
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-											Drag this button to your bookmarks bar for one-click access to any page
+											Drag this button to your bookmarks bar for 1-click access
+											for any page
 										</p>
 										{/* biome-ignore lint/a11y/useValidAnchor: <explanation> */}
 										<a
@@ -153,11 +153,11 @@ export function MarkdownSite() {
 											Or paste any URL
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-											Just add any URL to the end of 
+											Just append any URL to the end of
 											<span className="inline-flex items-center mx-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
 												henry.ink/
 											</span>
-											to get a clean, readable version
+											to get a clean version
 										</p>
 									</div>
 								</div>
@@ -171,7 +171,7 @@ export function MarkdownSite() {
 											See social discussions
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400">
-											View related Bluesky posts and conversations in the sidebar
+											View related Bluesky conversations in the sidebar
 										</p>
 									</div>
 								</div>
