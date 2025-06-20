@@ -21,3 +21,6 @@ effect(() => {
 
 // Signal to track which post's collapse controls (line/button) are hovered
 export const hoveredCollapsePostUri = signal<string | null>(null);
+
+// Signal to track if we've already shown an error in PostList
+export const hasShownError = signal<boolean>(false);

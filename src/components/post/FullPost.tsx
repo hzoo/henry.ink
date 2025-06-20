@@ -1,6 +1,5 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { useQuery } from "@tanstack/react-query";
-import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 import { PostReplies } from "@/src/components/post/PostReplies";
 import { CompactPostActions } from "@/src/components/post/CompactPostActions";
@@ -19,6 +18,7 @@ import { isRecord } from "@/src/lib/postActions";
 import type { PostFilter } from "@/src/lib/postFilters";
 import { applyFilters } from "@/src/lib/postFilters";
 import type { Signal } from "@preact/signals-react";
+import { hasShownError } from "@/src/lib/signals";
 
 export type DisplayableItem = "avatar" | "displayName" | "handle";
 
@@ -94,6 +94,12 @@ export function FullPost({
 	}
 
 	if (error) {
+		if (!hasShownError.value) {
+			hasShownError.value = true;
+		} else {
+			return null;
+		}
+
 		const errorMessage =
 			error instanceof Error ? error.message : "An unknown error occurred";
 		return (
