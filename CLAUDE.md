@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is **Bluesky Sidebar** - a browser extension (Chrome & Firefox) with multiple demo websites that shows Bluesky discussions about the current webpage. The extension provides annotation capabilities and social interactions directly in the browser sidebar.
 
+## Conceptual Overview
+
+This project takes a "reverse Hypothesis" approach to web annotations. Instead of overlaying annotations on existing webpages (like traditional annotation tools), we recreate the webpage content within our own environment. This gives us full control over the UI, enabling seamless integration of comments with the original content - such as automatically highlighting annotated text. The goal is to create a unified reading experience where blog posts and their associated discussions from Bluesky, Are.na, and other sources feel naturally integrated rather than bolted on.
+
 ## Technology Stack
 
 - **Framework**: Preact (React-like, optimized for performance)

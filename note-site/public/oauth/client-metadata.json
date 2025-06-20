@@ -1,0 +1,21 @@
+{
+    "client_id": "https://henry.ink/oauth/client-metadata.json",
+    "client_uri": "https://henry.ink",
+    "redirect_uris": [
+        "https://henry.ink",
+        "https://henry.ink/extension/oauth/callback",
+        "https://henry.ink/extension/ff/oauth/callback"
+    ],
+    "application_type": "web",
+    "client_name": "Henry's Note",
+    "dpop_bound_access_tokens": true,
+    "grant_types": [
+        "authorization_code",
+        "refresh_token"
+    ],
+    "response_types": [
+        "code"
+    ],
+    "scope": "atproto transition:generic",
+    "token_endpoint_auth_method": "none"
+}
