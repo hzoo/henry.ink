@@ -2,7 +2,7 @@ import { render } from "preact";
 import { Sidebar } from "@/src/components/Sidebar";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
-import "@/lib/styles.css";
+import "@/src/lib/styles.css";
 import { queryClient, appPersister } from "@/src/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 
@@ -105,8 +105,8 @@ browser.runtime.onMessage.addListener(
 (async () => {
 	try {
 		await setupTabListener();
-		await appPersister.persisterRestoreAll(queryClient);
-		console.log("Persisted queries restored.");
+		await appPersister.restoreQueries(queryClient);
+		// console.log("Persisted queries restored.");
 	} catch (error) {
 		console.error("Error during initial setup or restore:", error);
 	}

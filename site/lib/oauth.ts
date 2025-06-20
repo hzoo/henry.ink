@@ -21,7 +21,7 @@ export function initializeOAuth() {
 	if (typeof window !== "undefined" && !isOAuthInitialized) {
 		const clientId = import.meta.env.VITE_OAUTH_CLIENT_ID;
 		const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI;
-		console.log(`[initializeOAuth] clientId: ${clientId}`);
+		// console.log(`[initializeOAuth] clientId: ${clientId}`);
 		configureOAuth({
 			metadata: {
 				client_id: clientId,
@@ -47,12 +47,12 @@ let isSessionLoading = false;
 export const useAtCute = () => {
 	useEffect(() => {
 		let isMounted = true;
-		
+
 		// Prevent duplicate session loading in strict mode
 		if (isSessionLoading) {
 			return;
 		}
-		
+
 		isSessionLoading = true;
 		isLoadingSession.value = true;
 
