@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { getConfigForDomain, type ExtractionConfig } from "./config";
+import DOMPurify from "isomorphic-dompurify";
 
 export async function extractContent(
 	url: string,
@@ -531,6 +532,29 @@ export async function extractContent(
 				// Get root font size for rem calculations
 				const rootFontSize = parseFloat(rootStyle.fontSize) || 16;
 
+				// Helper to find the effective background color
+				const getEffectiveBackgroundColor = (element: Element): string => {
+					let currentElement: Element | null = element;
+					
+					while (currentElement) {
+						const style = window.getComputedStyle(currentElement);
+						const bgColor = style.backgroundColor;
+						
+						// Check if this element has a non-transparent background
+						if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+							return bgColor;
+						}
+						
+						currentElement = currentElement.parentElement;
+					}
+					
+					// Default to white if no background found
+					return 'rgb(255, 255, 255)';
+				};
+
+				// Get the effective background color
+				const backgroundColor = getEffectiveBackgroundColor(article);
+
 				// Get paragraph styles - try to find a paragraph with rich content
 				const paragraphs = article.querySelectorAll("p");
 				let bestParagraph = null;
@@ -614,6 +638,8 @@ export async function extractContent(
 				const styles = {
 					// Root font size context
 					rootFontSize: `${rootFontSize}px`,
+					// Background color
+					backgroundColor,
 					// Base font styles
 					fonts: {
 						primary:
@@ -706,7 +732,16 @@ export async function extractContent(
 		// Add the captured font requests to the result
 		result.fontRequests = fontRequests;
 
+		// Sanitize HTML on the backend for security
+		result.html = DOMPurify.sanitize(result.html, {
+			ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'div', 'span', 'figure', 'figcaption', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+			ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
+			ALLOW_DATA_ATTR: false,
+			KEEP_CONTENT: true
+		});
+
 		console.log("📁 Network font requests:", fontRequests.length);
+		console.log("🔒 HTML sanitized, length:", result.html.length);
 
 		// console.log("Extracted content:", {
 		// 	title: result.title,
