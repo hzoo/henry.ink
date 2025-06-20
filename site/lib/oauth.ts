@@ -15,8 +15,10 @@ import { sleep } from "@/src/lib/utils/sleep";
 const isBrowserExtension =
 	typeof browser !== "undefined" && !!browser.runtime?.id;
 
+let isOAuthInitialized = false;
+
 export function initializeOAuth() {
-	if (typeof window !== "undefined") {
+	if (typeof window !== "undefined" && !isOAuthInitialized) {
 		const clientId = import.meta.env.VITE_OAUTH_CLIENT_ID;
 		const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI;
 		console.log(`[initializeOAuth] clientId: ${clientId}`);
@@ -26,6 +28,7 @@ export function initializeOAuth() {
 				redirect_uri: redirectUri,
 			},
 		});
+		isOAuthInitialized = true;
 	}
 }
 
@@ -39,9 +42,18 @@ export interface AtCuteState {
 export const atCuteState = signal<AtCuteState | null>(null);
 export const isLoadingSession = signal(true);
 
+let isSessionLoading = false;
+
 export const useAtCute = () => {
 	useEffect(() => {
 		let isMounted = true;
+		
+		// Prevent duplicate session loading in strict mode
+		if (isSessionLoading) {
+			return;
+		}
+		
+		isSessionLoading = true;
 		isLoadingSession.value = true;
 
 		const processLoginOrLoadSession = async () => {
@@ -155,10 +167,13 @@ export const useAtCute = () => {
 			if (isMounted) isLoadingSession.value = false;
 		};
 
-		processLoginOrLoadSession();
+		processLoginOrLoadSession().finally(() => {
+			isSessionLoading = false;
+		});
 
 		return () => {
 			isMounted = false;
+			isSessionLoading = false;
 		};
 	}, []);
 };
