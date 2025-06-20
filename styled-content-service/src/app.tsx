@@ -13,6 +13,28 @@ function App() {
 		Record<string, string>
 	>({});
 
+	// Format date helper
+	const formatDate = (dateString: string) => {
+		if (!dateString) return "";
+		try {
+			const date = new Date(dateString);
+			// Format as "JUN 17, 2025 3:40 PM ET"
+			return date
+				.toLocaleDateString("en-US", {
+					month: "short",
+					day: "numeric",
+					year: "numeric",
+					hour: "numeric",
+					minute: "2-digit",
+					hour12: true,
+					timeZoneName: "short",
+				})
+				.toUpperCase();
+		} catch (e) {
+			return dateString; // Return original if parsing fails
+		}
+	};
+
 	const processUrl = async () => {
 		if (!url) return;
 
@@ -430,6 +452,11 @@ function App() {
 				{content && (
 					<article className="space-y-8">
 						<header className="pb-8 border-b border-neutral-200">
+							{content.publishedTime && (
+								<div className="text-xs text-neutral-500 uppercase tracking-tighter mb-2">
+									{formatDate(content.publishedTime)}
+								</div>
+							)}
 							<h2 className="article-title">{content.title}</h2>
 							<div className="flex items-center gap-2 text-sm text-neutral-600">
 								{content.author && (
