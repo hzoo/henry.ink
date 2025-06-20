@@ -1,6 +1,5 @@
 import { createRoot } from "react-dom/client";
 import { useState, useEffect } from "react";
-import DOMPurify from "dompurify";
 
 function App() {
 	const [url, setUrl] = useState(
@@ -456,13 +455,7 @@ function App() {
 
 						<div
 							className="article-content"
-							dangerouslySetInnerHTML={{ 
-								__html: DOMPurify.sanitize(content.html, {
-									ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'div', 'span', 'figure', 'figcaption'],
-									ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
-									ALLOW_DATA_ATTR: false
-								})
-							}}
+							dangerouslySetInnerHTML={{ __html: content.html }}
 						/>
 
 						{/* Additional images section if there are multiple images */}
