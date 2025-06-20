@@ -153,7 +153,7 @@ export function App() {
 
 					{/* Resizable Sidebar */}
 					<aside
-						class="hidden lg:flex flex-col bg-gray-50 dark:bg-gray-850 border-l border-gray-200 dark:border-gray-700"
+						class="hidden lg:flex flex-col dark:bg-gray-800 bg-gray-50 border-l border-gray-200 dark:border-gray-700"
 						style={{ width: `${sidebarWidth.value}px` }}
 					>
 						<SidebarHeader />
