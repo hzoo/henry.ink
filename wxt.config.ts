@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import preact from "@preact/preset-vite";
 import svgr from 'vite-plugin-svgr'
 import { version } from './package.json';
-import { injectOauthEnv } from './inject-oauth-plugin';
+import { injectOauthEnvForExtension } from './inject-oauth-plugin';
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -43,7 +43,7 @@ export default defineConfig({
       preact(),
       tailwindcss(),
       svgr(),
-      injectOauthEnv(true, env.browser)
+      injectOauthEnvForExtension(env.browser)
     ],
   }),
   webExt: {
