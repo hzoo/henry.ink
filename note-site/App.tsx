@@ -142,73 +142,67 @@ export function App() {
 				</div>
 			</main>
 
-			{/* Desktop Sidebar - Only show when URL exists */}
-			{hasUrl && (
-				<>
-					{/* Resize Handle */}
+			{/* Desktop Sidebar */}
+			<>
+				{/* Resize Handle */}
+				<div
+					class={`hidden lg:block w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-col-resize transition-colors ${isResizing.value ? "bg-blue-500" : ""}`}
+					onMouseDown={handleMouseDown}
+				></div>
+
+				{/* Resizable Sidebar */}
+				<aside
+					class="hidden lg:flex flex-col dark:bg-gray-800 bg-gray-50 border-l border-gray-200 dark:border-gray-700"
+					style={{ width: `${sidebarWidth.value}px` }}
+				>
+					<SidebarHeader />
+					<SidebarContent containerRef={mockContainerRef} />
+				</aside>
+			</>
+
+			{/* Mobile Floating Action Button */}
+			<div class="lg:hidden fixed bottom-6 right-6 z-50">
+				<button
+					class="w-14 h-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform active:scale-95"
+					onClick={() => (isMobileSidebarOpen.value = true)}
+					aria-label="Open comments"
+				>
+					<svg
+						class="w-6 h-6"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+						/>
+					</svg>
+				</button>
+			</div>
+
+			{/* Mobile Sidebar Overlay */}
+			<div
+				class={`lg:hidden fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${isMobileSidebarOpen.value ? "translate-x-0" : "translate-x-full"}`}
+			>
+				<div class="flex h-full">
+					{/* Backdrop */}
 					<div
-						class={`hidden lg:block w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-col-resize transition-colors ${isResizing.value ? "bg-blue-500" : ""}`}
-						onMouseDown={handleMouseDown}
+						class="flex-1 bg-black/50 backdrop-blur-sm transition-opacity"
+						onClick={() => (isMobileSidebarOpen.value = false)}
 					></div>
 
-					{/* Resizable Sidebar */}
-					<aside
-						class="hidden lg:flex flex-col dark:bg-gray-800 bg-gray-50 border-l border-gray-200 dark:border-gray-700"
-						style={{ width: `${sidebarWidth.value}px` }}
-					>
-						<SidebarHeader />
+					{/* Mobile Sidebar Content - Wider on mobile */}
+					<div class="w-full max-w-sm sm:max-w-md bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
+						<SidebarHeader
+							onClose={() => (isMobileSidebarOpen.value = false)}
+						/>
 						<SidebarContent containerRef={mockContainerRef} />
-					</aside>
-				</>
-			)}
-
-			{/* Mobile Floating Action Button - Only show when URL exists */}
-			{hasUrl && (
-				<div class="lg:hidden fixed bottom-6 right-6 z-50">
-					<button
-						class="w-14 h-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform active:scale-95"
-						onClick={() => (isMobileSidebarOpen.value = true)}
-						aria-label="Open comments"
-					>
-						<svg
-							class="w-6 h-6"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-							/>
-						</svg>
-					</button>
-				</div>
-			)}
-
-			{/* Mobile Sidebar Overlay - Only show when URL exists */}
-			{hasUrl && (
-				<div
-					class={`lg:hidden fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${isMobileSidebarOpen.value ? "translate-x-0" : "translate-x-full"}`}
-				>
-					<div class="flex h-full">
-						{/* Backdrop */}
-						<div
-							class="flex-1 bg-black/50 backdrop-blur-sm transition-opacity"
-							onClick={() => (isMobileSidebarOpen.value = false)}
-						></div>
-
-						{/* Mobile Sidebar Content - Wider on mobile */}
-						<div class="w-full max-w-sm sm:max-w-md bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
-							<SidebarHeader
-								onClose={() => (isMobileSidebarOpen.value = false)}
-							/>
-							<SidebarContent containerRef={mockContainerRef} />
-						</div>
 					</div>
 				</div>
-			)}
+			</div>
 		</div>
 	);
 }

@@ -85,14 +85,11 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 				</>
 			) : !isSearchableUrl.value ? (
 				<>
-					<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-						not searching this type of page: {currentUrl.value}
-					</p>
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-						Thanks for trying out the annotation sidebar!
+						Paste a URL to get started
 					</h3>
 					<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-						- Henry
+						Enter any URL in the input above to see Bluesky discussions about that page
 					</p>
 					<a
 						href="https://github.com/hzoo/extension-annotation-sidebar"
@@ -100,7 +97,7 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 						rel="noopener noreferrer"
 						className="inline-block px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-600 rounded-md transition-colors duration-150 ease-in-out"
 					>
-						View on GitHub
+						Learn more
 					</a>
 				</>
 			) : autoFetchEnabled.value ? (

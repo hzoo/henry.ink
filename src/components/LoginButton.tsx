@@ -129,34 +129,28 @@ export function LoginButton({ minimal = false }: { minimal?: boolean }) {
 					</button>
 				</div>
 			) : (
-				<form onSubmit={handleSubmit} className="flex flex-col gap-2">
-					<div className="flex items-center gap-1">
-						<input
-							id="bskyHandle"
-							type="text"
-							value={handleInput.value}
-							onInput={(e) =>
-								(handleInput.value = (e.target as HTMLInputElement).value)
-							}
-							placeholder="yourname.bsky.social"
-							required
-							className="flex-grow px-2 py-1 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-							aria-label="Bluesky Handle"
-							disabled={isLoadingSession.value}
-						/>
-						<button
-							type="submit"
-							className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50"
-							disabled={isLoadingSession.value}
-						>
-							Login
-						</button>
-					</div>
-					{!minimal && (
-						<p className="text-xs text-gray-500 dark:text-gray-400">
-							Login to like, reply, repost
-						</p>
-					)}
+				<form onSubmit={handleSubmit} className="flex items-center gap-1">
+					<input
+						id="bskyHandle"
+						type="text"
+						value={handleInput.value}
+						onInput={(e) =>
+							(handleInput.value = (e.target as HTMLInputElement).value)
+						}
+						placeholder="yourname.bsky.social"
+						required
+						className="flex-grow px-2 py-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+						aria-label="Bluesky Handle"
+						disabled={isLoadingSession.value}
+					/>
+					<button
+						type="submit"
+						className="px-3 py-2 text-sm font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+						disabled={isLoadingSession.value}
+						tabIndex={0}
+					>
+						Sign in
+					</button>
 				</form>
 			)}
 		</>
