@@ -11,39 +11,30 @@ import { sleep } from "@/src/lib/utils/sleep";
 
 const getStorageKey = (did: string) => `bskyUserHandle_${did}`;
 const getAvatarStorageKey = (did: string) => `bskyUserAvatar_${did}`;
-const LAST_ENTERED_HANDLE_KEY = "lastEnteredHandle";
 
 export function LoginButton() {
 	const userHandle = useSignal<string | null>(null);
 	const userAvatar = useSignal<string | null>(null);
 	const isFetchingProfile = useSignal(false);
-	const handleInput = useSignal("");
 	const prevAtCuteValue = useRef(atCuteState.value);
 	const currentAtCute = atCuteState.value;
 	const isDropdownOpen = useSignal(false);
 
 	useEffect(() => {
 		if (!currentAtCute) {
-			const lastHandle = localStorage.getItem(LAST_ENTERED_HANDLE_KEY);
-			if (lastHandle && !handleInput.value) {
-				handleInput.value = lastHandle;
-			}
 			userHandle.value = null;
 			userAvatar.value = null;
 		} else {
-			if (!prevAtCuteValue.current) {
-				handleInput.value = "";
-			}
 			const did = currentAtCute.session.info.sub;
 			const cachedHandle = localStorage.getItem(getStorageKey(did));
 			const cachedAvatar = localStorage.getItem(getAvatarStorageKey(did));
-			
+
 			if (cachedHandle) {
 				userHandle.value = cachedHandle;
 			} else {
 				userHandle.value = null;
 			}
-			
+
 			if (cachedAvatar) {
 				userAvatar.value = cachedAvatar;
 			} else {
@@ -51,7 +42,7 @@ export function LoginButton() {
 			}
 		}
 		prevAtCuteValue.current = currentAtCute;
-	}, [currentAtCute, handleInput, userHandle, userAvatar]);
+	}, [currentAtCute, userHandle, userAvatar]);
 
 	useEffect(() => {
 		if (currentAtCute && !isFetchingProfile.value && !userHandle.value) {
@@ -76,12 +67,12 @@ export function LoginButton() {
 					const fetchedHandle = data.handle;
 					const fetchedAvatar = data.avatar;
 					const avatarStorageKey = getAvatarStorageKey(did);
-					
+
 					if (fetchedHandle) {
 						userHandle.value = fetchedHandle;
 						userAvatar.value = fetchedAvatar || null;
 						localStorage.setItem(storageKey, fetchedHandle);
-						
+
 						if (fetchedAvatar) {
 							localStorage.setItem(avatarStorageKey, fetchedAvatar);
 						} else {
@@ -127,13 +118,8 @@ export function LoginButton() {
 		}
 	}, [isDropdownOpen.value]);
 
-	const handleSubmit = (e: JSX.TargetedEvent<HTMLFormElement, Event>) => {
-		e.preventDefault();
-		const handleToLogin = handleInput.value.trim();
-		if (handleToLogin) {
-			localStorage.setItem(LAST_ENTERED_HANDLE_KEY, handleToLogin);
-			startLoginProcess(handleToLogin);
-		}
+	const handleSignIn = () => {
+		startLoginProcess("");
 	};
 
 	const handleLogout = () => {
@@ -189,29 +175,15 @@ export function LoginButton() {
 					)}
 				</div>
 			) : (
-				<form onSubmit={handleSubmit} className="flex items-center gap-1">
-					<input
-						id="bskyHandle"
-						type="text"
-						value={handleInput.value}
-						onInput={(e) =>
-							(handleInput.value = (e.target as HTMLInputElement).value)
-						}
-						placeholder="yourname.bsky.social"
-						required
-						className="flex-grow px-2 py-2 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-						aria-label="Bluesky Handle"
-						disabled={isLoadingSession.value}
-					/>
-					<button
-						type="submit"
-						className="px-3 py-2 text-sm font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
-						disabled={isLoadingSession.value}
-						tabIndex={0}
-					>
-						Sign in
-					</button>
-				</form>
+				<button
+					onClick={handleSignIn}
+					className="flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-400 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 transition-colors"
+					disabled={isLoadingSession.value}
+					aria-label="Sign in with Bluesky"
+				>
+					<span className="text-base">🦋</span>
+					Sign in
+				</button>
 			)}
 		</>
 	);
