@@ -1,11 +1,15 @@
 import { useEffect, useRef } from "preact/hooks";
-import { signal } from "@preact/signals";
+import { effect, signal } from "@preact/signals";
 import { Sidebar } from "@/src/components/Sidebar";
 import { LoginButton } from "@/src/components/LoginButton";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
 import { MarkdownSite } from "@/note-site/components/MarkdownSite";
+import { queryClient } from "@/src/lib/queryClient";
+import { cacheTimeAgo } from "@/src/lib/signals";
+import { getTimeAgo } from "@/src/lib/utils/time";
+import { contentStateSignal } from "@/note-site/signals";
 
 // UI state signals
 const sidebarWidth = signal(384);
@@ -13,34 +17,70 @@ const isResizing = signal(false);
 const isMobileSidebarOpen = signal(false);
 
 // Reusable Sidebar Header Component
-const SidebarHeader = ({ onClose }: { onClose?: () => void }) => (
-	<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-		<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-			Bluesky Discussion
-		</h2>
-		{onClose && (
+const SidebarHeader = ({ onClose }: { onClose?: () => void }) => {
+	const handleRefresh = () => {
+		if (currentUrl.value) {
+			queryClient.refetchQueries({ queryKey: ["posts", currentUrl.value] });
+		}
+	};
+
+	return (
+		<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
 			<button
-				class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-				onClick={onClose}
-				aria-label="Close sidebar"
+				onClick={handleRefresh}
+				class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hover:text-gray-800 dark:hover:text-gray-200 transition-colors cursor-pointer flex flex-col items-start group"
+				aria-label="Refresh Bluesky discussions"
+				title="Refresh discussions"
 			>
-				<svg
-					class="w-5 h-5"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M6 18L18 6M6 6l12 12"
-					/>
-				</svg>
+				<div class="flex items-center gap-1.5">
+					<span>Bluesky Discussion</span>
+					<svg
+						class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+				</div>
+				{cacheTimeAgo.value && (
+					<span
+						class="text-xs text-gray-400 dark:text-gray-500 normal-case tracking-normal font-normal"
+						title="These discussions were saved to show you results faster. Click to refresh and get the latest posts."
+					>
+						{getTimeAgo(cacheTimeAgo.value)}
+					</span>
+				)}
 			</button>
-		)}
-	</div>
-);
+			{onClose && (
+				<button
+					class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+					onClick={onClose}
+					aria-label="Close sidebar"
+				>
+					<svg
+						class="w-5 h-5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+			)}
+		</div>
+	);
+};
 
 // Reusable Sidebar Content Component
 const SidebarContent = ({
@@ -66,9 +106,52 @@ const SidebarContent = ({
 	</>
 );
 
+// Update page title based on content title or current URL
+effect(() => {
+	const contentState = contentStateSignal.value;
+
+	if (contentState.type === "success" && contentState.title) {
+		document.title = `${contentState.title}`;
+	} else if (currentUrl.value) {
+		try {
+			const url = new URL(currentUrl.value);
+			const pathname = url.pathname === "/" ? "" : url.pathname;
+			document.title = `${url.hostname}${pathname}`;
+		} catch {
+			document.title = `${currentUrl.value}`;
+		}
+	} else {
+		document.title = "Henry's Note";
+	}
+});
+
+// Handle sidebar resize
+const handleMouseDown = (e: MouseEvent) => {
+	e.preventDefault();
+	isResizing.value = true;
+
+	const startX = e.clientX;
+	const startWidth = sidebarWidth.value;
+
+	const handleMouseMove = (e: MouseEvent) => {
+		const delta = startX - e.clientX;
+		const newWidth = Math.min(600, Math.max(384, startWidth + delta));
+		sidebarWidth.value = newWidth;
+	};
+
+	const handleMouseUp = () => {
+		isResizing.value = false;
+		localStorage.setItem("sidebar-width", sidebarWidth.value.toString());
+		document.removeEventListener("mousemove", handleMouseMove);
+		document.removeEventListener("mouseup", handleMouseUp);
+	};
+
+	document.addEventListener("mousemove", handleMouseMove);
+	document.addEventListener("mouseup", handleMouseUp);
+};
+
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
-	const hasUrl = !!currentUrl.value;
 
 	// Load saved sidebar width from localStorage
 	useEffect(() => {
@@ -81,38 +164,10 @@ export function App() {
 		}
 	}, []);
 
-	// Handle sidebar resize
-	const handleMouseDown = (e: MouseEvent) => {
-		e.preventDefault();
-		isResizing.value = true;
-
-		const startX = e.clientX;
-		const startWidth = sidebarWidth.value;
-
-		const handleMouseMove = (e: MouseEvent) => {
-			const delta = startX - e.clientX;
-			const newWidth = Math.min(600, Math.max(384, startWidth + delta));
-			sidebarWidth.value = newWidth;
-		};
-
-		const handleMouseUp = () => {
-			isResizing.value = false;
-			localStorage.setItem("sidebar-width", sidebarWidth.value.toString());
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-		};
-
-		document.addEventListener("mousemove", handleMouseMove);
-		document.addEventListener("mouseup", handleMouseUp);
-	};
-
 	return (
 		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 			{/* Main Content Area */}
-			<main
-				ref={mockContainerRef}
-				class={`flex-1 flex flex-col overflow-auto ${!hasUrl && "lg:mr-0"}`}
-			>
+			<main ref={mockContainerRef} class={"flex-1 flex flex-col overflow-auto"}>
 				{/* Header */}
 				<header
 					class={

@@ -29,7 +29,21 @@ async function fetchSimplifiedContent(targetUrl: string) {
 			);
 		}
 		const content = await response.text();
-		contentStateSignal.value = { type: "success", content };
+		
+		// Extract title from the content (look for first h1 or title tag)
+		let title = '';
+		try {
+			const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
+							   content.match(/^#\s+(.+)$/m) ||
+							   content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+			if (titleMatch) {
+				title = titleMatch[1].trim();
+			}
+		} catch (e) {
+			// Ignore title extraction errors
+		}
+		
+		contentStateSignal.value = { type: "success", content, title };
 	} catch (e: unknown) {
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
