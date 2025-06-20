@@ -16,7 +16,7 @@ export function MarkdownSite() {
 	return (
 		<div className="flex-1 h-full flex flex-col">
 			{contentState.type === "loading" && (
-				<div className="text-center p-8">
+				<div className="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
 						<svg
 							className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500"
@@ -39,6 +39,9 @@ export function MarkdownSite() {
 							/>
 						</svg>
 						Loading content...
+					</div>
+					<div className="text-gray-500 dark:text-gray-400 text-sm">
+						(first time processing a site can take a moment)
 					</div>
 				</div>
 			)}
