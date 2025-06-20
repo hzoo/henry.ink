@@ -48,6 +48,11 @@ function App() {
 			// Set the root font size to match the source site
 			document.documentElement.style.fontSize = rootFontSize;
 
+			// Apply background color if available
+			if (content.styles.backgroundColor) {
+				document.body.style.backgroundColor = content.styles.backgroundColor;
+			}
+
 			// Create CSS variables and font rules dynamically
 			let fontFaceRules = "";
 			const collectedFonts: string[] = [];
@@ -315,11 +320,11 @@ function App() {
 			const sanitizeCSS = (css: string): string => {
 				// Remove dangerous CSS functions
 				return css
-					.replace(/javascript:/gi, '')
-					.replace(/expression\(/gi, '')
-					.replace(/behavior:/gi, '')
-					.replace(/binding:/gi, '')
-					.replace(/@import/gi, '');
+					.replace(/javascript:/gi, "")
+					.replace(/expression\(/gi, "")
+					.replace(/behavior:/gi, "")
+					.replace(/binding:/gi, "")
+					.replace(/@import/gi, "");
 			};
 
 			const style = document.createElement("style");
@@ -330,6 +335,8 @@ function App() {
 				document.head.removeChild(style);
 				// Reset root font size when component unmounts
 				document.documentElement.style.fontSize = "";
+				// Reset background color
+				document.body.style.backgroundColor = "";
 			};
 		}
 	}, [content]);
@@ -345,7 +352,7 @@ function App() {
 		}
 
 		// Sanitize font family name to prevent CSS injection
-		const sanitizedFontFamily = fontFamily.replace(/[^a-zA-Z0-9\s\-_]/g, '');
+		const sanitizedFontFamily = fontFamily.replace(/[^a-zA-Z0-9\s\-_]/g, "");
 
 		const override = document.createElement("style");
 		override.id = "font-override";
@@ -368,7 +375,7 @@ function App() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-white text-neutral-900">
+		<div className="min-h-screen">
 			{/* Font Debug Panel */}
 			{availableFonts.length > 0 && (
 				<div className="fixed top-3 right-3 flex items-center gap-1 bg-black/5 rounded px-2 py-1 text-xs z-50">
