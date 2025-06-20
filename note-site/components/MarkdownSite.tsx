@@ -110,15 +110,37 @@ export function MarkdownSite() {
 									</div>
 									<div>
 										<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-											Read any website
+											Quick access bookmarklet
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-											Add any URL to the end of henry.ink to get a clean,
-											readable version
+											Drag this button to your bookmarks bar for one-click access to any page
 										</p>
-										<code className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded text-sm text-gray-800 dark:text-gray-200 break-all">
-											henry.ink/https://example.com
-										</code>
+										{/* biome-ignore lint/a11y/useValidAnchor: <explanation> */}
+										<a
+											href="javascript:(function(){window.location.href='https://henry.ink/'+location.href;})();"
+											className="inline-flex items-center px-3 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/70 transition-colors text-sm font-medium cursor-move border border-blue-200 dark:border-blue-800"
+											onClick={(e) => {
+												e.preventDefault();
+												alert(
+													"Drag this button to your bookmarks bar instead of clicking!",
+												);
+											}}
+										>
+											<svg
+												className="w-4 h-4 mr-2"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+												/>
+											</svg>
+											→ henry.ink
+										</a>
 									</div>
 								</div>
 
@@ -128,11 +150,28 @@ export function MarkdownSite() {
 									</div>
 									<div>
 										<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+											Or paste any URL
+										</p>
+										<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+											Just add any URL to the end of 
+											<span className="inline-flex items-center mx-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
+												henry.ink/
+											</span>
+											to get a clean, readable version
+										</p>
+									</div>
+								</div>
+
+								<div className="flex items-start gap-4">
+									<div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium text-sm">
+										3
+									</div>
+									<div>
+										<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
 											See social discussions
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400">
-											View related Bluesky posts and conversations in the
-											sidebar
+											View related Bluesky posts and conversations in the sidebar
 										</p>
 									</div>
 								</div>
