@@ -1,6 +1,7 @@
 import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
 import {
 	currentUrl,
+	currentDomain,
 	isAllowed,
 	isSearchableUrl,
 	isBlocked,
@@ -26,10 +27,16 @@ const MY_AUTH_ERROR_MESSAGE =
 const AUTH_ERROR_LINK =
 	"https://github.com/hzoo/extension-annotation-sidebar/issues/8";
 
-function SidebarBody() {
+function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 	const userDismissedError = useSignal(false);
 	const prevQueryKey = useRef(currentUrl.value);
 	const prevErrorInstance = useRef<unknown>(null);
+
+	// Check if we're on the auto-allow domain
+	const isAllowedWithOverride =
+		autoAllowDomain && window.location.hostname === autoAllowDomain
+			? true
+			: isAllowed.value;
 
 	const {
 		data: fetchedPostsData,
@@ -43,7 +50,8 @@ function SidebarBody() {
 			if (!currentUrl.value) return [];
 			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
 		},
-		enabled: isSearchableUrl.value && autoFetchEnabled.value && isAllowed.value,
+		enabled:
+			isSearchableUrl.value && autoFetchEnabled.value && isAllowedWithOverride,
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,
 	});
@@ -82,7 +90,7 @@ function SidebarBody() {
 			) : !fetchedPostsData ||
 				fetchedPostsData.length === 0 ||
 				isBlocked.value ? (
-				<EmptyList />
+				<EmptyList autoAllowDomain={autoAllowDomain} />
 			) : (
 				<PostList posts={fetchedPostsData} />
 			)}
@@ -92,15 +100,17 @@ function SidebarBody() {
 
 export function Sidebar({
 	hidePopup = false,
+	autoAllowDomain,
 }: {
 	hidePopup?: boolean;
+	autoAllowDomain?: string;
 }) {
 	useAtCute();
 
 	return (
 		<div className="flex flex-col h-svh relative">
-			<SidebarHeader />
-			<SidebarBody />
+			{!autoAllowDomain && <SidebarHeader />}
+			<SidebarBody autoAllowDomain={autoAllowDomain} />
 			{!hidePopup && <FirstTimePopup />}
 			<QuotePopup />
 		</div>

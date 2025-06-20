@@ -48,7 +48,10 @@ const SidebarContent = ({
 }: { containerRef: React.RefObject<HTMLDivElement> }) => (
 	<>
 		<div class="flex-1 overflow-hidden px-2">
-			<Sidebar hidePopup />
+			<Sidebar
+				hidePopup
+				autoAllowDomain={import.meta.env.DEV ? "127.0.0.1" : "henry.ink"}
+			/>
 		</div>
 		<SelectionPopupManager
 			canShowPopup={() => showQuotePopupOnSelection.peek()}
