@@ -55,7 +55,13 @@ function DomainBadge() {
 	);
 }
 
-export function EmptyList() {
+export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
+	// Check if we're on the auto-allow domain
+	const isAllowedWithOverride =
+		autoAllowDomain && window.location.hostname === autoAllowDomain
+			? true
+			: isAllowed.value;
+
 	return (
 		<div className="h-full flex flex-col items-center justify-center p-6 text-center">
 			<div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-4">
@@ -100,7 +106,7 @@ export function EmptyList() {
 			) : autoFetchEnabled.value ? (
 				<>
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-						{isAllowed.value ? (
+						{isAllowedWithOverride ? (
 							"No posts found yet"
 						) : (
 							<>
@@ -109,7 +115,7 @@ export function EmptyList() {
 							</>
 						)}
 					</h3>
-					{isAllowed.value ? (
+					{isAllowedWithOverride ? (
 						<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
 							No one has shared this page on Bluesky yet. Be the first!
 						</p>
