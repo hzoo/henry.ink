@@ -68,7 +68,7 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<div
-					className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed"
+					className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 leading-relaxed"
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitize
 					dangerouslySetInnerHTML={{
 						__html: DOMPurify.sanitize(
