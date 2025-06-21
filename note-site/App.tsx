@@ -167,11 +167,12 @@ export function App() {
 	return (
 		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
 			{/* Main Content Area */}
-			<main ref={mockContainerRef} class="flex-1 flex flex-col overflow-auto min-w-0">
+			<main
+				ref={mockContainerRef}
+				class="flex-1 flex flex-col overflow-auto min-w-0"
+			>
 				{/* Header */}
-				<header
-					class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 flex-shrink-0"
-				>
+				<header class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 flex-shrink-0">
 					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
 						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
 							<a
@@ -217,12 +218,16 @@ export function App() {
 			<div class="lg:hidden fixed bottom-6 right-6 z-50">
 				<button
 					class={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform active:scale-95 ${
-						isMobileSidebarOpen.value 
-							? "bg-gray-600 hover:bg-gray-700 active:bg-gray-800" 
+						isMobileSidebarOpen.value
+							? "bg-gray-600 hover:bg-gray-700 active:bg-gray-800"
 							: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
 					}`}
-					onClick={() => (isMobileSidebarOpen.value = !isMobileSidebarOpen.value)}
-					aria-label={isMobileSidebarOpen.value ? "Close comments" : "Open comments"}
+					onClick={() =>
+						(isMobileSidebarOpen.value = !isMobileSidebarOpen.value)
+					}
+					aria-label={
+						isMobileSidebarOpen.value ? "Close comments" : "Open comments"
+					}
 				>
 					{isMobileSidebarOpen.value ? (
 						<svg
