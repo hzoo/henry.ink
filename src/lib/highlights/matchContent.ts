@@ -10,7 +10,8 @@ export function findQuoteInContent(quote: string, container: HTMLElement): Range
 	// Search within common text containers (paragraphs, divs, spans, etc.)
 	const textContainers = container.querySelectorAll('p, div, span, article, section, main');
 	
-	for (const textContainer of textContainers) {
+	for (let i = 0; i < textContainers.length; i++) {
+		const textContainer = textContainers[i] as HTMLElement;
 		const containerText = textContainer.textContent || '';
 		const normalizedContainerText = normalizeText(containerText);
 		
@@ -24,7 +25,7 @@ export function findQuoteInContent(quote: string, container: HTMLElement): Range
 			const range = findTextAcrossNodes(quote, textContainer);
 			if (range) {
 				ranges.push(range);
-				break; // Found it, no need to search other containers
+				// Don't break - collect all matches and prefer the best one
 			}
 		} catch (error) {
 			console.warn('Error finding text in container:', error);
@@ -43,7 +44,60 @@ export function findQuoteInContent(quote: string, container: HTMLElement): Range
 		}
 	}
 	
+	// If we have multiple matches, prefer the best one
+	if (ranges.length > 1) {
+		const bestRange = selectBestMatch(ranges);
+		return bestRange ? [bestRange] : ranges;
+	}
+	
 	return ranges;
+}
+
+/**
+ * Select the best match from multiple ranges
+ * Prefers matches in paragraphs over headings, and avoids highlighted/special elements
+ */
+function selectBestMatch(ranges: Range[]): Range | null {
+	if (ranges.length === 0) return null;
+	if (ranges.length === 1) return ranges[0];
+	
+	// Score each range based on its context
+	const scoredRanges = ranges.map((range) => {
+		let score = 0;
+		const container = range.commonAncestorContainer;
+		const element = container.nodeType === Node.ELEMENT_NODE 
+			? container as Element 
+			: container.parentElement;
+		
+		if (!element) return { range, score: -1 };
+		
+		// Prefer paragraph-like elements
+		if (element.tagName === 'P') score += 10;
+		if (element.tagName === 'DIV') score += 5;
+		if (element.tagName === 'SPAN') score += 3;
+		
+		// Penalize heading elements
+		if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(element.tagName)) score -= 15;
+		
+		// Penalize elements that are already highlighted or special
+		if (element.classList.contains('highlight') || 
+			element.classList.contains('selected') ||
+			(element as HTMLElement).style.backgroundColor) score -= 10;
+		
+		// Prefer longer containing elements (usually main content)
+		const textLength = element.textContent?.length || 0;
+		if (textLength > 500) score += 5;
+		if (textLength > 1000) score += 3;
+		
+		return { range, score };
+	});
+	
+	// Return the highest scoring range
+	const best = scoredRanges.reduce((prev, current) => 
+		current.score > prev.score ? current : prev
+	);
+	
+	return best.score > 0 ? best.range : ranges[0]; // Fallback to first if all scores are poor
 }
 
 /**
@@ -93,9 +147,9 @@ function findTextAcrossNodes(searchText: string, container: HTMLElement): Range 
 	
 	if (index === -1) return null;
 	
-	// Map back to original text positions (simplified)
+	// Map back to original text positions
 	const originalStart = mapNormalizedToOriginalIndex(combinedText, normalizedCombined, index);
-	const originalEnd = originalStart + searchText.length;
+	const originalEnd = mapNormalizedToOriginalIndex(combinedText, normalizedCombined, index + normalizedSearch.length);
 	
 	// Find which text nodes contain the start and end
 	const startNodeInfo = nodeMap.find(info => originalStart >= info.start && originalStart < info.end);
@@ -122,23 +176,31 @@ function findTextAcrossNodes(searchText: string, container: HTMLElement): Range 
  * Map normalized text index back to original text index
  */
 function mapNormalizedToOriginalIndex(original: string, normalized: string, normalizedIndex: number): number {
-	let originalIndex = 0;
+	// Build a mapping of each character position
 	let normalizedPos = 0;
 	
-	for (let i = 0; i < original.length && normalizedPos <= normalizedIndex; i++) {
-		const char = original[i];
-		const normalizedChar = normalizeText(char);
-		
-		if (normalizedChar.length > 0) {
-			if (normalizedPos >= normalizedIndex) {
-				return i;
-			}
-			normalizedPos += normalizedChar.length;
+	for (let i = 0; i < original.length; i++) {
+		// Check if we've reached the target position in normalized text
+		if (normalizedPos >= normalizedIndex) {
+			return i;
 		}
-		originalIndex = i;
+		
+		const char = original[i];
+		
+		// Skip whitespace characters that get collapsed in normalization
+		if (/\s/.test(char)) {
+			// In normalized text, multiple whitespace becomes single space
+			// Only count the first whitespace character in a sequence
+			if (i === 0 || !/\s/.test(original[i - 1])) {
+				normalizedPos += 1; // contributes one space in normalized text
+			}
+		} else {
+			// Regular characters contribute normally (but lowercased)
+			normalizedPos += 1;
+		}
 	}
 	
-	return originalIndex;
+	return original.length;
 }
 
 

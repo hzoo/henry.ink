@@ -6,8 +6,12 @@ import type { AppBskyFeedDefs } from "@atcute/bluesky";
  * Also supports "Name: 'quote'" format
  */
 export function extractQuotes(post: AppBskyFeedDefs.PostView): string[] {
-	const text = post.record?.text || "";
-	if (!text) return [];
+	const record = post.record as any;
+	const text = record?.text || "";
+	
+	if (!text) {
+		return [];
+	}
 
 	const quotes: string[] = [];
 	const lines = text.split("\n");
@@ -23,9 +27,9 @@ export function extractQuotes(post: AppBskyFeedDefs.PostView): string[] {
 				// Only meaningful quotes
 				quotes.push(quote);
 			}
-		} else if (trimmed.startsWith("*")) {
-			// Remove * and any following whitespace
-			const quote = trimmed.substring(1).trim();
+		} else if (trimmed.startsWith("*") && trimmed.endsWith("*") && trimmed.length > 2) {
+			// Remove surrounding * (markdown italic syntax)
+			const quote = trimmed.substring(1, trimmed.length - 1).trim();
 			if (quote.length > 10) {
 				quotes.push(quote);
 			}
