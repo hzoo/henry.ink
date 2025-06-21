@@ -25,7 +25,10 @@ export function findQuoteInContent(quote: string, container: HTMLElement): Range
 			const range = findTextAcrossNodes(quote, textContainer);
 			if (range) {
 				ranges.push(range);
-				// Don't break - collect all matches and prefer the best one
+				// For most quotes, first good match is sufficient
+				if (textContainer.tagName === 'P' && textContainer.textContent!.length > 200) {
+					break; // Prioritize substantial paragraphs
+				}
 			}
 		} catch (error) {
 			console.warn('Error finding text in container:', error);
@@ -176,31 +179,22 @@ function findTextAcrossNodes(searchText: string, container: HTMLElement): Range 
  * Map normalized text index back to original text index
  */
 function mapNormalizedToOriginalIndex(original: string, normalized: string, normalizedIndex: number): number {
-	// Build a mapping of each character position
-	let normalizedPos = 0;
+	let pos = 0;
+	let normalizedCount = 0;
 	
-	for (let i = 0; i < original.length; i++) {
-		// Check if we've reached the target position in normalized text
-		if (normalizedPos >= normalizedIndex) {
-			return i;
-		}
-		
+	for (let i = 0; i < original.length && normalizedCount < normalizedIndex; i++) {
 		const char = original[i];
-		
-		// Skip whitespace characters that get collapsed in normalization
 		if (/\s/.test(char)) {
-			// In normalized text, multiple whitespace becomes single space
-			// Only count the first whitespace character in a sequence
+			// Count only the first space in a sequence
 			if (i === 0 || !/\s/.test(original[i - 1])) {
-				normalizedPos += 1; // contributes one space in normalized text
+				normalizedCount++;
 			}
 		} else {
-			// Regular characters contribute normally (but lowercased)
-			normalizedPos += 1;
+			normalizedCount++;
 		}
+		pos = i + 1;
 	}
-	
-	return original.length;
+	return pos;
 }
 
 
