@@ -107,7 +107,7 @@ export function QuotePositionDots({ contentRef }: QuotePositionDotsProps) {
 	}
 
 	return (
-		<div className="fixed right-2 top-20 bottom-20 w-2 pointer-events-none z-10 hidden lg:block">
+		<div className="fixed left-2 top-20 bottom-20 w-2 pointer-events-none z-10 hidden lg:block">
 			{quoteDots.value.map((dot) => (
 				<button
 					key={dot.id}
