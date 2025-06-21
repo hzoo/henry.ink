@@ -6,6 +6,7 @@ import { useRef } from "preact/hooks";
 import { contentStateSignal } from "@/note-site/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/note-site/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
+import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
 
 export function MarkdownSite() {
 	const location = useLocation();
@@ -82,6 +83,7 @@ export function MarkdownSite() {
 						}}
 					/>
 					<HighlightController contentRef={contentRef} />
+					<QuotePositionDots contentRef={contentRef} />
 				</>
 			)}
 
@@ -119,7 +121,7 @@ export function MarkdownSite() {
 										</p>
 										{/* biome-ignore lint/a11y/useValidAnchor: <explanation> */}
 										<a
-											href="javascript:(function(){window.location.href='https://henry.ink/'+location.href;})();"
+											href="javascript:location.href='https://henry.ink/'+location.href"
 											className="inline-flex items-center px-3 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/70 transition-colors text-sm font-medium cursor-move border border-blue-200 dark:border-blue-800"
 											onClick={(e) => {
 												e.preventDefault();
