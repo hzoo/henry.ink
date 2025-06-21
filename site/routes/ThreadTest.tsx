@@ -87,7 +87,7 @@ function initThreadUri(props: ThreadTestProps) {
 
 const BookmarkletButton = () => {
 	const bookmarkletHref =
-		"javascript:(function(){var url = window.location.href; if (url.startsWith('https://bsky.app/')) { var newUrl = url.replace('https://bsky.app', 'https://annotation-demo.henryzoo.com'); window.location.href = newUrl; } else { alert('Not a bsky.app URL. Please navigate to a bsky.app page.'); }})();";
+		"javascript:location.href.startsWith('https://bsky.app/')?location.href=location.href.replace('https://bsky.app','https://annotation-demo.henryzoo.com'):alert('Not a bsky.app URL. Please navigate to a bsky.app page.')";
 
 	const handleClick = (event: MouseEvent) => {
 		event.preventDefault();
