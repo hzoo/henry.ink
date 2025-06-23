@@ -1,23 +1,22 @@
 import { useSignal, useSignalEffect, useComputed } from "@preact/signals";
-import { quotedSelection, currentUrl } from "@/src/lib/messaging";
+import { quotedSelection, currentUrl, showCommentDialog } from "@/src/lib/messaging";
 import { atCuteState } from "@/site/lib/oauth";
 import type {
-	AppBskyActorSearchActors,
 	AppBskyFeedPost,
 	AppBskyRichtextFacet,
 } from "@atcute/bluesky";
-import type { ComAtprotoRepoCreateRecord } from "@atcute/atproto";
-import { InferInput } from "@atcute/lexicons";
 
 const MAX_CHARS = 300;
 
 function handleClose() {
 	quotedSelection.value = null;
+	showCommentDialog.value = false;
 	// Save draft on close? Maybe not on explicit cancel.
 }
 
 export function QuotePopup() {
-	if (!quotedSelection.value) return null;
+	// Show popup if either quoted text or comment dialog is active
+	if (!quotedSelection.value && !showCommentDialog.value) return null;
 
 	// --- State Signals ---
 	// Initialize empty, will be populated by effect
@@ -41,6 +40,7 @@ export function QuotePopup() {
 	// Effect to set/reset text based on the current selection
 	useSignalEffect(() => {
 		const currentSelection = quotedSelection.value;
+		const isCommentMode = showCommentDialog.value && !currentSelection;
 
 		if (currentSelection) {
 			// Selection exists, format the text
@@ -53,6 +53,10 @@ export function QuotePopup() {
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
+		} else if (isCommentMode) {
+			// Comment mode without selection - just the URL
+			const url = currentUrl.value;
+			userText.value = url;
 		}
 	});
 
@@ -143,9 +147,6 @@ export function QuotePopup() {
 		}
 	};
 
-	// --- Render ---
-	if (!quotedSelection.value) return null;
-
 	return (
 		<div
 			className="fixed inset-0 z-20 bg-black/30 flex items-center justify-center p-4"
@@ -205,7 +206,7 @@ export function QuotePopup() {
 							className="w-full bg-transparent outline-none resize-none placeholder-gray-500 dark:placeholder-gray-400 break-all"
 							rows={7}
 							style={{ fieldSizing: "content", maxHeight: "500px" }}
-							placeholder="Add your comment..."
+							placeholder={quotedSelection.value ? "Add your comment..." : "Share your thoughts about this page..."}
 							value={userText.value}
 							onInput={(e) => {
 								userText.value = (e.target as HTMLTextAreaElement).value;

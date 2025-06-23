@@ -25,6 +25,9 @@ export const isBlocked = computed(() =>
 // Signal to hold the latest selection action data received from the sidepanel
 export const quotedSelection = signal<string | null>(null);
 
+// Signal to show comment dialog without text selection
+export const showCommentDialog = signal<boolean>(false);
+
 // Check if URL is valid for searching (not browser internal, etc)
 export const isSearchableUrl = computed(() => {
 	const url = currentUrl.value;

@@ -6,6 +6,7 @@ import {
 	isSearchableUrl,
 	currentUrl,
 	isBlocked,
+	showCommentDialog,
 } from "@/src/lib/messaging";
 import { Icon } from "@/src/components/Icon";
 import { setDomainStatus } from "@/src/lib/settings";
@@ -145,6 +146,19 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 					</p>
 					<ManualFetchButton />
 				</>
+			)}
+
+			{/* Add comment button */}
+			{isSearchableUrl.value && !isBlocked.value && isAllowedWithOverride && (
+				<div className="mt-8">
+					<button
+						onClick={() => (showCommentDialog.value = true)}
+						className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+					>
+						<Icon name="send" className="w-4 h-4 mr-2" />
+						Add a comment
+					</button>
+				</div>
 			)}
 
 			{/* bottom of page */}
