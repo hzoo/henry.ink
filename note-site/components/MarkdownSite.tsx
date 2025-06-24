@@ -7,6 +7,7 @@ import { contentStateSignal } from "@/note-site/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/note-site/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
+import { currentUrl } from "@/src/lib/messaging";
 
 export function MarkdownSite() {
 	const location = useLocation();
@@ -72,6 +73,21 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
+					{/* Archive link */}
+					<div className="mb-2 flex justify-end">
+						<a
+							href={`https://web.archive.org/web/${currentUrl.value}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+							title="View on Wayback Machine"
+						>
+							<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+								<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+							</svg>
+							archive
+						</a>
+					</div>
 					<div
 						ref={contentRef}
 						className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"

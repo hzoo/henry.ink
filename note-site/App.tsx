@@ -190,7 +190,7 @@ export function App() {
 
 				{/* Reader Content */}
 				<div class="flex-1 flex flex-col overflow-auto">
-					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 flex-1 flex flex-col w-full min-w-0">
+					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 flex-1 flex flex-col w-full min-w-0">
 						<MarkdownSite />
 					</div>
 				</div>
