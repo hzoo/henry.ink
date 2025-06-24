@@ -139,7 +139,7 @@ effect(() => {
 			// Scroll to the first highlight (likely suffix -0)
 			const firstHighlight = contentHighlights[0];
 			firstHighlight.scrollIntoView({
-				behavior: "smooth",
+				behavior: "instant",
 				block: "center",
 			});
 			
@@ -157,7 +157,7 @@ effect(() => {
 			const sidebarPost = document.querySelector(`[data-post-rkey="${targetPostRkey.value}"]`);
 			if (sidebarPost) {
 				sidebarPost.scrollIntoView({
-					behavior: "smooth",
+					behavior: "instant",
 					block: "center",
 				});
 				
