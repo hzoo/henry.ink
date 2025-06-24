@@ -77,11 +77,10 @@ export function PostList({ posts }: PostListProps) {
 						Add your comment
 					</button>
 					<p className="text-xs text-gray-500 dark:text-gray-400">
-						Tip: Select{" "}
-						<span className="px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded border border-yellow-200 dark:border-yellow-800/50 font-medium">
+					    select page <span className="px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded border border-yellow-200 dark:border-yellow-800/50 font-medium">
 							text
 						</span>{" "}
-						on the page to create an annotation
+						to annotate
 					</p>
 				</div>
 			</div>
