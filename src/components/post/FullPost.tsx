@@ -12,6 +12,7 @@ import {
 	getAuthorUrl,
 	getPost,
 	getAtUriFromUrl,
+	getPostId,
 } from "@/src/lib/utils/postUrls";
 import { getTimeAgo } from "@/src/lib/utils/time";
 import { fetchProcessedThread, type Thread } from "@/src/lib/threadUtils";
@@ -141,6 +142,7 @@ export function FullPost({
 		<article 
 			className="border-b border-gray-300 dark:border-gray-600"
 			data-post-uri={post.uri}
+			data-post-rkey={getPostId(post.uri)}
 		>
 			<div className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-md p-2">
 				<div className="flex flex-col">
