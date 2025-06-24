@@ -351,16 +351,9 @@ export function QuotePopup() {
 								maxLength={MAX_CHARS * 2}
 								disabled={isPosting.value}
 							/>
-							{/* Help text for [h↗] link */}
-							{userText.value.includes('[h↗]') && (
-								<div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-									<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
-									{" "}will link to henry.ink/{currentUrl.value ? new URL(currentUrl.value).hostname : 'your-url'}
-								</div>
-							)}
 							{/* External embed preview */}
 							{previewMetadata.value && currentUrl.value && (
-								<div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+								<div className="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
 									<div className="p-3 bg-gray-50 dark:bg-gray-900">
 										<div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
 											{previewMetadata.value.title}
@@ -372,6 +365,13 @@ export function QuotePopup() {
 											{new URL(currentUrl.value).hostname}
 										</div>
 									</div>
+								</div>
+							)}
+							{/* Help text for [h↗] link */}
+							{userText.value.includes('[h↗]') && (
+								<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+									<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
+									{" "}will link to henry.ink/{currentUrl.value || 'your-url'}
 								</div>
 							)}
 						</div>
