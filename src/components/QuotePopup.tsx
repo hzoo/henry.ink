@@ -6,6 +6,39 @@ import type {
 	AppBskyRichtextFacet,
 } from "@atcute/bluesky";
 
+// Helper function to generate a proper TID (Timestamp Identifier)
+const generateRkey = (): string => {
+	// TID specification: https://atproto.com/specs/tid
+	// 64-bit integer: 1 bit (0) + 53 bits (microseconds since epoch) + 10 bits (random)
+	
+	const now = Date.now();
+	// Convert milliseconds to microseconds
+	const microseconds = now * 1000;
+	
+	// Generate 10-bit random clock identifier (0-1023)
+	const clockId = Math.floor(Math.random() * 1024);
+	
+	// Use BigInt to avoid JavaScript integer overflow
+	const timestampBits = BigInt(microseconds);
+	const clockBits = BigInt(clockId);
+	
+	// Combine: 53 bits timestamp + 10 bits random (top bit is always 0)
+	const tidBigInt = (timestampBits << 10n) | clockBits;
+	
+	// Convert to base32-sortable (234567abcdefghijklmnopqrstuvwxyz)
+	const base32Chars = '234567abcdefghijklmnopqrstuvwxyz';
+	let result = '';
+	let num = tidBigInt;
+	
+	// Always generate exactly 13 characters
+	for (let i = 0; i < 13; i++) {
+		result = base32Chars[Number(num % 32n)] + result;
+		num = num / 32n;
+	}
+	
+	return result;
+};
+
 const MAX_CHARS = 300;
 const MAX_QUOTE_DISPLAY = 80;
 
@@ -28,8 +61,8 @@ const truncateQuote = (quote: string, maxLength: number = MAX_QUOTE_DISPLAY): st
 };
 
 
-// Helper function to create facet for [h↗]
-const createHenryInkFacet = (text: string): AppBskyRichtextFacet.Main[] => {
+// Helper function to create facet for [h↗] with post rkey
+const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFacet.Main[] => {
 	const henryInkText = "[h↗]";
 	const henryInkIndex = text.indexOf(henryInkText);
 	
@@ -55,7 +88,7 @@ const createHenryInkFacet = (text: string): AppBskyRichtextFacet.Main[] => {
 	if (byteStartIndex === -1) return [];
 	
 	const byteEndIndex = byteStartIndex + henryInkBytes.length;
-	const henryInkUrl = `https://henry.ink/${currentUrl.value}`;
+	const henryInkUrl = `https://henry.ink/${currentUrl.value}?post=${postRkey}`;
 	
 	return [{
 		index: { byteStart: byteStartIndex, byteEnd: byteEndIndex },
@@ -128,6 +161,7 @@ export function QuotePopup() {
 	const previewMetadata = useSignal<{title: string, description: string} | null>(null);
 	const userProfile = useSignal<{handle: string, avatar?: string} | null>(null);
 	const isQuoteExpanded = useSignal(false);
+	const postRkey = useSignal<string>(generateRkey()); // Generate unique rkey for this post
 
 	// --- Computed Values ---
 	// Length is now just the userText length
@@ -221,8 +255,8 @@ export function QuotePopup() {
 		const hasQuote = quotedSelection.value;
 
 		try {
-			// Create facets for [h↗] link
-			const facets = createHenryInkFacet(fullText);
+			// Create facets for [h↗] link with rkey
+			const facets = createHenryInkFacet(fullText, postRkey.value);
 
 			// Create external embed with metadata
 			const embed = originalUrl ? await createExternalEmbed(originalUrl) : undefined;
@@ -247,6 +281,7 @@ export function QuotePopup() {
 				input: {
 					repo: session.info.sub,
 					collection: "app.bsky.feed.post",
+					rkey: postRkey.value, // Use our pre-generated rkey
 					record: postRecord,
 				},
 			});
@@ -431,7 +466,7 @@ export function QuotePopup() {
 								<div className="text-xs text-gray-600 dark:text-gray-400">
 									<span className="font-mono bg-gray-200 dark:bg-gray-800 px-1 rounded">[h↗]</span>
 									<span className="ml-1">
-										→ <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" href={`https://henry.ink/${currentUrl.value || 'your-url'}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}</a>
+										→ <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" href={`https://henry.ink/${currentUrl.value || 'your-url'}?post=${postRkey.value}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}?post={postRkey.value}</a>
 									</span>
 								</div>
 							)}

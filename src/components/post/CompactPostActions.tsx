@@ -9,9 +9,6 @@ import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
 import { formatCount } from "@/src/lib/utils/count";
 import { submitReply } from "@/src/lib/postActions";
 import { getRootPostUri } from "@/src/lib/threadUtils";
-import { extractedQuotes } from "@/src/lib/highlights/signals";
-import { currentUrl } from "@/src/lib/messaging";
-import { getPostId } from "@/src/lib/utils/postUrls";
 
 import { useLike } from "@/src/hooks/useLike";
 import { useRepost } from "@/src/hooks/useRepost";
@@ -37,12 +34,6 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 	const isLoggedIn = !!state?.session;
 
 	const displayedReplyCount = useComputed(() => post.replyCount ?? 0);
-
-	// Check if this post has quotes to show [h] button
-	const hasQuotes = useComputed(() => {
-		const quotes = extractedQuotes.value;
-		return quotes.some((quote) => quote.postUri === post.uri);
-	});
 
 	const onErrorCallback = (error: Error) => {
 		actionError.value = error.message;
@@ -138,13 +129,6 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 		actionError.value = null;
 	};
 
-	const handleHenryLinkClick = (e: MouseEvent) => {
-		e.stopPropagation();
-		const postRkey = getPostId(post.uri);
-		const henryUrl = `https://henry.ink/${currentUrl.value}?post=${postRkey}`;
-		window.open(henryUrl, '_blank');
-	};
-
 	return (
 		<div className="mt-1">
 			<div className="flex justify-between gap-4 text-gray-500 text-sm">
@@ -200,17 +184,7 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 						{formatCount(likeCount ?? 0)}
 					</span>
 				</button>
-				{hasQuotes.value && (
-					<button
-						onClick={handleHenryLinkClick}
-						className="flex items-center gap-1 hover:text-blue-500 text-xs font-mono"
-						aria-label="View quote in context"
-						title="View quote in context on henry.ink"
-					>
-						[h]
-					</button>
-				)}
-				{!hasQuotes.value && <div />}
+				<div />
 			</div>
 			{isLoggedIn && isReplying.value && (
 				<ReplyInput
