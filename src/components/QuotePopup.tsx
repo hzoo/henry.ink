@@ -127,6 +127,7 @@ export function QuotePopup() {
 	const postError = useSignal<string | null>(null);
 	const previewMetadata = useSignal<{title: string, description: string} | null>(null);
 	const userProfile = useSignal<{handle: string, avatar?: string} | null>(null);
+	const isQuoteExpanded = useSignal(false);
 
 	// --- Computed Values ---
 	// Length is now just the userText length
@@ -262,11 +263,11 @@ export function QuotePopup() {
 
 	return (
 		<div
-			className="fixed inset-0 z-20 bg-black/30 flex items-center justify-center p-4"
+			className="fixed inset-0 z-20 bg-black/30 flex justify-center items-start pt-16 p-4"
 			onClick={handleClose}
 		>
 			<div
-				className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh] overflow-y-auto"
+				className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Header */}
@@ -380,13 +381,49 @@ export function QuotePopup() {
 					</div>
 				)}
 				{/* Footer with metadata */}
-				<div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 px-3 py-2">
+				<div className="border-t bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 px-3 py-2">
 					<div className="flex justify-between items-start">
 						<div className="space-y-1 flex-1">
 							{/* Quote truncation info */}
 							{quotedSelection.value && quotedSelection.value.length > MAX_QUOTE_DISPLAY && (
-								<div className="text-xs text-gray-600 dark:text-gray-400">
-									Quote truncated ({quotedSelection.value.length}→{MAX_QUOTE_DISPLAY} chars)
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+										<span>Quote truncated ({quotedSelection.value.length}→{MAX_QUOTE_DISPLAY} chars)</span>
+										<button
+											onClick={() => isQuoteExpanded.value = !isQuoteExpanded.value}
+											className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+											aria-label={isQuoteExpanded.value ? "Hide full quote" : "Show full quote"}
+										>
+											<svg 
+												className={`w-3 h-3 transition-transform ${isQuoteExpanded.value ? 'rotate-90' : ''}`}
+												fill="none" 
+												stroke="currentColor" 
+												viewBox="0 0 24 24"
+											>
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+											</svg>
+										</button>
+									</div>
+									{isQuoteExpanded.value && (
+										<div className="bg-gray-100 dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700 max-w-md">
+											<div className="flex items-start justify-between gap-2 mb-2">
+												<span className="text-xs font-medium text-gray-700 dark:text-gray-300">Full quote:</span>
+												<button
+													onClick={() => navigator.clipboard.writeText(quotedSelection.value || '')}
+													className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 flex-shrink-0"
+													aria-label="Copy full quote"
+												>
+													<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+													</svg>
+													Copy
+												</button>
+											</div>
+											<div className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+												{quotedSelection.value}
+											</div>
+										</div>
+									)}
 								</div>
 							)}
 							{/* Henry.ink link info */}
