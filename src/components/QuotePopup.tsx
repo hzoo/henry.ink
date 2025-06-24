@@ -369,28 +369,45 @@ export function QuotePopup() {
 									</div>
 								</div>
 							)}
-							{/* Help text for [h↗] link */}
-							{userText.value.includes('[h↗]') && (
-								<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-									<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
-									{" "}will link to <a className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" href={`https://henry.ink/${currentUrl.value || 'your-url'}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}</a>
-								</div>
-							)}
 						</div>
 					</div>
 				</div>
+				
+				
 				{postError.value && (
 					<div className="px-4 pb-2 text-red-500 text-xs">
 						{postError.value}
 					</div>
 				)}
-				{/* Footer */}
-				<div className="flex justify-end items-center gap-3 p-3 border-t border-gray-200 dark:border-gray-700">
-					<span
-						className={`text-sm ${remainingChars.value < 0 ? "text-red-500 font-semibold" : "text-gray-500 dark:text-gray-400"}`}
-					>
-						{remainingChars.value}
-					</span>
+				{/* Footer with metadata */}
+				<div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 px-3 py-2">
+					<div className="flex justify-between items-start">
+						<div className="space-y-1 flex-1">
+							{/* Quote truncation info */}
+							{quotedSelection.value && quotedSelection.value.length > MAX_QUOTE_DISPLAY && (
+								<div className="text-xs text-gray-600 dark:text-gray-400">
+									Quote truncated ({quotedSelection.value.length}→{MAX_QUOTE_DISPLAY} chars)
+								</div>
+							)}
+							{/* Henry.ink link info */}
+							{userText.value.includes('[h↗]') && (
+								<div className="text-xs text-gray-600 dark:text-gray-400">
+									<span className="font-mono bg-gray-200 dark:bg-gray-800 px-1 rounded">[h↗]</span>
+									<span className="ml-1">
+										→ <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" href={`https://henry.ink/${currentUrl.value || 'your-url'}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}</a>
+									</span>
+								</div>
+							)}
+						</div>
+						{/* Character count */}
+						<div className="ml-3">
+							<span
+								className={`text-sm ${remainingChars.value < 0 ? "text-red-500 font-semibold" : "text-gray-500 dark:text-gray-400"}`}
+							>
+								{remainingChars.value}
+							</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
