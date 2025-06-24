@@ -354,14 +354,16 @@ export function QuotePopup() {
 							{/* External embed preview */}
 							{previewMetadata.value && currentUrl.value && (
 								<div className="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-									<div className="p-3 bg-gray-50 dark:bg-gray-900">
+									<div className="px-3 pt-2 pb-1 bg-gray-50 dark:bg-gray-900">
 										<div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
 											{previewMetadata.value.title}
 										</div>
 										<div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
 											{previewMetadata.value.description}
 										</div>
-										<div className="text-xs text-gray-400 dark:text-gray-500 mt-2 truncate">
+										{/* hr */}
+										<hr className="my-1 border-gray-200 dark:border-gray-700" />
+										<div className="text-xs text-gray-600 dark:text-gray-300 truncate">
 											{new URL(currentUrl.value).hostname}
 										</div>
 									</div>
@@ -371,7 +373,7 @@ export function QuotePopup() {
 							{userText.value.includes('[h↗]') && (
 								<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
 									<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
-									{" "}will link to henry.ink/{currentUrl.value || 'your-url'}
+									{" "}will link to <a className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400" href={`https://henry.ink/${currentUrl.value || 'your-url'}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}</a>
 								</div>
 							)}
 						</div>
