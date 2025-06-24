@@ -7,12 +7,114 @@ import type {
 } from "@atcute/bluesky";
 
 const MAX_CHARS = 300;
+const MAX_QUOTE_DISPLAY = 80;
 
 function handleClose() {
 	quotedSelection.value = null;
 	showCommentDialog.value = false;
 	// Save draft on close? Maybe not on explicit cancel.
 }
+
+
+// Helper function to truncate quote for display
+const truncateQuote = (quote: string, maxLength: number = MAX_QUOTE_DISPLAY): string => {
+	if (quote.length <= maxLength) return quote;
+	
+	// Find last space before limit to avoid cutting words
+	const truncated = quote.substring(0, maxLength);
+	const lastSpace = truncated.lastIndexOf(' ');
+	
+	return `${truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength)}...`;
+};
+
+
+// Helper function to create facet for [h↗]
+const createHenryInkFacet = (text: string): AppBskyRichtextFacet.Main[] => {
+	const henryInkText = "[h↗]";
+	const henryInkIndex = text.indexOf(henryInkText);
+	
+	if (henryInkIndex === -1) return [];
+	
+	const textEncoder = new TextEncoder();
+	const textBytes = textEncoder.encode(text);
+	const henryInkBytes = textEncoder.encode(henryInkText);
+	
+	// Find byte index
+	let byteStartIndex = -1;
+	for (let i = 0; (i = textBytes.indexOf(henryInkBytes[0], i)) !== -1; i++) {
+		if (
+			textBytes
+				.slice(i, i + henryInkBytes.length)
+				.every((byte, j) => byte === henryInkBytes[j])
+		) {
+			byteStartIndex = i;
+			break;
+		}
+	}
+	
+	if (byteStartIndex === -1) return [];
+	
+	const byteEndIndex = byteStartIndex + henryInkBytes.length;
+	const henryInkUrl = `https://henry.ink/${currentUrl.value}`;
+	
+	return [{
+		index: { byteStart: byteStartIndex, byteEnd: byteEndIndex },
+		features: [{
+			$type: "app.bsky.richtext.facet#link",
+			uri: henryInkUrl as `${string}:${string}`,
+		}],
+	}];
+};
+
+// Helper function to fetch page metadata using Jina worker
+const fetchPageMetadata = async (originalUrl: string) => {
+	try {
+		// Use the same Jina worker that henry.ink uses to get metadata
+		const response = await fetch(`https://jina_proxy_worker.hi-899.workers.dev/${originalUrl}`);
+		const content = await response.text();
+		
+		// Extract title from markdown content (Jina already processes it)
+		let title = 'View on original site';
+		let description = 'Click to view the original article';
+		
+		// Look for title in the first line (usually formatted as # Title)
+		const titleMatch = content.match(/^#\s+(.+)$/m);
+		if (titleMatch) {
+			title = titleMatch[1].trim();
+		}
+		
+		// Look for description (usually in italics after title)
+		const descMatch = content.match(/\*(.+)\*/);
+		if (descMatch) {
+			description = descMatch[1].trim();
+		}
+		
+		return { title, description };
+	} catch (error) {
+		console.warn('Failed to fetch page metadata from Jina worker:', error);
+		return {
+			title: 'View on original site',
+			description: 'Click to view the original article'
+		};
+	}
+};
+
+// Helper function to create external embed
+const createExternalEmbed = async (url: string) => {
+	const metadata = await fetchPageMetadata(url);
+	
+	return {
+		$type: "app.bsky.embed.external",
+		external: {
+			uri: url,
+			title: metadata.title,
+			description: metadata.description,
+			// Note: thumb would require uploading the image as a blob
+			// We can add that later if needed
+		},
+	};
+};
+
 
 export function QuotePopup() {
 	// Show popup if either quoted text or comment dialog is active
@@ -43,20 +145,19 @@ export function QuotePopup() {
 		const isCommentMode = showCommentDialog.value && !currentSelection;
 
 		if (currentSelection) {
-			// Selection exists, format the text
-			const url = currentUrl.value;
-			const quoteLines = currentSelection
+			// Selection exists, format the text with truncated quote
+			const displayQuote = truncateQuote(currentSelection);
+			const quoteLines = displayQuote
 				.split("\n")
 				.map((line) => `> ${line}`)
 				.join("\n");
-			const newInitialText = `${quoteLines}\n\n${url}`;
+			const newInitialText = `${quoteLines}\n\n[h↗]`;
 
 			// Reset userText to the new quote/URL format
 			userText.value = newInitialText;
 		} else if (isCommentMode) {
-			// Comment mode without selection - just the URL
-			const url = currentUrl.value;
-			userText.value = url;
+			// Comment mode without selection - just the henry.ink link
+			userText.value = "[h↗]";
 		}
 	});
 
@@ -74,60 +175,32 @@ export function QuotePopup() {
 		}
 
 		const { session, rpc } = state;
-		const fullText = userText.value.trim(); // Use userText directly
+		const fullText = userText.value.trim();
+		const originalUrl = currentUrl.value;
+		const hasQuote = quotedSelection.value;
 
 		try {
-			let facets: AppBskyRichtextFacet.Main[] | undefined;
-			const urlToFacet = currentUrl.value; // Use the current URL at time of posting
+			// Create facets for [h↗] link
+			const facets = createHenryInkFacet(fullText);
 
-			if (urlToFacet) {
-				const urlIndex = fullText.indexOf(urlToFacet);
-				if (urlIndex !== -1) {
-					// Manually create the facet
-					const textEncoder = new TextEncoder();
-					const textBytes = textEncoder.encode(fullText);
-					const urlBytes = textEncoder.encode(urlToFacet);
+			// Create external embed with metadata
+			const embed = originalUrl ? await createExternalEmbed(originalUrl) : undefined;
 
-					// Find byte index (more robust than string index for facets)
-					let byteStartIndex = -1;
-					for (let i = 0; (i = textBytes.indexOf(urlBytes[0], i)) !== -1; i++) {
-						if (
-							textBytes
-								.slice(i, i + urlBytes.length)
-								.every((byte, j) => byte === urlBytes[j])
-						) {
-							byteStartIndex = i;
-							break;
-						}
-					}
-
-					if (byteStartIndex !== -1) {
-						const byteEndIndex = byteStartIndex + urlBytes.length;
-						facets = [
-							{
-								index: { byteStart: byteStartIndex, byteEnd: byteEndIndex },
-								features: [
-									{
-										$type: "app.bsky.richtext.facet#link",
-										uri: urlToFacet as `${string}:${string}`,
-									},
-								],
-							},
-						];
-					} else {
-						console.warn(
-							"URL string found, but byte offsets didn't match. Facet not created.",
-						);
-					}
-				}
-			}
-
-			const postRecord: Partial<AppBskyFeedPost.Main> = {
+			// Create post record
+			const postRecord: any = {
 				$type: "app.bsky.feed.post",
 				text: fullText,
 				createdAt: new Date().toISOString(),
-				facets: facets as AppBskyFeedPost.Main["facets"],
+				facets: facets.length > 0 ? facets : undefined,
+				embed: embed,
 			};
+
+			// Add annotation if there's a quote
+			if (hasQuote) {
+				postRecord._annotation = {
+					quote: hasQuote,
+				};
+			}
 
 			await rpc.post("com.atproto.repo.createRecord", {
 				input: {
@@ -215,6 +288,13 @@ export function QuotePopup() {
 							maxLength={MAX_CHARS * 2}
 							disabled={isPosting.value}
 						/>
+						{/* Help text for [h↗] link */}
+						{(quotedSelection.value || showCommentDialog.value) && (
+							<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+								<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
+								{" "}will link to henry.ink/your-url
+							</div>
+						)}
 					</div>
 				</div>
 				{postError.value && (
