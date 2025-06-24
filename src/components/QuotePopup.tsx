@@ -125,6 +125,8 @@ export function QuotePopup() {
 	const userText = useSignal<string>("");
 	const isPosting = useSignal(false);
 	const postError = useSignal<string | null>(null);
+	const previewMetadata = useSignal<{title: string, description: string} | null>(null);
+	const userProfile = useSignal<{handle: string, avatar?: string} | null>(null);
 
 	// --- Computed Values ---
 	// Length is now just the userText length
@@ -158,6 +160,44 @@ export function QuotePopup() {
 		} else if (isCommentMode) {
 			// Comment mode without selection - just the henry.ink link
 			userText.value = "[h↗]";
+		}
+	});
+
+	// Effect to fetch metadata for preview
+	useSignalEffect(() => {
+		if (currentUrl.value) {
+			fetchPageMetadata(currentUrl.value).then(metadata => {
+				previewMetadata.value = metadata;
+			});
+		}
+	});
+
+	// Effect to fetch user profile
+	useSignalEffect(() => {
+		const state = atCuteState.peek();
+		if (state?.session && state?.rpc) {
+			const did = state.session.info.sub;
+			// Check localStorage first
+			const cachedHandle = localStorage.getItem(`bskyUserHandle_${did}`);
+			const cachedAvatar = localStorage.getItem(`bskyUserAvatar_${did}`);
+			
+			if (cachedHandle) {
+				userProfile.value = { handle: cachedHandle, avatar: cachedAvatar || undefined };
+			} else {
+				// Fetch profile if not cached
+				state.rpc.get("app.bsky.actor.getProfile", {
+					params: { actor: did }
+				}).then(({ ok, data }) => {
+					if (ok && data.handle) {
+						userProfile.value = { handle: data.handle, avatar: data.avatar };
+						// Cache the data
+						localStorage.setItem(`bskyUserHandle_${did}`, data.handle);
+						if (data.avatar) {
+							localStorage.setItem(`bskyUserAvatar_${did}`, data.avatar);
+						}
+					}
+				});
+			}
 		}
 	});
 
@@ -226,7 +266,7 @@ export function QuotePopup() {
 			onClick={handleClose}
 		>
 			<div
-				className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col overflow-hidden"
+				className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Header */}
@@ -270,31 +310,71 @@ export function QuotePopup() {
 					</button>
 				</div>
 
-				{/* Body */}
-				<div className="p-4 flex gap-3">
-					<div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
-					<div className="flex-grow text-sm text-gray-900 dark:text-gray-100">
-						<textarea
-							id="quote-reply-textarea"
-							className="w-full bg-transparent outline-none resize-none placeholder-gray-500 dark:placeholder-gray-400 break-all"
-							rows={7}
-							style={{ fieldSizing: "content", maxHeight: "500px" }}
-							placeholder={quotedSelection.value ? "Add your comment..." : "Share your thoughts about this page..."}
-							value={userText.value}
-							onInput={(e) => {
-								userText.value = (e.target as HTMLTextAreaElement).value;
-								postError.value = null;
-							}}
-							maxLength={MAX_CHARS * 2}
-							disabled={isPosting.value}
-						/>
-						{/* Help text for [h↗] link */}
-						{(quotedSelection.value || showCommentDialog.value) && (
-							<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-								<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
-								{" "}will link to henry.ink/your-url
+				{/* Body - Integrated Preview/Edit */}
+				<div className="p-4">
+					<div className="flex gap-3">
+						{/* User avatar */}
+						{userProfile.value?.avatar ? (
+							<img 
+								src={userProfile.value.avatar} 
+								alt={userProfile.value.handle}
+								className="w-10 h-10 rounded-full object-cover"
+							/>
+						) : (
+							<div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center">
+								<span className="text-white text-sm font-semibold">
+									{userProfile.value?.handle?.charAt(0).toUpperCase() || 'U'}
+								</span>
 							</div>
 						)}
+						<div className="flex-1 min-w-0">
+							{/* User info */}
+							<div className="flex items-center gap-1 text-sm mb-1">
+								<span className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+									{userProfile.value?.handle || 'your-handle'}
+								</span>
+								<span className="text-gray-500 dark:text-gray-400">·</span>
+								<span className="text-gray-500 dark:text-gray-400">now</span>
+							</div>
+							{/* Editable textarea styled like a post */}
+							<textarea
+								id="quote-reply-textarea"
+								className="w-full bg-transparent outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 whitespace-pre-wrap break-words"
+								rows={4}
+								style={{ fieldSizing: "content", minHeight: "60px", maxHeight: "300px" }}
+								placeholder={quotedSelection.value ? "Add your comment..." : "Share your thoughts about this page..."}
+								value={userText.value}
+								onInput={(e) => {
+									userText.value = (e.target as HTMLTextAreaElement).value;
+									postError.value = null;
+								}}
+								maxLength={MAX_CHARS * 2}
+								disabled={isPosting.value}
+							/>
+							{/* Help text for [h↗] link */}
+							{userText.value.includes('[h↗]') && (
+								<div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+									<span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">[h↗]</span>
+									{" "}will link to henry.ink/{currentUrl.value ? new URL(currentUrl.value).hostname : 'your-url'}
+								</div>
+							)}
+							{/* External embed preview */}
+							{previewMetadata.value && currentUrl.value && (
+								<div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+									<div className="p-3 bg-gray-50 dark:bg-gray-900">
+										<div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+											{previewMetadata.value.title}
+										</div>
+										<div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+											{previewMetadata.value.description}
+										</div>
+										<div className="text-xs text-gray-400 dark:text-gray-500 mt-2 truncate">
+											{new URL(currentUrl.value).hostname}
+										</div>
+									</div>
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 				{postError.value && (
