@@ -15,6 +15,7 @@ import { contentStateSignal } from "@/note-site/signals";
 const sidebarWidth = signal(384);
 const isResizing = signal(false);
 const isMobileSidebarOpen = signal(false);
+const targetPostRkey = signal<string | null>(null);
 
 // Reusable Sidebar Header Component
 const SidebarHeader = ({ onClose }: { onClose?: () => void }) => {
@@ -125,6 +126,55 @@ effect(() => {
 	}
 });
 
+// Auto-scroll to target post if specified
+effect(() => {
+	if (!targetPostRkey.value) return;
+	
+	// Wait for DOM to be rendered
+	const timer = setTimeout(() => {
+		// Priority 1: Look for content highlights first
+		const contentHighlights = document.querySelectorAll(`[data-highlight-id*="${targetPostRkey.value}"]`);
+		
+		if (contentHighlights.length > 0) {
+			// Scroll to the first highlight (likely suffix -0)
+			const firstHighlight = contentHighlights[0];
+			firstHighlight.scrollIntoView({
+				behavior: "smooth",
+				block: "center",
+			});
+			
+			// Apply blue pulse effect to ALL highlights from this post
+			contentHighlights.forEach((highlight) => {
+				const element = highlight as HTMLElement;
+				const originalBackground = element.style.backgroundColor;
+				element.style.backgroundColor = "rgba(59, 130, 246, 0.4)";
+				setTimeout(() => {
+					element.style.backgroundColor = originalBackground;
+				}, 1500);
+			});
+		} else {
+			// Priority 2: Fallback to sidebar post
+			const sidebarPost = document.querySelector(`[data-post-rkey="${targetPostRkey.value}"]`);
+			if (sidebarPost) {
+				sidebarPost.scrollIntoView({
+					behavior: "smooth",
+					block: "center",
+				});
+				
+				// Add highlight effect to sidebar post
+				const element = sidebarPost as HTMLElement;
+				const originalBackground = element.style.backgroundColor;
+				element.style.backgroundColor = "rgba(59, 130, 246, 0.4)";
+				setTimeout(() => {
+					element.style.backgroundColor = originalBackground;
+				}, 1500);
+			}
+		}
+	}, 100);
+	
+	return () => clearTimeout(timer);
+});
+
 // Handle sidebar resize
 const handleMouseDown = (e: MouseEvent) => {
 	e.preventDefault();
@@ -162,6 +212,13 @@ export function App() {
 				sidebarWidth.value = width;
 			}
 		}
+	}, []);
+
+	// Parse URL parameters for post targeting
+	useEffect(() => {
+		const urlParams = new URLSearchParams(window.location.search);
+		const postParam = urlParams.get('post');
+		targetPostRkey.value = postParam;
 	}, []);
 
 	return (

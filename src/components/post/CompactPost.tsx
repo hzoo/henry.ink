@@ -10,7 +10,7 @@ import { PostEmbed } from "@/src/components/post/PostEmbed";
 import { fetchProcessedThread, type Thread } from "@/src/lib/threadUtils";
 import type { DisplayableItem } from "@/src/components/post/FullPost";
 
-import { getAuthorUrl, getPost } from "@/src/lib/utils/postUrls";
+import { getAuthorUrl, getPost, getPostId } from "@/src/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/src/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/src/lib/postFilters";
 
@@ -61,7 +61,7 @@ export function CompactPost({
 			: (fetchedRepliesData?.replies ?? null);
 
 	return (
-		<article className="relative min-w-0">
+		<article className="relative min-w-0" data-post-rkey={getPostId(post.uri)}>
 			<div className="flex-1 min-w-0 pb-1 text-gray-500">
 				<div className="flex items-center gap-x-1.5 flex-wrap text-sm">
 					{isExpanded.value ? (
