@@ -9,6 +9,11 @@ export function extractQuotes(post: AppBskyFeedDefs.PostView): string[] {
 	const record = post.record as any;
 	const text = record?.text || "";
 	
+	// First check if we have the original quote stored in _annotation
+	if (record?._annotation?.quote) {
+		return [record._annotation.quote];
+	}
+	
 	if (!text) {
 		return [];
 	}
