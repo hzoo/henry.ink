@@ -194,3 +194,61 @@ export async function getPostThread(
 		}
 	}
 }
+
+export async function getProfile(
+	actor: string,
+	options?: { signal?: AbortSignal },
+) {
+	try {
+		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
+			"app.bsky.actor.getProfile",
+			{
+				params: {
+					actor: actor as ActorIdentifier,
+				},
+				signal: options?.signal,
+			},
+		);
+
+		if (!ok) {
+			throw new Error(`Error fetching profile: ${data.error}`);
+		}
+
+		return data;
+	} catch (error: unknown) {
+		if (error instanceof Error && error.name !== "AbortError") {
+			console.error("Error fetching profile:", error);
+			throw error;
+		}
+	}
+}
+
+export async function getAuthorFeed(
+	actor: string,
+	options?: { limit?: number; cursor?: string; signal?: AbortSignal },
+) {
+	try {
+		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
+			"app.bsky.feed.getAuthorFeed",
+			{
+				params: {
+					actor: actor as ActorIdentifier,
+					limit: options?.limit || 50,
+					cursor: options?.cursor,
+				},
+				signal: options?.signal,
+			},
+		);
+
+		if (!ok) {
+			throw new Error(`Error fetching author feed: ${data.error}`);
+		}
+
+		return data;
+	} catch (error: unknown) {
+		if (error instanceof Error && error.name !== "AbortError") {
+			console.error("Error fetching author feed:", error);
+			throw error;
+		}
+	}
+}
