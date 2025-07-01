@@ -4,7 +4,7 @@ import type { ResourceUri } from "@atcute/lexicons";
 import { useState, useEffect } from "preact/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
 import { repostPost, deleteRepost } from "@/src/lib/postActions";
 import { getRootPostUri } from "@/src/lib/threadUtils";
 

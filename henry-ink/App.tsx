@@ -3,11 +3,11 @@ import { effect, signal } from "@preact/signals";
 import { Sidebar } from "@/src/components/Sidebar";
 import { AppLayout, SidebarHeader, SidebarContent } from "@/src/components/AppLayout";
 import { currentUrl } from "@/src/lib/messaging";
-import { MarkdownSite } from "@/note-site/components/MarkdownSite";
+import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
 import { queryClient } from "@/src/lib/queryClient";
 import { cacheTimeAgo } from "@/src/lib/signals";
 import { getTimeAgo } from "@/src/lib/utils/time";
-import { contentStateSignal } from "@/note-site/signals";
+import { contentStateSignal } from "@/henry-ink/signals";
 
 const targetPostRkey = signal<string | null>(null);
 

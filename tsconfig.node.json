@@ -8,5 +8,5 @@
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["wxt.config.ts", "site/vite.config.ts", "inject-oauth-plugin.ts"]
+	"include": ["wxt.config.ts", "demo/vite.config.ts", "inject-oauth-plugin.ts"]
 }

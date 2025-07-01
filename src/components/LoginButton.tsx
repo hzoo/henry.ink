@@ -5,7 +5,7 @@ import {
 	logout,
 	atCuteState,
 	isLoadingSession,
-} from "@/site/lib/oauth";
+} from "@/demo/lib/oauth";
 import type { JSX } from "preact/jsx-runtime";
 import { sleep } from "@/src/lib/utils/sleep";
 

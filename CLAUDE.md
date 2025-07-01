@@ -28,7 +28,7 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 # Development
 bun run dev          # Chrome extension development
 bun run dev:ff       # Firefox extension development
-bun run site         # Web app demo version (annotation-demo site)
+bun run demo         # Web app demo version (annotation-demo site)
 bun run notes        # Note-taking variant (henry.ink)
 
 # Building
@@ -53,10 +53,40 @@ bun run release          # Release new version
 ### Multi-Platform Structure
 - **Extension**: Main browser extension with entry points in `/entrypoints/`
 - **Demo Sites**:
-  - `site/` - Annotation demo website
-  - `note-site/` - henry.ink (renders URL with comments)
+  - `demo/` - Annotation demo website
+  - `henry-ink/` - henry.ink (renders URL with comments)
   - `styled-content-service/` - Backend experiment for HTML/CSS stripping
 - **Shared Components**: `/src/components/` used across extension and demo sites
+
+### Henry's Note (henry-ink/) - Full Web Application
+
+The **henry.ink** website is a full-featured web application that provides annotation capabilities for any URL without requiring a browser extension. It implements the "reverse Hypothesis" approach by recreating webpage content in a controlled environment with integrated social discussions.
+
+#### Core Features
+- **Universal URL Support**: Renders any webpage by appending URL to `henry.ink/[url]`
+- **Reader Mode**: Clean, readable formatting of web content with markdown rendering
+- **Social Annotations**: Integrated Bluesky discussions displayed in sidebar
+- **Text Selection & Annotation**: Full annotation capabilities with text highlighting
+- **Profile Pages**: View individual users' annotations across different websites
+- **No Extension Required**: Works entirely in the browser without downloads
+
+#### Routing Structure
+- **`/`** - Landing page with usage instructions and bookmarklet
+- **`/profile/:username`** - User profile showing their annotations across sites
+- **`/:params*`** - Catch-all route for any URL (e.g., `/https://example.com/article`)
+- **Query Parameters**: `?post=rkey` for auto-scrolling to specific discussions
+
+#### Key Components
+- **MarkdownSite**: Main content rendering with highlight integration
+- **ProfilePage**: User annotation history and activity
+- **HighlightController**: Text selection and annotation management
+- **Sidebar**: Bluesky discussions and social interactions
+
+#### Usage Patterns
+1. **Direct URL**: Visit `henry.ink/https://example.com` for any webpage
+2. **Bookmarklet**: One-click access from any page via bookmark bar
+3. **Profile Navigation**: Browse user annotations via `/profile/username`
+4. **Deep Linking**: Share specific discussions with `?post=` parameters
 
 ### State Management Pattern
 - **Global state**: Preact Signals in `/src/lib/signals.ts`
@@ -82,8 +112,8 @@ bun run release          # Release new version
 - `/src/components/` - Shared Preact components used across extension and demos
 - `/src/hooks/` - Custom hooks (useLike, useRepost, etc.)
 - `/src/lib/` - Core utilities, API clients, and state management
-- `/site/` - Annotation demo website
-- `/note-site/` - henry.ink URL rendering with comments
+- `/demo/` - Annotation demo website
+- `/henry-ink/` - henry.ink URL rendering with comments
 - `/styled-content-service/` - Backend experiment for content extraction
 - `/public/` - Static assets and extension manifest
 

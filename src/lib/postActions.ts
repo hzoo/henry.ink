@@ -1,4 +1,4 @@
-import type { AtCuteState } from "@/site/lib/oauth";
+import type { AtCuteState } from "@/demo/lib/oauth";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from "@atcute/bluesky";
 
 export function isRecord(record: unknown): record is AppBskyFeedPost.Main {

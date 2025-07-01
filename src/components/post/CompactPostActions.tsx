@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ReplyInput } from "@/src/components/post/ReplyInput";
 import { Icon } from "@/src/components/Icon";
 
-import { atCuteState, type AtCuteState } from "@/site/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
 import { formatCount } from "@/src/lib/utils/count";
 import { submitReply } from "@/src/lib/postActions";
 import { getRootPostUri } from "@/src/lib/threadUtils";

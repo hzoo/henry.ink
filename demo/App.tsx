@@ -6,8 +6,8 @@ import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
-import { MarkdownSite } from "@/note-site/components/MarkdownSite";
-import { QuickUrlButtons } from "@/site/components/QuickUrlButtons";
+import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
+import { QuickUrlButtons } from "@/demo/components/QuickUrlButtons";
 
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);

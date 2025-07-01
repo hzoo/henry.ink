@@ -1,6 +1,6 @@
 import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { contentStateSignal } from "@/note-site/signals";
+import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 

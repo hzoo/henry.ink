@@ -3,8 +3,8 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useRef } from "preact/hooks";
 
-import { contentStateSignal } from "@/note-site/signals";
-import { useUrlPathSyncer, useContentFetcher } from "@/note-site/services";
+import { contentStateSignal } from "@/henry-ink/signals";
+import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
 import { currentUrl } from "@/src/lib/messaging";
