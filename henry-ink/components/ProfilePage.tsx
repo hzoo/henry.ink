@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppLayout, SidebarHeader, SidebarContent } from "@/src/components/AppLayout";
 import { getProfile, getAuthorFeed } from "@/src/lib/bsky";
 import { filterProfilePosts } from "@/src/lib/profileFilters";
-import { ProfilePost } from "@/note-site/components/ProfilePost";
+import { ProfilePost } from "@/henry-ink/components/ProfilePost";
 
 
 export function ProfilePage() {

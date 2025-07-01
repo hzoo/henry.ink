@@ -1,6 +1,6 @@
 import { useSignal, useSignalEffect, useComputed } from "@preact/signals";
 import { quotedSelection, currentUrl, showCommentDialog } from "@/src/lib/messaging";
-import { atCuteState } from "@/site/lib/oauth";
+import { atCuteState } from "@/demo/lib/oauth";
 import type {
 	AppBskyFeedPost,
 	AppBskyRichtextFacet,
