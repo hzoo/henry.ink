@@ -29,3 +29,5 @@ web-ext.config.ts
 dist
 dist-npm
 .dev.vars
+
+channels.db*
