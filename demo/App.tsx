@@ -5,7 +5,8 @@ import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
-import SelectionPopupManager from "@/entrypoints/popup.content/SelectionPopupManager";
+import SelectionPopupManagerV2 from "@/entrypoints/popup.content/SelectionPopupManagerV2";
+import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
 import { QuickUrlButtons } from "@/demo/components/QuickUrlButtons";
 
@@ -106,14 +107,31 @@ export function App() {
 							import.meta.env.DEV ? "127.0.0.1" : "annotation-demo.henryzoo.com"
 						}
 					/>
-					<SelectionPopupManager
+					<SelectionPopupManagerV2
 						canShowPopup={() => showQuotePopupOnSelection.peek()}
-						popupTitle="Quote"
-						sendSelection={() => {
-							const selection = window.getSelection()?.toString();
-							if (!selection) return;
-							quotedSelection.value = selection;
-						}}
+						actions={[
+							{
+								title: "Quote",
+								shortcut: "q",
+								onClick: () => {
+									const selection = window.getSelection()?.toString();
+									if (!selection) return;
+									quotedSelection.value = selection;
+								},
+								icon: "💬"
+							},
+							{
+								title: "Arena",
+								shortcut: "a",
+								onClick: async () => {
+									const selection = window.getSelection()?.toString();
+									if (!selection) return;
+									const result = await searchAndSaveArenaChannels(selection);
+									showArenaToast(result, selection);
+								},
+								icon: "🔍"
+							}
+						]}
 						targetContainerRef={mockContainerRef}
 					/>
 				</aside>

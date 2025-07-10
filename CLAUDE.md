@@ -137,6 +137,14 @@ The **henry.ink** website is a full-featured web application that provides annot
 - Tab management for URL monitoring and auto-discovery
 - Permissions handling for cross-origin requests
 
+### Arena Channel Enhancement
+- **Wikipedia-style links** to Arena channels found in blog content
+- **Aho-Corasick pattern matching** for performance with 100k+ channels
+- **Multi-word pattern focus** to avoid false matches (e.g., "web development", "information theory")
+- **Title cleaning** removes emojis, special chars from Arena channel names
+- **HTML-first processing** - markdown parsed before enhancement to preserve positions
+- **Location**: `/henry-ink/arena/` contains the enhancement system
+
 ## Testing and Quality
 
 Run `bun run check` for TypeScript validation and `bun run lint` for code formatting. The project uses Biome.js for consistent code style and quality enforcement.

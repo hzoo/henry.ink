@@ -43,6 +43,7 @@
     "@tanstack/react-query-persist-client": "^5.80.10",
     "dompurify": "^3.2.6",
     "marked": "^15.0.12",
+    "modern-ahocorasick": "^1.0.0",
     "preact": "^10.26.9",
     "preact-iso": "^2.9.2"
   },
