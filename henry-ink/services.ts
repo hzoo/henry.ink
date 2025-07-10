@@ -4,8 +4,6 @@ import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 
-const WORKER_BASE_URL = "https://jina_proxy_worker.hi-899.workers.dev";
-
 async function fetchSimplifiedContent(targetUrl: string) {
 	if (!targetUrl || !targetUrl.startsWith("http")) {
 		contentStateSignal.value = {
@@ -20,7 +18,7 @@ async function fetchSimplifiedContent(targetUrl: string) {
 	try {
 		// The worker expects the target URL as a path segment AFTER the initial slash.
 		// So, if targetUrl is "https://example.com", the request path to worker is "/https://example.com"
-		const response = await fetch(`${WORKER_BASE_URL}/${targetUrl}`);
+		const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${targetUrl}`);
 
 		if (!response.ok) {
 			const errorText = await response.text();

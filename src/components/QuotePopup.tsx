@@ -103,7 +103,7 @@ const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFac
 const fetchPageMetadata = async (originalUrl: string) => {
 	try {
 		// Use the same Jina worker that henry.ink uses to get metadata
-		const response = await fetch(`https://jina_proxy_worker.hi-899.workers.dev/${originalUrl}`);
+		const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${originalUrl}`);
 		const content = await response.text();
 		
 		// Extract title from markdown content (Jina already processes it)
