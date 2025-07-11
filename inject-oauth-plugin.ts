@@ -118,16 +118,6 @@ export function injectOauthEnv(
 				"import.meta.env.VITE_OAUTH_SCOPE": JSON.stringify(metadata.scope),
 			};
 
-			// For extensions, also pass through VITE_WORKER_URL and VITE_EXTENSION_APP_PASSWORD from process.env
-			// if (target.startsWith('extension-')) {
-			//   if (process.env.VITE_WORKER_URL) {
-			//     define['import.meta.env.VITE_WORKER_URL'] = JSON.stringify(process.env.VITE_WORKER_URL);
-			//   }
-			//   if (process.env.VITE_EXTENSION_APP_PASSWORD) {
-			//     define['import.meta.env.VITE_EXTENSION_APP_PASSWORD'] = JSON.stringify(process.env.VITE_EXTENSION_APP_PASSWORD);
-			//   }
-			// }
-
 			return { define };
 		},
 	} as PluginOption;
