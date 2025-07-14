@@ -60,6 +60,13 @@ const truncateQuote = (quote: string, maxLength: number = MAX_QUOTE_DISPLAY): st
 	return `${truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength)}...`;
 };
 
+// Helper function to create compose-friendly text for Bluesky
+const createComposeText = (text: string, originalUrl: string): string => {
+	// Replace [h↗] with the actual URL for external sharing
+	const textWithUrl = text.replace(/\[h↗\]/g, originalUrl);
+	return textWithUrl;
+};
+
 
 // Helper function to create facet for [h↗] with post rkey
 const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFacet.Main[] => {
@@ -162,6 +169,7 @@ export function QuotePopup() {
 	const userProfile = useSignal<{handle: string, avatar?: string} | null>(null);
 	const isQuoteExpanded = useSignal(false);
 	const postRkey = useSignal<string>(generateRkey()); // Generate unique rkey for this post
+	const failedPostText = useSignal<string>(""); // Store text when login fails
 
 	// --- Computed Values ---
 	// Length is now just the userText length
@@ -245,6 +253,7 @@ export function QuotePopup() {
 		const state = atCuteState.peek();
 		if (!state?.session || !state?.rpc) {
 			postError.value = "You must be logged in to post.";
+			failedPostText.value = createComposeText(userText.value.trim(), currentUrl.value || ''); // Store compose-friendly text
 			isPosting.value = false;
 			return;
 		}
@@ -383,6 +392,7 @@ export function QuotePopup() {
 								onInput={(e) => {
 									userText.value = (e.target as HTMLTextAreaElement).value;
 									postError.value = null;
+									failedPostText.value = "";
 								}}
 								maxLength={MAX_CHARS * 2}
 								disabled={isPosting.value}
@@ -411,8 +421,25 @@ export function QuotePopup() {
 				
 				
 				{postError.value && (
-					<div className="px-4 pb-2 text-red-500 text-xs">
-						{postError.value}
+					<div className="px-4 pb-2 text-xs">
+						{postError.value === "You must be logged in to post." ? (
+							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+								<span>Not logged in</span>
+								<span>→</span>
+								<a
+									href={`https://bsky.app/intent/compose?text=${encodeURIComponent(failedPostText.value)}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+								>
+									Post on Bluesky
+								</a>
+							</div>
+						) : (
+							<div className="text-red-500">
+								{postError.value}
+							</div>
+						)}
 					</div>
 				)}
 				{/* Footer with metadata */}
@@ -463,10 +490,10 @@ export function QuotePopup() {
 							)}
 							{/* Henry.ink link info */}
 							{userText.value.includes('[h↗]') && (
-								<div className="text-xs text-gray-600 dark:text-gray-400">
-									<span className="font-mono bg-gray-200 dark:bg-gray-800 px-1 rounded">[h↗]</span>
-									<span className="ml-1">
-										→ <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" href={`https://henry.ink/${currentUrl.value || 'your-url'}?post=${postRkey.value}`} target="_blank" rel="noopener noreferrer">henry.ink/{currentUrl.value || 'your-url'}?post={postRkey.value}</a>
+								<div className="text-xs text-gray-500 dark:text-gray-500">
+									<span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded text-xs">[h↗]</span>
+									<span className="ml-1 text-gray-400 dark:text-gray-500">
+										→ <a className="text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-400 font-normal" href={`https://henry.ink/${currentUrl.value || 'your-url'}?post=${postRkey.value}`} target="_blank" rel="noopener noreferrer">henry.ink/{new URL(currentUrl.value || 'https://example.com').hostname}...</a>
 									</span>
 								</div>
 							)}
