@@ -4,7 +4,7 @@
  */
 
 import AhoCorasick from 'modern-ahocorasick';
-import type { ChannelPattern } from './channel-storage.ts';
+import type { ChannelPattern } from './channel-storage';
 
 export interface PatternMatch {
   pattern: ChannelPattern;
@@ -26,7 +26,7 @@ export class ChannelPatternMatcher {
   private ac: AhoCorasick | null = null;
   private patterns: ChannelPattern[] = [];
   private patternLookup: Map<string, ChannelPattern> = new Map();
-  private buildTime: number = 0;
+  private buildTime = 0;
 
   /**
    * Build Aho-Corasick automaton from channel patterns
