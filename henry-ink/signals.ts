@@ -8,3 +8,7 @@ export type ContentState =
   | { type: 'error'; message: string };
 
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
+
+// Tab state for sidebar
+export type TabType = 'bluesky' | 'arena';
+export const activeTabSignal = signal<TabType>('bluesky');

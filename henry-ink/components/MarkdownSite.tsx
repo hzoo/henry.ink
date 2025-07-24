@@ -1,184 +1,22 @@
 import { useLocation } from "preact-iso";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { useRef, useEffect, useState } from "preact/hooks";
-import { signal } from "@preact/signals";
+import { useRef } from "preact/hooks";
 
 import { contentStateSignal } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
 import { currentUrl } from "@/src/lib/messaging";
-import { ArenaLinksDisclosure } from "./ArenaLinksDisclosure";
-
-// Arena enhancement state
-const enhancementState = signal<{
-  type: 'idle' | 'enhancing' | 'enhanced' | 'error';
-  linksAdded?: number;
-  error?: string;
-}>({ type: 'idle' });
-
-// Enhanced content cache
-const enhancedContentCache = new Map<string, string>();
-
-/**
- * Enhance HTML content with Arena channel links
- */
-async function enhanceContentWithArena(htmlContent: string, url: string): Promise<string> {
-  const cacheKey = `${url}:${htmlContent.substring(0, 100)}`;
-  
-  
-  // Check cache first
-  if (enhancedContentCache.has(cacheKey)) {
-    return enhancedContentCache.get(cacheKey)!;
-  }
-
-  try {
-    enhancementState.value = { type: 'enhancing' };
-
-    const requestBody = {
-      content: htmlContent,
-      url,
-      contentType: 'html', // Indicate we're sending HTML not markdown
-      options: {
-        maxLinksPerChannel: 1,
-        maxTotalLinks: 8,
-        linkDensity: 1.5,
-        addTooltips: true,
-      },
-    };
-
-    console.log('📤 Request options:', requestBody.options);
-
-    const response = await fetch('http://localhost:3001/enhance', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Enhancement API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    const enhancedContent = result.enhancedContent || htmlContent;
-    
-    console.log('📥 Enhancement result:', {
-      linksAdded: result.linksAdded,
-      matches: result.matches?.length,
-      originalLength: htmlContent.length,
-      enhancedLength: enhancedContent.length,
-      lengthDiff: enhancedContent.length - htmlContent.length
-    });
-
-    if (result.matches && result.matches.length > 0) {
-      console.log('🎯 Matches found:', result.matches.map((match: any) => ({
-        channel: match.slug,
-        text: match.bestMatch?.matchedText,
-        position: match.bestMatch?.position,
-        confidence: match.contents_count
-      })));
-      
-      // Check specifically for "medium is the message" matches
-      const mediumMatches = result.matches.filter((match: any) => 
-        match.bestMatch?.matchedText?.toLowerCase().includes('medium') ||
-        match.slug?.includes('medium')
-      );
-      if (mediumMatches.length > 0) {
-        console.log('📺 Medium-related matches:', mediumMatches);
-      } else {
-        console.log('❌ No "medium is the message" matches found');
-        // Check if the text exists in the content
-        if (htmlContent.toLowerCase().includes('medium is the message')) {
-          console.log('✅ Text "medium is the message" exists in content');
-        } else {
-          console.log('❌ Text "medium is the message" NOT found in content');
-        }
-      }
-    } else {
-      // Check if the text exists in the content even when no matches
-      if (htmlContent.toLowerCase().includes('medium is the message')) {
-        console.log('🔍 Text "medium is the message" exists in content but no matches found');
-      }
-    }
-
-    // Show content changes
-    if (enhancedContent !== htmlContent) {
-      console.log('✏️ Enhanced HTML preview:', enhancedContent.substring(0, 200) + '...');
-      
-      // Find differences
-      let diffCount = 0;
-      for (let i = 0; i < Math.min(htmlContent.length, enhancedContent.length); i++) {
-        if (htmlContent[i] !== enhancedContent[i]) {
-          console.log(`🔍 First difference at position ${i}:`);
-          console.log(`   Original: "${htmlContent.substring(i-10, i+20)}"`);
-          console.log(`   Enhanced: "${enhancedContent.substring(i-10, i+20)}"`);
-          break;
-        }
-      }
-    } else {
-      console.log('❌ No HTML changes made');
-    }
-    
-    // Cache the result
-    enhancedContentCache.set(cacheKey, enhancedContent);
-    
-    enhancementState.value = { 
-      type: 'enhanced', 
-      linksAdded: result.linksAdded || 0 
-    };
-
-    return enhancedContent;
-  } catch (error) {
-    console.warn('Arena enhancement failed:', error);
-    enhancementState.value = { 
-      type: 'error', 
-      error: error instanceof Error ? error.message : 'Enhancement failed' 
-    };
-    
-    // Return original HTML content on error
-    return htmlContent;
-  }
-}
 
 export function MarkdownSite() {
 	const location = useLocation();
 	const contentState = contentStateSignal.value;
-	const enhancementStateValue = enhancementState.value;
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	// Use the custom hooks for URL syncing and content fetching
 	useUrlPathSyncer();
 	useContentFetcher();
-
-	// Enhanced content state
-	const [enhancedHtml, setEnhancedHtml] = useState<string>('');
-
-	// Parse markdown first, then enhance the HTML
-	useEffect(() => {
-		if (contentState.type === 'success' && contentState.content && currentUrl.value) {
-			// First parse markdown to HTML
-			const parsedHtml = marked.parse(contentState.content) as string;
-			
-			console.group('🔄 New Enhancement Flow');
-			console.log('📄 Raw markdown length:', contentState.content.length);
-			console.log('📝 Parsed HTML length:', parsedHtml.length);
-			console.groupEnd();
-			
-			// Then enhance the HTML
-			enhanceContentWithArena(parsedHtml, currentUrl.value)
-				.then(setEnhancedHtml)
-				.catch((error) => {
-					console.error('Enhancement error:', error);
-					setEnhancedHtml(parsedHtml); // Fallback to parsed HTML
-				});
-		} else {
-			setEnhancedHtml('');
-			enhancementState.value = { type: 'idle' };
-		}
-	}, [contentState]);
 
 	return (
 		<div className="flex-1 h-full flex flex-col min-w-0">
@@ -235,36 +73,8 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
-					{/* Archive link and Arena enhancement status */}
+					{/* Archive link */}
 					<div className="mb-2 flex justify-between items-center">
-						<div className="flex items-center gap-2">
-							{enhancementStateValue.type === 'enhancing' && (
-								<div className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md">
-									<svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-									</svg>
-									arena linking...
-								</div>
-							)}
-							{enhancementStateValue.type === 'enhanced' && enhancementStateValue.linksAdded! > 0 && (
-								<div className="inline-flex items-center gap-1 px-2 py-1 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded-md">
-									<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-										<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-									</svg>
-									{enhancementStateValue.linksAdded} arena links
-								</div>
-							)}
-							{enhancementStateValue.type === 'error' && (
-								<div className="inline-flex items-center gap-1 px-2 py-1 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 rounded-md"
-									title={enhancementStateValue.error}>
-									<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-										<path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-									</svg>
-									arena offline
-								</div>
-							)}
-						</div>
 						<a
 							href={`https://web.archive.org/web/${currentUrl.value}`}
 							target="_blank"
@@ -279,9 +89,6 @@ export function MarkdownSite() {
 						</a>
 					</div>
 					
-					{/* Arena Links Disclosure */}
-					<ArenaLinksDisclosure content={contentState.content} />
-					
 					<div
 						ref={contentRef}
 						className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
@@ -289,7 +96,7 @@ export function MarkdownSite() {
 						dangerouslySetInnerHTML={{
 							__html: (() => {
 								// Use enhanced HTML directly (no more markdown parsing)
-								const htmlToProcess = enhancedHtml || marked.parse(contentState.content) as string;
+								const htmlToProcess = marked.parse(contentState.content) as string;
 								return DOMPurify.sanitize(htmlToProcess);
 							})(),
 						}}

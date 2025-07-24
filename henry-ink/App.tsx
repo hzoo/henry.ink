@@ -1,21 +1,13 @@
 import { useEffect } from "preact/hooks";
 import { effect, signal } from "@preact/signals";
-import { Sidebar } from "@/src/components/Sidebar";
-import { AppLayout, SidebarHeader, SidebarContent } from "@/src/components/AppLayout";
+import { TabbedSidebar } from "@/src/components/TabbedSidebar";
+import { AppLayout, SidebarContent } from "@/src/components/AppLayout";
 import { currentUrl } from "@/src/lib/messaging";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
-import { queryClient } from "@/src/lib/queryClient";
-import { cacheTimeAgo } from "@/src/lib/signals";
-import { getTimeAgo } from "@/src/lib/utils/time";
 import { contentStateSignal } from "@/henry-ink/signals";
 
 const targetPostRkey = signal<string | null>(null);
 
-const handleRefresh = () => {
-	if (currentUrl.value) {
-		queryClient.refetchQueries({ queryKey: ["posts", currentUrl.value] });
-	}
-};
 
 // Update page title based on content title or current URL
 effect(() => {
@@ -97,21 +89,12 @@ export function App() {
 	return (
 		<AppLayout
 			sidebar={
-				<>
-					<SidebarHeader
-						title="Bluesky Discussion"
-						onRefresh={handleRefresh}
-						showRefresh={true}
-						refreshTitle="Refresh Bluesky discussions"
-						cacheTimeAgo={cacheTimeAgo.value ? getTimeAgo(cacheTimeAgo.value) : undefined}
+				<SidebarContent>
+					<TabbedSidebar
+						hidePopup
+						autoAllowDomain={import.meta.env.DEV ? "127.0.0.1" : "henry.ink"}
 					/>
-					<SidebarContent>
-						<Sidebar
-							hidePopup
-							autoAllowDomain={import.meta.env.DEV ? "127.0.0.1" : "henry.ink"}
-						/>
-					</SidebarContent>
-				</>
+				</SidebarContent>
 			}
 		>
 			<MarkdownSite />
