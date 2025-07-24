@@ -3,8 +3,8 @@
  * Main orchestration for enhancing content with Arena channel links
  */
 
-import { ChannelStorage } from './channel-storage.ts';
-import { ChannelPatternMatcher, type MatchResult } from './pattern-matcher.ts';
+import type { ChannelStorage } from './channel-storage.ts';
+import type { ChannelPatternMatcher, MatchResult } from './pattern-matcher.ts';
 
 export interface EnhancementOptions {
   maxLinksPerChannel?: number;
@@ -21,7 +21,7 @@ export interface EnhancementResult {
 export class LinkEnhancer {
   private storage: ChannelStorage;
   private matcher: ChannelPatternMatcher;
-  private isInitialized: boolean = false;
+  private isInitialized = false;
 
   constructor(
     storage: ChannelStorage,

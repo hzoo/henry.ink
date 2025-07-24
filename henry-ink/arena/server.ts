@@ -3,10 +3,10 @@
  * Provides HTTP API endpoints for content enhancement
  */
 
-import { ChannelStorage } from './channel-storage.ts';
-import { ChannelPatternMatcher } from './pattern-matcher.ts';
-import { LinkEnhancer, type EnhancementOptions } from './link-enhancer.ts';
-import { enableDevelopmentMode, enableProductionMode, getDebugConfig } from './debug-config.ts';
+import { ChannelStorage } from './channel-storage';
+import { ChannelPatternMatcher } from './pattern-matcher';
+import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
+import { enableDevelopmentMode, enableProductionMode, getDebugConfig } from './debug-config';
 
 const PORT = 3001;
 
@@ -16,7 +16,7 @@ const matcher = new ChannelPatternMatcher();
 const enhancer = new LinkEnhancer(storage, matcher);
 
 // Cache for URL-based enhancement results
-const enhancementCache = new Map<string, any>();
+const enhancementCache = new Map<string, unknown>();
 
 interface EnhanceRequest {
   content: string;
@@ -132,7 +132,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json() as { query: string };
     const { query } = body;
     
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
@@ -177,7 +177,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       throw new Error(`Arena API error: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as { channels: unknown[] };
     const channels = data.channels || [];
     
     console.log(`✅ Found ${channels.length} channels for "${query}"`);
