@@ -28,6 +28,9 @@ export const quotedSelection = signal<string | null>(null);
 // Signal to show comment dialog without text selection
 export const showCommentDialog = signal<boolean>(false);
 
+// Signal for arena match navigation (text to highlight)
+export const arenaNavigationRequest = signal<{ matchedText: string } | null>(null);
+
 // Check if URL is valid for searching (not browser internal, etc)
 export const isSearchableUrl = computed(() => {
 	const url = currentUrl.value;
