@@ -11,7 +11,7 @@ import { enableDevelopmentMode, enableProductionMode, getDebugConfig } from './d
 // Environment configuration
 const PORT = parseInt(process.env.ARENA_PORT || '3001');
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const DB_PATH = process.env.ARENA_DB_PATH || './data/channels.db';
+const DB_PATH = process.env.ARENA_DB_PATH || './henry-ink/arena/data/channels.db';
 const CORS_ORIGINS = process.env.ARENA_CORS_ORIGINS?.split(',') || ['*'];
 
 // Initialize components with environment-aware database path

@@ -5,9 +5,37 @@
 
 /* Arena channel links styling */
 .arena-channel-link {
-  @apply text-blue-600 dark:text-blue-400 no-underline border-b border-blue-300 dark:border-blue-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors;
+  color: #17AD58; /* Arena green */
+  text-decoration: none;
+  border-bottom: 1px dotted #17AD58;
+  transition: all 0.2s ease;
 }
 
 .arena-channel-link:hover {
-  @apply text-blue-700 dark:text-blue-300;
+  color: #0e7a3e; /* Darker green on hover */
+  border-bottom-style: solid;
+}
+
+.arena-link-icon {
+  font-size: 0.8em;
+  margin-left: 1px;
+  opacity: 0.7;
+  display: inline-block;
+}
+
+.arena-channel-link:hover .arena-link-icon {
+  opacity: 1;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .arena-channel-link {
+    color: #4ADE80; /* Lighter green for dark mode */
+    border-bottom-color: #4ADE80;
+  }
+  
+  .arena-channel-link:hover {
+    color: #86EFAC;
+    border-bottom-color: #86EFAC;
+  }
 }
