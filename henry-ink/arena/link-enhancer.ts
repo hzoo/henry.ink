@@ -74,15 +74,15 @@ export class LinkEnhancer {
   private filterMatches(matches: MatchResult[], options: EnhancementOptions): MatchResult[] {
     const { maxLinksPerChannel = 1 } = options;
 
-    // Sort matches by content count (quality) and position
+    // Sort matches by position (reading order) and content count (quality)
     const sortedMatches = matches
       .sort((a, b) => {
-        // Higher content count first (quality)
-        const contentDiff = b.contents_count - a.contents_count;
-        if (contentDiff !== 0) return contentDiff;
+        // Earlier in text first (reading order)
+        const positionDiff = a.bestMatch.position - b.bestMatch.position;
+        if (positionDiff !== 0) return positionDiff;
         
-        // If same quality, prefer earlier in text
-        return a.bestMatch.position - b.bestMatch.position;
+        // If same position, prefer higher quality
+        return b.contents_count - a.contents_count;
       });
 
     // Filter to only include best matches per channel
