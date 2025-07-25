@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LoadingItemList } from "@/src/components/LoadingItem";
 import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { contentStateSignal } from "@/henry-ink/signals";
+import { arenaNavigationRequest } from "@/src/lib/messaging";
 
 interface ArenaMatch {
   slug: string;
@@ -84,6 +85,11 @@ export function ArenaSidebar() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Handle navigation to text position
+  const handleNavigateToMatch = (match: ArenaMatch) => {
+    arenaNavigationRequest.value = { matchedText: match.matchedText };
+  };
+
   // Reset dismissed error when query key changes
   if (isError && error && userDismissedError.value) {
     // Reset dismissed state when error changes (new query)
@@ -121,7 +127,13 @@ export function ArenaSidebar() {
               
               <div className="mb-2">
                 <span className="text-xs text-gray-600 dark:text-gray-400">
-                  Match: <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 py-0.5 rounded text-yellow-800 dark:text-yellow-200">"{match.matchedText}"</span>
+                  Match: <button 
+                    onClick={() => handleNavigateToMatch(match)}
+                    className="bg-yellow-100 dark:bg-yellow-900/30 px-1 py-0.5 rounded text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 cursor-pointer transition-colors"
+                    title="Click to navigate to this text in the article"
+                  >
+                    "{match.matchedText}"
+                  </button>
                   {matchTextCounts[match.matchedText] > 1 && (
                     <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                       (+{matchTextCounts[match.matchedText] - 1} similar)
