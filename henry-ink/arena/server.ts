@@ -8,10 +8,14 @@ import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
 import { enableDevelopmentMode, enableProductionMode, getDebugConfig } from './debug-config';
 
-const PORT = 3001;
+// Environment configuration
+const PORT = parseInt(process.env.ARENA_PORT || '3001');
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const DB_PATH = process.env.ARENA_DB_PATH || './data/channels.db';
+const CORS_ORIGINS = process.env.ARENA_CORS_ORIGINS?.split(',') || ['*'];
 
-// Initialize components
-const storage = new ChannelStorage();
+// Initialize components with environment-aware database path
+const storage = new ChannelStorage(DB_PATH);
 const matcher = new ChannelPatternMatcher();
 const enhancer = new LinkEnhancer(storage, matcher);
 
@@ -52,9 +56,12 @@ const server = Bun.serve({
     const url = new URL(req.url);
     const path = url.pathname;
     
-    // Enable CORS for local development
+    // CORS configuration based on environment
+    const origin = req.headers.get('Origin') || '';
+    const allowedOrigin = CORS_ORIGINS.includes('*') || CORS_ORIGINS.includes(origin) ? origin || '*' : 'null';
+    
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
@@ -153,7 +160,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
     searchUrl.searchParams.set('per', '100');
     
     // Get tokens from environment
-    const appToken = process.env.VITE_ARENA_APP_TOKEN || process.env.ARENA_APP_TOKEN;
+    const appToken = process.env.VITE_ARENA_APP_TOKEN;
     const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
     
     const headers: Record<string, string> = {
@@ -337,8 +344,11 @@ async function handleStats(corsHeaders: Record<string, string>): Promise<Respons
   }
 }
 
-console.log(`Arena enhancement server running on http://localhost:${PORT}`);
-console.log('Available endpoints:');
+console.log(`🚀 Arena enhancement server running on http://localhost:${PORT}`);
+console.log(`📁 Database: ${DB_PATH}`);
+console.log(`🌍 Environment: ${NODE_ENV}`);
+console.log(`🔒 CORS Origins: ${CORS_ORIGINS.join(', ')}`);
+console.log('\nAvailable endpoints:');
 console.log('  POST /enhance           - Enhance content with Arena channel links');
 console.log('  POST /api/search-arena  - Search Arena channels and save to database');
 console.log('  GET  /stats             - Get enhancement statistics');

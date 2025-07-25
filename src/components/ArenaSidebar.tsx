@@ -28,7 +28,8 @@ interface ArenaApiResponse {
 
 // Extract the API call into a separate function
 async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> {
-  const response = await fetch('http://localhost:3001/enhance', {
+  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/enhance`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -77,6 +78,12 @@ export function ArenaSidebar() {
     retry: 1,
   });
 
+  // Group matches by matched text to identify duplicates
+  const matchTextCounts = matches.reduce((acc, match) => {
+    acc[match.matchedText] = (acc[match.matchedText] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   // Reset dismissed error when query key changes
   if (isError && error && userDismissedError.value) {
     // Reset dismissed state when error changes (new query)
@@ -115,6 +122,11 @@ export function ArenaSidebar() {
               <div className="mb-2">
                 <span className="text-xs text-gray-600 dark:text-gray-400">
                   Match: <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 py-0.5 rounded text-yellow-800 dark:text-yellow-200">"{match.matchedText}"</span>
+                  {matchTextCounts[match.matchedText] > 1 && (
+                    <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                      (+{matchTextCounts[match.matchedText] - 1} similar)
+                    </span>
+                  )}
                 </span>
               </div>
               

@@ -150,7 +150,7 @@ export class ArenaV2Client {
     const { per = 100, page = 1, minContents = 1, onProgress } = options;
 
     // Get tokens from environment
-    const appToken = process.env.VITE_ARENA_APP_TOKEN || process.env.ARENA_APP_TOKEN;
+    const appToken = process.env.VITE_ARENA_APP_TOKEN;
     const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
     
     const headers: Record<string, string> = {

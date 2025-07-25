@@ -77,7 +77,7 @@ export class ArenaClient {
     } = options;
 
     // Get app token from environment
-    const appToken = process.env.VITE_ARENA_APP_TOKEN || process.env.ARENA_APP_TOKEN;
+    const appToken = process.env.VITE_ARENA_APP_TOKEN;
     const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
     
     const headers: Record<string, string> = {
@@ -255,7 +255,7 @@ export class ArenaClient {
 
     try {
       // Get app token from environment
-      const appToken = process.env.VITE_ARENA_APP_TOKEN || process.env.ARENA_APP_TOKEN;
+      const appToken = process.env.VITE_ARENA_APP_TOKEN;
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
