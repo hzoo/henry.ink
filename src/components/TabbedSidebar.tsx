@@ -9,6 +9,8 @@ import { useAtCute } from "@/demo/lib/oauth";
 import { FirstTimePopup } from "@/src/components/FirstTimePopup";
 import { QuotePopup } from "@/src/components/QuotePopup";
 import { contentStateSignal, activeTabSignal } from "@/henry-ink/signals";
+import { arenaQueryKeys } from "@/src/lib/arena-api";
+import type { ArenaMatch } from "@/src/lib/arena-types";
 
 interface TabbedSidebarProps {
 	hidePopup?: boolean;
@@ -21,8 +23,8 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	useAtCute();
 	
 	// Access arena matches data from React Query cache
-	const { data: arenaMatches = [] } = useQuery<unknown[]>({
-		queryKey: ['arenaMatches', contentState.type === 'success' ? contentState.content : null],
+	const { data: arenaMatches = [] } = useQuery<ArenaMatch[]>({
+		queryKey: arenaQueryKeys.matches(contentState.type === 'success' ? contentState.content : null),
 		enabled: false, // Don't fetch here, just access cached data
 	});
 
@@ -33,8 +35,10 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	};
 
 	const handleArenaRefresh = () => {
-		// Invalidate arena matches cache to force refetch
-		queryClient.invalidateQueries({ queryKey: ["arenaMatches"] });
+		// Invalidate all arena matches cache to force refetch
+		queryClient.invalidateQueries({ 
+			predicate: (query) => query.queryKey[0] === 'arenaMatches'
+		});
 	};
 
 	return (
