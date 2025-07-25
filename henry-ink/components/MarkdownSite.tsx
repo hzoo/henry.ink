@@ -8,6 +8,7 @@ import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
 import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavigationController";
+import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
 import { currentUrl } from "@/src/lib/messaging";
 
 export function MarkdownSite() {
@@ -90,17 +91,9 @@ export function MarkdownSite() {
 						</a>
 					</div>
 					
-					<div
-						ref={contentRef}
-						className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitize
-						dangerouslySetInnerHTML={{
-							__html: (() => {
-								// Use enhanced HTML directly (no more markdown parsing)
-								const htmlToProcess = marked.parse(contentState.content) as string;
-								return DOMPurify.sanitize(htmlToProcess);
-							})(),
-						}}
+					<ArenaEnhancedContent 
+						htmlContent={DOMPurify.sanitize(marked.parse(contentState.content) as string)}
+						contentRef={contentRef}
 					/>
 					<HighlightController contentRef={contentRef} />
 					<QuotePositionDots contentRef={contentRef} />

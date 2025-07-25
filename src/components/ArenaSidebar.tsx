@@ -4,75 +4,21 @@ import { LoadingItemList } from "@/src/components/LoadingItem";
 import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { arenaNavigationRequest } from "@/src/lib/messaging";
-
-interface ArenaMatch {
-  slug: string;
-  title: string;
-  matchedText: string;
-  context: string;
-  url: string;
-}
-
-interface ArenaApiMatch {
-  slug: string;
-  title: string;
-  bestMatch: {
-    matchedText: string;
-    position: number;
-    endPosition: number;
-  };
-}
-
-interface ArenaApiResponse {
-  matches: ArenaApiMatch[];
-}
-
-// Extract the API call into a separate function
-async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> {
-  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
-  const response = await fetch(`${apiUrl}/enhance`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      content,
-      options: { maxLinksPerChannel: 1 }
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Arena service returned ${response.status}`);
-  }
-
-  const result: ArenaApiResponse = await response.json();
-  return result.matches.map((match: ArenaApiMatch) => {
-    const contextStart = Math.max(0, match.bestMatch.position - 50);
-    const contextEnd = Math.min(content.length, match.bestMatch.endPosition + 50);
-    const context = content.substring(contextStart, contextEnd);
-    
-    return {
-      slug: match.slug,
-      title: match.title,
-      matchedText: match.bestMatch.matchedText,
-      context: context.trim(),
-      url: `https://are.na/channels/${match.slug}`
-    };
-  });
-}
+import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
+import type { ArenaMatch } from "@/src/lib/arena-types";
 
 export function ArenaSidebar() {
   const userDismissedError = useSignal(false);
   const contentState = contentStateSignal.value;
 
-  // Replace the entire useEffect + manual state with useQuery
+  // Use shared query with consistent key
   const {
     data: matches = [],
     isLoading,
     error,
     isError
   } = useQuery({
-    queryKey: ['arenaMatches', contentState.type === 'success' ? contentState.content : null],
+    queryKey: arenaQueryKeys.matches(contentState.type === 'success' ? contentState.content : null),
     queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
     enabled: contentState.type === 'success' && !!contentState.content,
     staleTime: 5 * 60 * 1000, // 5 minutes

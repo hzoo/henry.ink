@@ -28,7 +28,7 @@ export interface ChannelPattern {
 export class ChannelStorage {
   private db: Database;
 
-  constructor(dbPath: string = "henry-ink/arena/data/channels.db") {
+  constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.initializeSchema();
   }
