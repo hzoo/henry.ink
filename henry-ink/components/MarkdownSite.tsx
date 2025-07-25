@@ -7,6 +7,7 @@ import { contentStateSignal } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
+import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavigationController";
 import { currentUrl } from "@/src/lib/messaging";
 
 export function MarkdownSite() {
@@ -103,6 +104,7 @@ export function MarkdownSite() {
 					/>
 					<HighlightController contentRef={contentRef} />
 					<QuotePositionDots contentRef={contentRef} />
+					<ArenaNavigationController contentRef={contentRef} enabled={contentState.type === 'success'} />
 				</>
 			)}
 
