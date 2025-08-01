@@ -11,22 +11,22 @@ const localStorageWrapper: AsyncStorage = {
 			window.localStorage.setItem(key, value);
 		} catch (error) {
 			if (error instanceof DOMException && error.code === 22) {
-				// QuotaExceededError - clear thread cache and retry
-				console.warn("LocalStorage quota exceeded, clearing thread cache");
+				// QuotaExceededError - clear thread and arena cache and retry
+				console.warn("LocalStorage quota exceeded, clearing cache");
 				try {
 					const keys = Object.keys(localStorage);
-					const threadKeys = keys.filter(
+					const cacheKeys = keys.filter(
 						(k) =>
 							k.startsWith("bsky-search-experimental") &&
-							k.includes('["thread",'),
+							(k.includes('["thread",') || k.includes('["arenaMatches",'))
 					);
-					console.log(`Clearing ${threadKeys.length} thread cache entries`);
-					threadKeys.forEach((k) => localStorage.removeItem(k));
+					console.log(`Clearing ${cacheKeys.length} cache entries (threads and arena matches)`);
+					cacheKeys.forEach((k) => localStorage.removeItem(k));
 					// Try again after clearing
 					window.localStorage.setItem(key, value);
 				} catch (retryError) {
 					console.warn(
-						"Failed to write after clearing thread cache:",
+						"Failed to write after clearing cache:",
 						retryError,
 					);
 				}
