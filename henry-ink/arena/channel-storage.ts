@@ -341,22 +341,7 @@ export class ChannelStorage {
     return this.db.prepare(query).all(...slugs) as StoredChannel[];
   }
 
-  /**
-   * Get sync statistics
-   */
-  getStats(): { totalChannels: number; withContent: number; qualityChannels: number; lastSync: string | null } {
-    const total = this.db.prepare("SELECT COUNT(*) as count FROM channels").get() as { count: number };
-    const withContent = this.db.prepare("SELECT COUNT(*) as count FROM channels WHERE contents_count > 0").get() as { count: number };
-    const qualityChannels = this.db.prepare("SELECT COUNT(*) as count FROM channels WHERE contents_count >= 3").get() as { count: number };
-    const lastSync = this.db.prepare("SELECT value FROM sync_metadata WHERE key = 'last_sync'").get() as { value: string } | null;
 
-    return {
-      totalChannels: total.count,
-      withContent: withContent.count,
-      qualityChannels: qualityChannels.count,
-      lastSync: lastSync?.value || null
-    };
-  }
 
   /**
    * Close database connection

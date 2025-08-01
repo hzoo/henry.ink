@@ -6,7 +6,8 @@
 import { ChannelStorage } from './channel-storage';
 import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
-import { enableDevelopmentMode, enableProductionMode, getDebugConfig } from './debug-config';
+import type { ArenaChannel } from './arena-client';
+
 
 // Environment configuration
 const PORT = parseInt(process.env.ARENA_PORT || '3001');
@@ -28,26 +29,19 @@ interface EnhanceRequest {
   options?: EnhancementOptions;
 }
 
-interface StatsResponse {
-  storage: {
-    totalChannels: number;
-    withContent: number;
-    qualityChannels: number;
-    lastSync: string | null;
-  };
-  enhancer: {
-    isInitialized: boolean;
-    patternCount: number;
-    channelCount: number;
-    buildTime: number;
-  };
-  debug: {
-    logLevel: string;
-    enableNormalizationDebug: boolean;
-    enablePatternMatchingDebug: boolean;
-    enablePerformanceTracking: boolean;
-  };
+interface ArenaAPIResponse {
+  id: number;
+  slug: string;
+  title: string;
+  updated_at: string;
+  created_at: string;
+  length?: number;
+  status?: string;
+  user?: { slug: string };
+  owner_slug?: string;
 }
+
+
 
 const server = Bun.serve({
   port: PORT,
@@ -82,22 +76,7 @@ const server = Bun.serve({
         case '/api/search-arena':
           return await handleArenaSearch(req, corsHeaders);
         
-        case '/stats':
-          return await handleStats(corsHeaders);
-        
-        case '/debug/enable':
-          enableDevelopmentMode();
-          return new Response('Development mode enabled', {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-          });
-          
-        case '/debug/disable':
-          enableProductionMode();
-          return new Response('Production mode enabled', {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-          });
+
         
         case '/health':
           return new Response('OK', {
@@ -184,14 +163,14 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       throw new Error(`Arena API error: ${response.status}`);
     }
     
-    const data = await response.json() as { channels: unknown[] };
+    const data = await response.json() as { channels: ArenaAPIResponse[] };
     const channels = data.channels || [];
     
     console.log(`✅ Found ${channels.length} channels for "${query}"`);
     
     if (channels.length > 0) {
       // Normalize channels for database storage
-      const normalizedChannels = channels.map((ch: any) => ({
+      const normalizedChannels: ArenaChannel[] = channels.map((ch: ArenaAPIResponse) => ({
         id: ch.id,
         slug: ch.slug,
         title: ch.title,
@@ -200,8 +179,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
         counts: {
           contents: ch.length || 0
         },
-        visibility_name: ch.status?.toUpperCase() || 'PUBLIC',
-        author_name: ch.user?.slug || ch.owner_slug || 'unknown'
+        visibility_name: ch.status?.toUpperCase() || 'PUBLIC'
       }));
       
       // Save to database
@@ -306,43 +284,7 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
   }
 }
 
-/**
- * Handle stats requests
- */
-async function handleStats(corsHeaders: Record<string, string>): Promise<Response> {
-  try {
-    const storageStats = storage.getStats();
-    const enhancerStats = enhancer.getStats();
-    const debugConfig = getDebugConfig();
-    
-    const response: StatsResponse = {
-      storage: storageStats,
-      enhancer: enhancerStats,
-      debug: debugConfig,
-    };
 
-    return new Response(
-      JSON.stringify(response, null, 2),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-
-  } catch (error) {
-    console.error('Stats error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Stats failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-}
 
 console.log(`🚀 Arena enhancement server running on http://localhost:${PORT}`);
 console.log(`📁 Database: ${DB_PATH}`);
@@ -351,9 +293,6 @@ console.log(`🔒 CORS Origins: ${CORS_ORIGINS.join(', ')}`);
 console.log('\nAvailable endpoints:');
 console.log('  POST /enhance           - Enhance content with Arena channel links');
 console.log('  POST /api/search-arena  - Search Arena channels and save to database');
-console.log('  GET  /stats             - Get enhancement statistics');
-console.log('  GET  /debug/enable      - Enable verbose debugging');
-console.log('  GET  /debug/disable     - Enable production mode');
 console.log('  GET  /health            - Health check');
 
 // Graceful shutdown

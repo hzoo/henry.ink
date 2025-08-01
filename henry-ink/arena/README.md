@@ -37,8 +37,6 @@ ARENA_PORT=3001
 ARENA_DB_PATH=./data/channels.db
 ARENA_CORS_ORIGINS=http://localhost:3004,http://127.0.0.1:3004
 NODE_ENV=development
-ARENA_APP_TOKEN=your_token_here  # Optional, for Arena API
-ARENA_AUTH_TOKEN=your_token_here  # Optional, for Arena API
 ```
 
 ## Deployment

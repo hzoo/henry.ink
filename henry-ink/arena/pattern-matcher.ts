@@ -198,13 +198,5 @@ export class ChannelPatternMatcher {
     console.groupEnd();
   }
 
-  /**
-   * Get build performance stats
-   */
-  getStats(): { patternCount: number; buildTime: number } {
-    return {
-      patternCount: this.patterns.length,
-      buildTime: this.buildTime
-    };
-  }
+
 }
