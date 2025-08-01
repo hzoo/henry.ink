@@ -45,6 +45,16 @@ export class LinkEnhancer {
   }
 
   /**
+   * Force refresh patterns from database (invalidate cache)
+   */
+  async refreshPatterns(): Promise<void> {
+    // Get fresh patterns from storage and rebuild matcher
+    const patterns = this.storage.getChannelPatterns();
+    this.matcher.buildFromPatterns(patterns, this.storage.normalizeForMatching.bind(this.storage));
+    // console.log(`✅ Refreshed ${patterns.length} channel patterns`);
+  }
+
+  /**
    * Enhance content directly
    */
   async findChannelMatches(content: string, options: EnhancementOptions = {}): Promise<EnhancementResult> {
