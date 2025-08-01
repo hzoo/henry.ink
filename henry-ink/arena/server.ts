@@ -13,15 +13,16 @@ import type { ArenaChannel } from './arena-client';
 const PORT = parseInt(process.env.ARENA_PORT || '3001');
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DB_PATH = process.env.ARENA_DB_PATH || './henry-ink/arena/data/channels.db';
-const CORS_ORIGINS = process.env.ARENA_CORS_ORIGINS?.split(',') || ['*'];
+const CORS_ORIGINS = process.env.ARENA_CORS_ORIGINS?.split(',') || ['https://henry.ink'];
 
 // Initialize components with environment-aware database path
 const storage = new ChannelStorage(DB_PATH);
 const matcher = new ChannelPatternMatcher();
 const enhancer = new LinkEnhancer(storage, matcher);
 
-// Cache for URL-based enhancement results
+// Simple cache with size limit
 const enhancementCache = new Map<string, unknown>();
+const MAX_CACHE_SIZE = 50;
 
 interface EnhanceRequest {
   content: string;
@@ -131,7 +132,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       );
     }
 
-    console.log(`🔍 Arena search request: "${query}"`);
+    console.log(`🔍 search: "${query}"`);
 
     // Search Arena using V2 API with search endpoint
     const searchUrl = new URL('https://api.are.na/v2/search/channels');
@@ -165,8 +166,6 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
     
     const data = await response.json() as { channels: ArenaAPIResponse[] };
     const channels = data.channels || [];
-    
-    console.log(`✅ Found ${channels.length} channels for "${query}"`);
     
     if (channels.length > 0) {
       // Normalize channels for database storage
@@ -258,6 +257,12 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
     // Cache result if URL is provided
     if (body.url) {
       const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
+      
+      // Simple size limit - clear cache when it gets too big
+      if (enhancementCache.size >= MAX_CACHE_SIZE) {
+        enhancementCache.clear();
+      }
+      
       enhancementCache.set(cacheKey, result);
     }
 
