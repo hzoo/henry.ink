@@ -4,7 +4,8 @@
   "private": true,
   "version": "0.0.10",
   "workspaces": [
-    "styled-content-service"
+    "styled-content-service",
+    "arena-enhancer"
   ],
   "type": "module",
   "scripts": {

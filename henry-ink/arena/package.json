@@ -1,0 +1,17 @@
+{
+  "name": "arena-enhancer",
+  "description": "enhance content with Arena channel links",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "start": "bun server.ts"
+  },
+  "dependencies": {
+    "modern-ahocorasick": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.16",
+    "typescript": "^5.8.3"
+  }
+  }
