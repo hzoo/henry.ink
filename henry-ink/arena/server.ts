@@ -77,8 +77,6 @@ const server = Bun.serve({
         case '/api/search-arena':
           return await handleArenaSearch(req, corsHeaders);
         
-
-        
         case '/health':
           return new Response('OK', {
             status: 200,
@@ -184,6 +182,9 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       // Save to database
       await storage.storeChannels(normalizedChannels);
       console.log(`📦 Saved ${channels.length} channels to database`);
+      
+      // Auto-refresh patterns so new channels are immediately available for /enhance
+      await enhancer.refreshPatterns();
     }
 
     return new Response(
