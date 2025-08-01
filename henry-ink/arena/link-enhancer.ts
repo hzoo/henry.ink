@@ -109,25 +109,7 @@ export class LinkEnhancer {
   }
 
 
-  /**
-   * Get enhancement statistics
-   */
-  getStats(): { 
-    isInitialized: boolean; 
-    patternCount: number; 
-    channelCount: number;
-    buildTime: number;
-  } {
-    const matcherStats = this.matcher.getStats();
-    const storageStats = this.storage.getStats();
-    
-    return {
-      isInitialized: this.isInitialized,
-      patternCount: matcherStats.patternCount,
-      channelCount: storageStats.withContent,
-      buildTime: matcherStats.buildTime
-    };
-  }
+
 
 
   /**

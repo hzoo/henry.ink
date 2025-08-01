@@ -1,12 +1,12 @@
 # Arena Service Deployment Guide
 
-Simple deployment instructions for running the Arena service on Ubuntu VPS.
+Simple deployment instructions for running the Arena enhancement service.
 
 ## Requirements
 
 - Ubuntu VPS (any version)
 - Root or sudo access
-- Open port 3001 (or your chosen port)
+- Port 3001 available for the Arena service
 
 ## Setup Instructions
 
@@ -53,9 +53,7 @@ Add your configuration:
 NODE_ENV=production
 ARENA_PORT=3001
 ARENA_DB_PATH=./data/channels.db
-ARENA_CORS_ORIGINS=https://henry.ink,https://www.henry.ink
-ARENA_APP_TOKEN=your_arena_app_token_here
-ARENA_AUTH_TOKEN=your_arena_auth_token_here
+ARENA_CORS_ORIGINS=https://henry.ink,https://arena.henry.ink
 ```
 
 ### 6. Run the Service
@@ -89,50 +87,48 @@ pm2 startup
 # Check if service is running
 curl http://localhost:3001/health
 
-# View stats
-curl http://localhost:3001/stats
+# Test enhancement endpoint
+curl -X POST http://localhost:3001/enhance \
+  -H "Content-Type: application/json" \
+  -d '{"content":"test content about machine learning"}'
 ```
 
-## Optional: Domain Setup with Nginx
+## Domain Setup with Caddy
 
-If you want to use a domain (e.g., api.henry.ink) instead of IP:3001:
+For production deployment with domain access, use Caddy as a reverse proxy:
+
+### Install Caddy
 
 ```bash
-# Install Nginx
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 sudo apt update
-sudo apt install nginx certbot python3-certbot-nginx
-
-# Create Nginx config
-sudo nano /etc/nginx/sites-available/arena-api
+sudo apt install caddy
 ```
 
-Add this configuration:
+### Configure Caddyfile
 
-```nginx
-server {
-    server_name api.henry.ink;
-    
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+Create `/etc/caddy/Caddyfile`:
+
+```caddy
+# Main app (port 3000)
+http://api.henry.ink {
+    reverse_proxy localhost:3000
+}
+
+# Arena service (port 3001)
+http://arena.henry.ink {
+    reverse_proxy localhost:3001
 }
 ```
 
-Enable and get SSL:
+### Start Caddy
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/arena-api /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-sudo certbot --nginx -d api.henry.ink
+sudo systemctl enable caddy
+sudo systemctl start caddy
+sudo systemctl status caddy
 ```
 
 ## Maintenance
@@ -162,4 +158,11 @@ nohup bun run server.ts > arena.log 2>&1 &
 cd /app/arena
 bun install  # If dependencies changed
 pm2 restart arena-service  # Or restart however you're running it
+```
+
+### Reload Caddy (if config changed)
+```bash
+sudo systemctl reload caddy
+# Or if you modified /etc/caddy/Caddyfile
+sudo caddy reload --config /etc/caddy/Caddyfile
 ```
