@@ -308,7 +308,7 @@ export const SidebarHeader = ({
 
 export const SidebarContent = ({ children }: { children: ComponentChildren }) => {
 	return (
-		<div class="flex-1 overflow-hidden px-2">
+		<div class="flex-1 overflow-hidden">
 			{children}
 		</div>
 	);
