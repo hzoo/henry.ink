@@ -2,7 +2,7 @@
  * Shared Arena API functions
  */
 
-import type { ArenaApiResponse, ArenaMatch } from './arena-types';
+import type { ArenaApiResponse, ArenaMatch, ArenaChannelWithBlocks } from './arena-types';
 
 /**
  * Fetch Arena matches from the API
@@ -43,8 +43,31 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
 }
 
 /**
+ * Fetch blocks for a specific Arena channel
+ */
+export async function fetchChannelBlocks(slug: string): Promise<ArenaChannelWithBlocks | null> {
+  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+  
+  const response = await fetch(`${apiUrl}/channel-blocks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ slug }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Arena service returned ${response.status}`);
+  }
+
+  const result: ArenaChannelWithBlocks | null = await response.json();
+  return result;
+}
+
+/**
  * Query key factory for Arena matches
  */
 export const arenaQueryKeys = {
   matches: (content: string | null) => ['arenaMatches', content] as const,
+  blocks: (slug: string) => ['arenaBlocks', slug] as const,
 };

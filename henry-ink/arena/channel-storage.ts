@@ -77,35 +77,41 @@ export class ChannelStorage {
    * Store channels in bulk with transaction for performance
    */
   async storeChannels(channels: ArenaChannel[]): Promise<void> {
-    const insertChannel = this.db.prepare(`
+    if (channels.length === 0) return;
+
+    const now = new Date().toISOString();
+    
+    // Build bulk INSERT with multiple VALUES
+    const placeholders = channels.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const bulkInsert = this.db.prepare(`
       INSERT OR REPLACE INTO channels (
         id, slug, title, author_name, contents_count, last_checked, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES ${placeholders}
     `);
 
-    const transaction = this.db.transaction((channels: ArenaChannel[]) => {
-      const now = new Date().toISOString();
-      
-      for (const channel of channels) {
-        // Insert main channel record
-        insertChannel.run(
-          channel.id,
-          channel.slug,
-          channel.title,
-          'unknown', // User field removed from query due to GraphQL null issues
-          channel.counts.contents,
-          now,
-          channel.created_at,
-          channel.updated_at
-        );
-      }
+    // Flatten all channel data into a single array
+    const values: (string | number)[] = [];
+    for (const channel of channels) {
+      values.push(
+        channel.id,
+        channel.slug,
+        channel.title,
+        'unknown', // User field removed from query due to GraphQL null issues
+        channel.counts.contents,
+        now,
+        channel.created_at,
+        channel.updated_at
+      );
+    }
+
+    const transaction = this.db.transaction(() => {
+      bulkInsert.run(...values);
     });
 
     console.log(`Storing ${channels.length} channels...`);
-    transaction(channels);
+    transaction();
 
     // Update sync metadata
-    const now = new Date().toISOString();
     this.db.prepare(`
       INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
       VALUES ('last_sync', ?, ?)

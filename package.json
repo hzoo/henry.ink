@@ -5,7 +5,7 @@
   "version": "0.0.10",
   "workspaces": [
     "styled-content-service",
-    "arena-enhancer"
+    "henry-ink/arena"
   ],
   "type": "module",
   "scripts": {
