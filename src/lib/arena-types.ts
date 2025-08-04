@@ -33,3 +33,69 @@ export interface ArenaMatchWithPosition extends ArenaMatch {
   position: number;
   endPosition: number;
 }
+
+// Arena block types
+export interface ResizedImage {
+  src_1x: string;
+  src_2x: string;
+  width: number;
+  height: number;
+}
+
+export interface ArenaBlockBase {
+  id: number;
+  title?: string;
+  href: string;
+  __typename: string;
+}
+
+export interface ImageBlock extends ArenaBlockBase {
+  __typename: 'Image';
+  resized_image?: {
+    grid_cell_resized_image: ResizedImage;
+  };
+}
+
+export interface TextBlock extends ArenaBlockBase {
+  __typename: 'Text';
+  content?: string;
+}
+
+export interface LinkBlock extends ArenaBlockBase {
+  __typename: 'Link';
+  source?: {
+    url?: string;
+  };
+  resized_image?: {
+    grid_cell_resized_image: ResizedImage;
+  };
+}
+
+export interface EmbedBlock extends ArenaBlockBase {
+  __typename: 'Embed';
+  source?: {
+    url?: string;
+    provider_name?: string;
+  };
+  resized_image?: {
+    grid_cell_resized_image: ResizedImage;
+  };
+}
+
+export interface AttachmentBlock extends ArenaBlockBase {
+  __typename: 'Attachment';
+  file_content_type?: string;
+  file_size?: number;
+  file_extension?: string;
+  resized_image?: {
+    grid_cell_resized_image: ResizedImage;
+  };
+}
+
+export type ArenaBlock = ImageBlock | TextBlock | LinkBlock | EmbedBlock | AttachmentBlock;
+
+export interface ArenaChannelWithBlocks {
+  id: number;
+  slug: string;
+  blocks: ArenaBlock[];
+}

@@ -61,6 +61,7 @@ const CHANNELS_QUERY = `
   }
 `;
 
+
 export class ArenaClient {
   private readonly endpoint: string;
 
@@ -229,6 +230,150 @@ export class ArenaClient {
     return allChannels;
   }
 
+
+  /**
+   * Fetch blocks for a specific channel using REST API
+   */
+  async fetchChannelBlocks(slug: string): Promise<import('../../src/lib/arena-types').ArenaChannelWithBlocks | null> {
+    try {
+      // Use REST API V2 to get channel with contents
+      const restUrl = `https://api.are.na/v2/channels/${slug}?per=5`;
+      
+      // Get app token from environment
+      const appToken = process.env.VITE_ARENA_APP_TOKEN;
+      const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
+      
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+      };
+      
+      if (appToken) {
+        headers['x-app-token'] = appToken;
+      }
+      
+      if (authToken) {
+        headers['x-auth-token'] = authToken;
+      }
+
+      const response = await fetch(restUrl, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`Arena REST API error: ${response.status}`);
+      }
+
+      const channelData = await response.json();
+      
+      if (!channelData || !channelData.contents) {
+        return null;
+      }
+
+      // Transform REST API response to our expected format
+      const blocks = channelData.contents.slice(0, 5).map((content: any) => {
+        const baseBlock = {
+          id: content.id,
+          title: content.title || content.generated_title || 'Untitled',
+          href: `/block/${content.id}`,
+          __typename: content.class || content.base_class
+        };
+
+        // Add type-specific fields
+        switch (content.class) {
+          case 'Image':
+            return {
+              ...baseBlock,
+              __typename: 'Image',
+              resized_image: content.image ? {
+                grid_cell_resized_image: {
+                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
+                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  width: content.image.square?.width || content.image.original?.width || 300,
+                  height: content.image.square?.height || content.image.original?.height || 300
+                }
+              } : undefined
+            };
+          
+          case 'Text':
+            return {
+              ...baseBlock,
+              __typename: 'Text',
+              content: content.content || content.description || ''
+            };
+          
+          case 'Link':
+            return {
+              ...baseBlock,
+              __typename: 'Link',
+              source: {
+                url: content.source?.url || content.url
+              },
+              resized_image: content.image ? {
+                grid_cell_resized_image: {
+                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
+                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  width: content.image.square?.width || content.image.original?.width || 300,
+                  height: content.image.square?.height || content.image.original?.height || 300
+                }
+              } : undefined
+            };
+          
+          case 'Media':
+          case 'Embed':
+            return {
+              ...baseBlock,
+              __typename: 'Embed',
+              source: {
+                url: content.source?.url || content.url,
+                provider_name: content.source?.provider_name
+              },
+              resized_image: content.image ? {
+                grid_cell_resized_image: {
+                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
+                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  width: content.image.square?.width || content.image.original?.width || 300,
+                  height: content.image.square?.height || content.image.original?.height || 300
+                }
+              } : undefined
+            };
+          
+          case 'Attachment':
+            return {
+              ...baseBlock,
+              __typename: 'Attachment',
+              file_content_type: content.file_content_type,
+              file_size: content.file_size,
+              file_extension: content.file_extension,
+              resized_image: content.image ? {
+                grid_cell_resized_image: {
+                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
+                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  width: content.image.square?.width || content.image.original?.width || 300,
+                  height: content.image.square?.height || content.image.original?.height || 300
+                }
+              } : undefined
+            };
+          
+          default:
+            return {
+              ...baseBlock,
+              __typename: 'Text',
+              content: content.content || content.description || content.title || ''
+            };
+        }
+      });
+
+      return {
+        id: channelData.id,
+        slug: channelData.slug,
+        blocks
+      };
+    } catch (error) {
+      console.error(`Error fetching blocks for channel ${slug}:`, error);
+      return null;
+    }
+  }
 
   /**
    * Fetch single channel by slug for on-demand enrichment
