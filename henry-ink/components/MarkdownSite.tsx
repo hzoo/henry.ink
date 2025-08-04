@@ -75,8 +75,8 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
-					{/* Archive link */}
-					<div className="mb-2 flex justify-between items-center">
+					{/* Mini tabs */}
+					<div className="mb-2 flex gap-1 items-center">
 						<a
 							href={`https://web.archive.org/web/${currentUrl.value}`}
 							target="_blank"
@@ -88,6 +88,32 @@ export function MarkdownSite() {
 								<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
 							</svg>
 							archive
+						</a>
+						
+						<a
+							href={`https://arena.henryzoo.com/${currentUrl.value}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+							title="Search on Arena"
+						>
+							<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+								<path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+							</svg>
+							arena
+						</a>
+
+						<a
+							href={currentUrl.value}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+							title="View original page"
+						>
+							<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+								<path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+							</svg>
+							original
 						</a>
 					</div>
 					
