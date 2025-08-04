@@ -5,6 +5,7 @@ import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { ArenaChannelItem } from "@/src/components/ArenaChannelItem";
 import { contentStateSignal, arenaViewModeSignal } from "@/henry-ink/signals";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
+import { currentUrl } from "@/src/lib/messaging";
 import type { ArenaMatch } from "@/src/lib/arena-types";
 
 export function ArenaSidebar() {
@@ -18,10 +19,10 @@ export function ArenaSidebar() {
     error,
     isError
   } = useQuery({
-    queryKey: arenaQueryKeys.matches(contentState.type === 'success' ? contentState.content : null),
+    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
     queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
     enabled: contentState.type === 'success' && !!contentState.content,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
   });
 

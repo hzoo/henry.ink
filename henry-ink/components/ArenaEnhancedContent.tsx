@@ -1,6 +1,7 @@
 import { computed } from "@preact/signals";
 import { useQuery } from "@tanstack/react-query";
 import { contentStateSignal } from "@/henry-ink/signals";
+import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import type { ArenaMatch } from "@/src/lib/arena-types";
 
@@ -16,12 +17,12 @@ interface ArenaEnhancedContentProps {
 export function ArenaEnhancedContent({ htmlContent, contentRef }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
 
-  // Use shared query with consistent key
+  // Use shared query with URL-based key (much smaller than content)
   const { data: arenaMatches = [] } = useQuery({
-    queryKey: arenaQueryKeys.matches(contentState.type === 'success' ? contentState.content : null),
+    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
     queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
     enabled: contentState.type === 'success' && !!contentState.content,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
   // Compute enhanced content
