@@ -253,7 +253,7 @@ export function ArenaChannelItem({ match, index, matchTextCounts, viewMode }: Ar
             </div>
           ) : blocksError ? (
             <div className="text-xs text-gray-500 dark:text-gray-400 italic py-2">
-              Failed to load blocks
+              {blocksError.message?.includes('404') ? 'Channel not accessible' : 'Failed to load blocks'}
             </div>
           ) : blocks.length > 0 ? (
             <div className="grid grid-cols-2 gap-1.5">

@@ -190,6 +190,9 @@ async function handleChannelBlocks(req: Request, corsHeaders: Record<string, str
     const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug);
     
     if (!channelWithBlocks) {
+      // Clean up dead channels from database
+      storage.removeChannelBySlug(slug);
+      
       return new Response(
         JSON.stringify({ error: 'Channel not found or no blocks available' }),
         {

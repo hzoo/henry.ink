@@ -347,6 +347,16 @@ export class ChannelStorage {
     return this.db.prepare(query).all(...slugs) as StoredChannel[];
   }
 
+  /**
+   * Remove a channel by slug (for dead/404 channels)
+   */
+  removeChannelBySlug(slug: string): void {
+    const result = this.db.prepare(`DELETE FROM channels WHERE slug = ?`).run(slug);
+    if (result.changes > 0) {
+      console.log(`🗑️ Removed dead channel: ${slug}`);
+    }
+  }
+
 
 
   /**
