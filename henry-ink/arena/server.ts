@@ -15,14 +15,64 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const DB_PATH = process.env.ARENA_DB_PATH || './henry-ink/arena/data/channels.db';
 const CORS_ORIGINS = process.env.ARENA_CORS_ORIGINS?.split(',') || ['https://henry.ink'];
 
+console.log('🔍 Environment:', {
+  PORT,
+  NODE_ENV,
+  DB_PATH,
+  CORS_ORIGINS
+});
+
 // Initialize components with environment-aware database path
 const storage = new ChannelStorage(DB_PATH);
 const matcher = new ChannelPatternMatcher();
 const enhancer = new LinkEnhancer(storage, matcher);
 
-// Simple cache with size limit
-const enhancementCache = new Map<string, unknown>();
-const MAX_CACHE_SIZE = 50;
+// LRU cache with proper eviction
+class LRUCache<K, V> {
+  private cache = new Map<K, V>();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Remove least recently used (first item)
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+const enhancementCache = new LRUCache<string, unknown>(50);
 
 interface EnhanceRequest {
   content: string;
@@ -77,6 +127,9 @@ const server = Bun.serve({
         case '/api/search-arena':
           return await handleArenaSearch(req, corsHeaders);
         
+        case '/channel-blocks':
+          return await handleChannelBlocks(req, corsHeaders);
+        
         case '/health':
           return new Response('OK', {
             status: 200,
@@ -104,6 +157,70 @@ const server = Bun.serve({
     }
   },
 });
+
+/**
+ * Handle Arena channel blocks requests
+ */
+async function handleChannelBlocks(req: Request, corsHeaders: Record<string, string>): Promise<Response> {
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+    });
+  }
+
+  try {
+    const body = await req.json() as { slug: string };
+    const { slug } = body;
+    
+    if (!slug || typeof slug !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Channel slug is required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Use the arena client to fetch blocks
+    const { ArenaClient } = await import('./arena-client');
+    const arenaClient = new ArenaClient();
+    
+    const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug);
+    
+    if (!channelWithBlocks) {
+      return new Response(
+        JSON.stringify({ error: 'Channel not found or no blocks available' }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify(channelWithBlocks),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+
+  } catch (error) {
+    console.error('Arena channel blocks error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to fetch channel blocks',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
 
 /**
  * Handle Arena search requests
@@ -166,8 +283,11 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
     const channels = data.channels || [];
     
     if (channels.length > 0) {
+      // Filter out empty channels (no content blocks)
+      const filteredChannels = channels.filter(ch => ch.length && ch.length > 0);
+      
       // Normalize channels for database storage
-      const normalizedChannels: ArenaChannel[] = channels.map((ch: ArenaAPIResponse) => ({
+      const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch: ArenaAPIResponse) => ({
         id: ch.id,
         slug: ch.slug,
         title: ch.title,
@@ -181,7 +301,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       
       // Save to database
       await storage.storeChannels(normalizedChannels);
-      console.log(`📦 Saved ${channels.length} channels to database`);
+      console.log(`📦 Saved ${normalizedChannels.length} channels to database (filtered ${channels.length - filteredChannels.length} empty channels)`);
       
       // Auto-refresh patterns so new channels are immediately available for /enhance
       await enhancer.refreshPatterns();
@@ -241,9 +361,10 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
     // Check cache first if URL is provided
     if (body.url) {
       const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
-      if (enhancementCache.has(cacheKey)) {
+      const cachedResult = enhancementCache.get(cacheKey);
+      if (cachedResult) {
         return new Response(
-          JSON.stringify(enhancementCache.get(cacheKey)),
+          JSON.stringify(cachedResult),
           {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -258,12 +379,6 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
     // Cache result if URL is provided
     if (body.url) {
       const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
-      
-      // Simple size limit - clear cache when it gets too big
-      if (enhancementCache.size >= MAX_CACHE_SIZE) {
-        enhancementCache.clear();
-      }
-      
       enhancementCache.set(cacheKey, result);
     }
 
@@ -290,8 +405,6 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
   }
 }
 
-
-
 console.log(`🚀 Arena enhancement server running on http://localhost:${PORT}`);
 console.log(`📁 Database: ${DB_PATH}`);
 console.log(`🌍 Environment: ${NODE_ENV}`);
@@ -299,6 +412,7 @@ console.log(`🔒 CORS Origins: ${CORS_ORIGINS.join(', ')}`);
 console.log('\nAvailable endpoints:');
 console.log('  POST /enhance           - Enhance content with Arena channel links');
 console.log('  POST /api/search-arena  - Search Arena channels and save to database');
+console.log('  POST /channel-blocks    - Fetch blocks for a specific Arena channel');
 console.log('  GET  /health            - Health check');
 
 // Graceful shutdown
