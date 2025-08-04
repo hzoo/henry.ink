@@ -68,6 +68,6 @@ export async function fetchChannelBlocks(slug: string): Promise<ArenaChannelWith
  * Query key factory for Arena matches
  */
 export const arenaQueryKeys = {
-  matches: (content: string | null) => ['arenaMatches', content] as const,
+  matches: (url: string | null) => ['arenaMatches', url || 'unknown'] as const,
   blocks: (slug: string) => ['arenaBlocks', slug] as const,
 };
