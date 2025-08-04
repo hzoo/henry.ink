@@ -24,7 +24,7 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	
 	// Access arena matches data from React Query cache
 	const { data: arenaMatches = [] } = useQuery<ArenaMatch[]>({
-		queryKey: arenaQueryKeys.matches(contentState.type === 'success' ? contentState.content : null),
+		queryKey: arenaQueryKeys.matches(currentUrl.value || null),
 		queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
 		enabled: false, // Don't fetch here, just access cached data
 	});
