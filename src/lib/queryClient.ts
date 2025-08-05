@@ -1,125 +1,86 @@
 import { QueryClient } from "@tanstack/react-query";
-import { experimental_createQueryPersister } from "@tanstack/react-query-persist-client";
-import type { AsyncStorage } from "@tanstack/query-persist-client-core";
+import { experimental_createQueryPersister, type PersistedQuery } from "@tanstack/react-query-persist-client";
+import { openDB, type IDBPDatabase } from 'idb';
 
-// Helper to estimate localStorage usage for our cache
-function estimateStorageSize(): number {
-	try {
-		let totalSize = 0;
-		for (const key in localStorage) {
-			if (key.startsWith("bsky-search-experimental")) {
-				totalSize += localStorage[key].length + key.length;
-			}
-		}
-		return totalSize;
-	} catch {
-		return 0;
-	}
-}
+const DB_NAME = 'bsky-search';
+const STORE_NAME = 'queries';
+const VERSION = 1;
 
-// Helper to check if we're approaching localStorage quota
-function isApproachingQuota(): boolean {
-	const totalSize = estimateStorageSize();
-	// Most browsers have 5-10MB limit, be conservative and trigger at 3MB
-	return totalSize > 3 * 1024 * 1024;
-}
-
-// Helper to clear old cache entries based on dataUpdatedAt timestamps
-function clearOldCacheEntries(): void {
+if (typeof window !== 'undefined' && window.localStorage) {
 	try {
 		const keys = Object.keys(localStorage);
-		const cacheKeys = keys.filter((k) => k.startsWith("bsky-search-experimental"));
-		
-		if (cacheKeys.length === 0) return;
-
-		// Parse entries to get timestamps
-		const entriesWithTimestamp: Array<{ key: string; timestamp: number }> = [];
-		
-		for (const key of cacheKeys) {
-			try {
-				const value = localStorage.getItem(key);
-				if (value) {
-					const parsed = JSON.parse(value);
-					const timestamp = parsed.state?.dataUpdatedAt || 0;
-					entriesWithTimestamp.push({ key, timestamp });
-				}
-			} catch {
-				// If we can't parse, assume it's old and should be removed
-				entriesWithTimestamp.push({ key, timestamp: 0 });
-			}
+		const oldCacheKeys = keys.filter(k => k.startsWith('bsky-search-experimental'));
+		if (oldCacheKeys.length > 0) {
+			console.log(`Migrating from localStorage: clearing ${oldCacheKeys.length} old cache entries`);
+			oldCacheKeys.forEach(k => localStorage.removeItem(k));
 		}
-
-		// Sort by timestamp (oldest first)
-		entriesWithTimestamp.sort((a, b) => a.timestamp - b.timestamp);
-
-		// Remove oldest 40% of entries
-		const toRemove = Math.ceil(entriesWithTimestamp.length * 0.4);
-		const keysToRemove = entriesWithTimestamp.slice(0, toRemove);
-
-		console.log(`Proactively clearing ${keysToRemove.length} old cache entries to prevent quota issues`);
-		
-		for (const { key } of keysToRemove) {
-			localStorage.removeItem(key);
-		}
-	} catch (error) {
-		console.warn("Failed to clear old cache entries:", error);
+	} catch (err) {
+		console.warn('Failed to clear old localStorage cache:', err);
 	}
 }
 
-const localStorageWrapper: AsyncStorage = {
-	getItem: async (key: string) => {
-		return Promise.resolve(window.localStorage.getItem(key));
-	},
-	setItem: async (key: string, value: string) => {
-		// Proactive cache management - check quota before writing
-		if (isApproachingQuota()) {
-			clearOldCacheEntries();
-		}
+let dbPromise: Promise<IDBPDatabase> | null = null;
 
-		try {
-			window.localStorage.setItem(key, value);
-		} catch (error) {
-			if (error instanceof DOMException && (error.code === 22 || error.name === 'QuotaExceededError')) {
-				// QuotaExceededError - clear thread and arena cache and retry
-				console.warn("LocalStorage quota exceeded, clearing cache");
-				try {
-					const keys = Object.keys(localStorage);
-					const cacheKeys = keys.filter((k) =>
-						k.startsWith("bsky-search-experimental")
-					);
-					console.log(`Clearing ${cacheKeys.length} cache entries (all query cache)`);
-					cacheKeys.forEach((k) => localStorage.removeItem(k));
-					// Try again after clearing
-					window.localStorage.setItem(key, value);
-				} catch (retryError) {
-					console.warn(
-						"Failed to write after clearing cache:",
-						retryError,
-					);
-					// Don't throw, just silently fail to cache
-					return Promise.resolve();
-				}
-			} else {
-				// For other errors, log but don't throw to prevent unhandled rejections
-				console.error("Failed to cache query data:", error);
-				return Promise.resolve();
+function getDb(): Promise<IDBPDatabase> {
+	if (dbPromise) return dbPromise;
+
+	dbPromise = openDB(DB_NAME, VERSION, {
+		upgrade(db) {
+			if (!db.objectStoreNames.contains(STORE_NAME)) {
+				db.createObjectStore(STORE_NAME);
 			}
+		},
+		blocked() {
+			console.warn('[IDB] open blocked: another connection is holding the DB');
+		},
+		blocking() {
+			console.warn('[IDB] blocking a future version');
+		},
+		terminated() {
+			console.warn('[IDB] connection terminated');
+			dbPromise = null;
+		},
+	});
+
+	return dbPromise;
+}
+
+const storage = {
+	async getItem(key: string): Promise<PersistedQuery | undefined> {
+		try {
+			const db = await getDb();
+			return db.get(STORE_NAME, key);
+		} catch (err) {
+			console.warn('[IDB] getItem failed:', err);
+			return undefined;
 		}
-		return Promise.resolve();
 	},
-	removeItem: async (key: string) => {
-		window.localStorage.removeItem(key);
-		return Promise.resolve();
+
+	async setItem(key: string, value: PersistedQuery): Promise<void> {
+		try {
+			const db = await getDb();
+			await db.put(STORE_NAME, value, key);
+		} catch (err) {
+			console.warn('[IDB] setItem failed:', err);
+		}
 	},
-	entries: async () => {
-		return Promise.resolve(Object.entries(window.localStorage));
+
+	async removeItem(key: string): Promise<void> {
+		try {
+			const db = await getDb();
+			await db.delete(STORE_NAME, key);
+		} catch (err) {
+			console.warn('[IDB] removeItem failed:', err);
+		}
 	},
 };
 
-export const appPersister = experimental_createQueryPersister({
-	storage: localStorageWrapper,
-	prefix: "bsky-search-experimental",
+export const appPersister = experimental_createQueryPersister<PersistedQuery>({
+	storage,
+	prefix: "bsky-search",
 	maxAge: 1000 * 60 * 60 * 24 * 7,
+	serialize: d => d,
+	deserialize: d => d,
 });
 
 export const queryClient = new QueryClient({
