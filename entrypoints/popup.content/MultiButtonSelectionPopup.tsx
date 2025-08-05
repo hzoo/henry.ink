@@ -54,13 +54,13 @@ const MultiButtonSelectionPopup = ({ position, actions }: MultiButtonSelectionPo
 			}}
 		>
 			{actions.map((action, index) => (
-				<>
+				<div key={action.title} className="contents">
 					<button
-						key={action.title}
 						className={`inline-flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-1 text-gray-700 hover:bg-blue-100 
 									 dark:text-gray-300 dark:hover:bg-blue-700/50 transition-colors
 									 ${animatingIndex.value === index ? 'bg-blue-100 dark:bg-blue-700/50' : ''}`}
-						onMouseDown={(e) => {
+						onClick={(e) => {
+							e.preventDefault();
 							e.stopPropagation();
 							animatingIndex.value = index;
 							setTimeout(() => {
@@ -81,7 +81,7 @@ const MultiButtonSelectionPopup = ({ position, actions }: MultiButtonSelectionPo
 					{index < actions.length - 1 && (
 						<div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
 					)}
-				</>
+				</div>
 			))}
 		</div>
 	);

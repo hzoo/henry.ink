@@ -102,33 +102,6 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 					style={{ width: `${sidebarWidth.value}px` }}
 				>
 					{sidebar}
-					<SelectionPopupManagerV2
-						canShowPopup={() => showQuotePopupOnSelection.peek()}
-						actions={[
-							{
-								title: "Quote",
-								shortcut: "q",
-								onClick: () => {
-									const selection = window.getSelection()?.toString();
-									if (!selection) return;
-									quotedSelection.value = selection;
-								},
-								icon: "💬"
-							},
-							{
-								title: "Arena",
-								shortcut: "a",
-								onClick: async () => {
-									const selection = window.getSelection()?.toString();
-									if (!selection) return;
-									const result = await searchAndSaveArenaChannels(selection);
-									showArenaToast(result, selection);
-								},
-								icon: "🔍"
-							}
-						]}
-						targetContainerRef={mockContainerRef}
-					/>
 				</aside>
 			</>
 
@@ -193,36 +166,38 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 					{/* Mobile Sidebar Content - Wider on mobile */}
 					<div class="w-full max-w-sm sm:max-w-md bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
 						{sidebar}
-						<SelectionPopupManagerV2
-							canShowPopup={() => showQuotePopupOnSelection.peek()}
-							actions={[
-								{
-									title: "Quote",
-									shortcut: "q",
-									onClick: () => {
-										const selection = window.getSelection()?.toString();
-										if (!selection) return;
-										quotedSelection.value = selection;
-									},
-									icon: "💬"
-								},
-								{
-									title: "Arena",
-									shortcut: "a",
-									onClick: async () => {
-										const selection = window.getSelection()?.toString();
-										if (!selection) return;
-										const result = await searchAndSaveArenaChannels(selection);
-										showArenaToast(result, selection);
-									},
-									icon: "🔍"
-								}
-							]}
-							targetContainerRef={mockContainerRef}
-						/>
 					</div>
 				</div>
 			</div>
+
+			{/* Single SelectionPopupManagerV2 for the entire app */}
+			<SelectionPopupManagerV2
+				canShowPopup={() => showQuotePopupOnSelection.peek()}
+				actions={[
+					{
+						title: "Quote",
+						shortcut: "q",
+						onClick: () => {
+							const selection = window.getSelection()?.toString();
+							if (!selection) return;
+							quotedSelection.value = selection;
+						},
+						icon: "💬"
+					},
+					{
+						title: "Arena",
+						shortcut: "a",
+						onClick: async () => {
+							const selection = window.getSelection()?.toString();
+							if (!selection) return;
+							const result = await searchAndSaveArenaChannels(selection);
+							showArenaToast(result, selection);
+						},
+						icon: "🔍"
+					}
+				]}
+				targetContainerRef={mockContainerRef}
+			/>
 		</div>
 	);
 }
