@@ -11,6 +11,7 @@ export interface StoredChannel {
   slug: string;
   title: string;
   author_name: string;
+  author_slug?: string;
   contents_count: number;
   last_checked: string;
   created_at: string;
@@ -22,7 +23,9 @@ export interface ChannelPattern {
   slug: string;
   title: string;
   author_name: string;
+  author_slug?: string;
   contents_count: number;
+  updated_at: string;
 }
 
 export class ChannelStorage {
@@ -54,6 +57,14 @@ export class ChannelStorage {
       )
     `);
 
+    // Add author_slug column if it doesn't exist (for existing databases)
+    try {
+      this.db.exec(`ALTER TABLE channels ADD COLUMN author_slug TEXT`);
+      console.log('✅ Added author_slug column to existing database');
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
     // Metadata table for sync tracking
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sync_metadata (
@@ -82,21 +93,22 @@ export class ChannelStorage {
     const now = new Date().toISOString();
     
     // Build bulk INSERT with multiple VALUES
-    const placeholders = channels.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const placeholders = channels.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
     const bulkInsert = this.db.prepare(`
       INSERT OR REPLACE INTO channels (
-        id, slug, title, author_name, contents_count, last_checked, created_at, updated_at
+        id, slug, title, author_name, author_slug, contents_count, last_checked, created_at, updated_at
       ) VALUES ${placeholders}
     `);
 
     // Flatten all channel data into a single array
-    const values: (string | number)[] = [];
+    const values: (string | number | null)[] = [];
     for (const channel of channels) {
       values.push(
         channel.id,
         channel.slug,
         channel.title,
-        'unknown', // User field removed from query due to GraphQL null issues
+        channel.author_name || 'unknown',
+        channel.author_slug || null,
         channel.counts.contents,
         now,
         channel.created_at,
@@ -183,7 +195,9 @@ export class ChannelStorage {
         slug,
         title,
         author_name,
-        contents_count
+        author_slug,
+        contents_count,
+        updated_at
       FROM channels
       WHERE contents_count >= 3
       ORDER BY contents_count DESC
@@ -208,7 +222,9 @@ export class ChannelStorage {
             slug: channel.slug,
             title: channel.title, // Keep original title for display
             author_name: channel.author_name,
-            contents_count: channel.contents_count
+            author_slug: channel.author_slug,
+            contents_count: channel.contents_count,
+            updated_at: channel.updated_at
           });
         }
       }
@@ -354,6 +370,22 @@ export class ChannelStorage {
     const result = this.db.prepare(`DELETE FROM channels WHERE slug = ?`).run(slug);
     if (result.changes > 0) {
       console.log(`🗑️ Removed dead channel: ${slug}`);
+    }
+  }
+
+  /**
+   * Update author information for a channel (lazy loading)
+   */
+  updateChannelAuthor(slug: string, authorName: string, authorSlug?: string): void {
+    const update = this.db.prepare(`
+      UPDATE channels 
+      SET author_name = ?, author_slug = ?, last_checked = ? 
+      WHERE slug = ?
+    `);
+    
+    const result = update.run(authorName, authorSlug || null, new Date().toISOString(), slug);
+    if (result.changes > 0) {
+      console.log(`📝 Updated author for ${slug}: ${authorName} (@${authorSlug})`);
     }
   }
 
