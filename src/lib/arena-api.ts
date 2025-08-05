@@ -27,23 +27,25 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
 
   const result: ArenaApiResponse = await response.json();
   
-  return result.matches.map((match) => {
-    const contextStart = Math.max(0, match.bestMatch.position - 50);
-    const contextEnd = Math.min(content.length, match.bestMatch.endPosition + 50);
-    const context = content.substring(contextStart, contextEnd);
-    
-    return {
-      slug: match.slug,
-      title: match.title,
-      matchedText: match.bestMatch.matchedText,
-      context: context.trim(),
-      url: `https://are.na/channels/${match.slug}`,
-      author_name: match.author_name,
-      author_slug: match.author_slug,
-      contents_count: match.contents_count,
-      updated_at: match.updated_at
-    };
-  });
+  return result.matches
+    .filter(match => match.contents_count > 1) // Filter out channels with only 1 block
+    .map((match) => {
+      const contextStart = Math.max(0, match.bestMatch.position - 50);
+      const contextEnd = Math.min(content.length, match.bestMatch.endPosition + 50);
+      const context = content.substring(contextStart, contextEnd);
+      
+      return {
+        slug: match.slug,
+        title: match.title,
+        matchedText: match.bestMatch.matchedText,
+        context: context.trim(),
+        url: `https://are.na/channels/${match.slug}`,
+        author_name: match.author_name,
+        author_slug: match.author_slug,
+        contents_count: match.contents_count,
+        updated_at: match.updated_at
+      };
+    });
 }
 
 /**

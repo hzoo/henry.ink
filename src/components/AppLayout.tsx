@@ -1,11 +1,14 @@
 import { useEffect, useRef } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { signal } from "@preact/signals";
+import { useQueryClient } from "@tanstack/react-query";
 import { LoginButton } from "@/src/components/LoginButton";
 import { quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManagerV2 from "@/entrypoints/popup.content/SelectionPopupManagerV2";
 import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
+import { arenaQueryKeys } from "@/src/lib/arena-api";
+import { currentUrl } from "@/src/lib/messaging";
 
 // UI state signals
 const sidebarWidth = signal(384);
@@ -44,6 +47,7 @@ const handleMouseDown = (e: MouseEvent) => {
 
 export function AppLayout({ children, sidebar }: AppLayoutProps) {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
+	const queryClient = useQueryClient();
 
 	// Load saved sidebar width from localStorage
 	useEffect(() => {
@@ -192,6 +196,13 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 							if (!selection) return;
 							const result = await searchAndSaveArenaChannels(selection);
 							showArenaToast(result, selection);
+							
+							// Invalidate Arena matches query to show new channels immediately
+							if (result.success && result.channelCount > 0) {
+								queryClient.invalidateQueries({ 
+									queryKey: arenaQueryKeys.matches(currentUrl.value || null) 
+								});
+							}
 						},
 						icon: "🔍"
 					}
