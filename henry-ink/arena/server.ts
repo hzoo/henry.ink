@@ -319,8 +319,8 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
     const channels = data.channels || [];
     
     if (channels.length > 0) {
-      // Filter out empty channels (no content blocks)
-      const filteredChannels = channels.filter(ch => ch.length && ch.length > 0);
+      // Filter out channels with 1 or fewer blocks
+      const filteredChannels = channels.filter(ch => ch.length && ch.length > 1);
       
       // Normalize channels for database storage
       const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch: ArenaAPIResponse) => ({
@@ -339,7 +339,7 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
       
       // Save to database
       await storage.storeChannels(normalizedChannels);
-      console.log(`📦 Saved ${normalizedChannels.length} channels to database (filtered ${channels.length - filteredChannels.length} empty channels)`);
+      console.log(`📦 Saved ${normalizedChannels.length} channels to database (filtered ${channels.length - filteredChannels.length} channels with ≤1 block)`);
       
       // Auto-refresh patterns so new channels are immediately available for /enhance
       await enhancer.refreshPatterns();

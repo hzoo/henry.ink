@@ -26,8 +26,17 @@ export function ArenaSidebar() {
     retry: 1,
   });
 
+  // Sort matches so channels with more content appear first for duplicate matched text
+  const sortedMatches = [...matches].sort((a, b) => {
+    // First sort by matched text to group duplicates together
+    const textCompare = a.matchedText.localeCompare(b.matchedText);
+    if (textCompare !== 0) return textCompare;
+    // Then sort by contents_count descending for the same matched text
+    return b.contents_count - a.contents_count;
+  });
+
   // Group matches by matched text to identify duplicates
-  const matchTextCounts = matches.reduce((acc, match) => {
+  const matchTextCounts = sortedMatches.reduce((acc, match) => {
     acc[match.matchedText] = (acc[match.matchedText] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -47,14 +56,14 @@ export function ArenaSidebar() {
           message={error instanceof Error ? error.message : 'Failed to fetch Arena channels'}
           onDismiss={() => (userDismissedError.value = true)}
         />
-      ) : matches.length === 0 ? (
+      ) : sortedMatches.length === 0 ? (
         <div className="p-4 text-center text-gray-500 dark:text-gray-400">
           <div className="mb-2">🔍</div>
           <div className="text-sm">No Arena channels found for this content</div>
         </div>
       ) : (
         <>
-          {matches.map((match, index) => (
+          {sortedMatches.map((match, index) => (
             <ArenaChannelItem
               key={`${match.slug}-${index}`}
               match={match}
