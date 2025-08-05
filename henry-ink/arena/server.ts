@@ -88,7 +88,11 @@ interface ArenaAPIResponse {
   created_at: string;
   length?: number;
   status?: string;
-  user?: { slug: string };
+  user?: { 
+    slug: string;
+    username?: string;
+    full_name?: string;
+  };
   owner_slug?: string;
 }
 
@@ -202,6 +206,35 @@ async function handleChannelBlocks(req: Request, corsHeaders: Record<string, str
       );
     }
 
+    // Lazy update author if it's currently unknown
+    try {
+      const existingChannel = storage.getChannelBySlug(slug);
+      if (existingChannel?.author_slug == null) {
+        // Fetch channel info to get author data
+        const channelInfoUrl = `https://api.are.na/v2/channels/${slug}`;
+        const appToken = process.env.VITE_ARENA_APP_TOKEN;
+        const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
+        
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+        };
+        
+        if (appToken) headers['x-app-token'] = appToken;
+        if (authToken) headers['x-auth-token'] = authToken;
+
+        const channelResponse = await fetch(channelInfoUrl, { headers });
+        if (channelResponse.ok) {
+          const channelData = await channelResponse.json() as { user: { username?: string; full_name?: string; slug?: string } };
+          if (channelData.user) {
+            const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
+            storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to update author for channel ${slug}:`, error);
+    }
+
     return new Response(
       JSON.stringify(channelWithBlocks),
       {
@@ -299,6 +332,8 @@ async function handleArenaSearch(req: Request, corsHeaders: Record<string, strin
         counts: {
           contents: ch.length || 0
         },
+        author_name: ch.user?.username || ch.user?.full_name || ch.user?.slug || 'unknown',
+        author_slug: ch.user?.slug,
         visibility_name: ch.status?.toUpperCase() || 'PUBLIC'
       }));
       

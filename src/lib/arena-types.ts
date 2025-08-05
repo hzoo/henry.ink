@@ -7,7 +7,9 @@ export interface ArenaApiMatch {
   slug: string;
   title: string;
   author_name: string;
+  author_slug?: string;
   contents_count: number;
+  updated_at?: string;
   bestMatch: {
     matchedText: string;
     position: number;
@@ -26,6 +28,10 @@ export interface ArenaMatch {
   matchedText: string;
   context?: string; // Used by sidebar for preview text
   url: string;
+  author_name: string;
+  author_slug?: string;
+  contents_count: number;
+  updated_at?: string;
 }
 
 // Arena match with position data (for navigation)
