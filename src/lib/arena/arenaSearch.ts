@@ -25,7 +25,8 @@ export async function searchAndSaveArenaChannels(searchText: string): Promise<Ar
   try {
     console.log(`🔍 Searching Arena for: "${searchText}"`);
     
-    const response = await fetch('http://localhost:3001/api/search-arena', {
+    const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiUrl}/api/search-arena`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
