@@ -383,10 +383,10 @@ export class ChannelStorage {
       WHERE slug = ?
     `);
     
-    const result = update.run(authorName, authorSlug || null, new Date().toISOString(), slug);
-    if (result.changes > 0) {
-      console.log(`📝 Updated author for ${slug}: ${authorName} (@${authorSlug})`);
-    }
+    update.run(authorName, authorSlug || null, new Date().toISOString(), slug);
+    // if (result.changes > 0) {
+    //   console.log(`📝 Updated author for ${slug}: ${authorName} (@${authorSlug})`);
+    // }
   }
 
 

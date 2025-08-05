@@ -418,7 +418,9 @@ async function handleEnhance(req: Request, corsHeaders: Record<string, string>):
     if (body.url) {
       const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
       enhancementCache.set(cacheKey, result);
+      console.log(`🔍 "${body.url}"`);
     }
+
 
     return new Response(
       JSON.stringify(result),
