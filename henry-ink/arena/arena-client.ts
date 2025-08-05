@@ -12,7 +12,8 @@ export interface ArenaChannel {
   counts: {
     contents: number;
   };
-  // user field removed due to GraphQL null issues
+  author_name?: string;
+  author_slug?: string;
   visibility_name: string;
 }
 

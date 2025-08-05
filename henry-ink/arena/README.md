@@ -47,10 +47,7 @@ See [DEPLOY.md](./DEPLOY.md) for deployment instructions.
 
 - `POST /enhance` - Enhance content with Arena channel links
 - `POST /api/search-arena` - Search Arena channels and save to database
-- `GET /stats` - Get enhancement statistics
 - `GET /health` - Health check
-- `GET /debug/enable` - Enable verbose debugging
-- `GET /debug/disable` - Enable production mode
 
 ## Tech Stack
 

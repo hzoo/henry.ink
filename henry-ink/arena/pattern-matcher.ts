@@ -17,7 +17,9 @@ export interface MatchResult {
   slug: string;
   title: string;
   author_name: string;
+  author_slug?: string;
   contents_count: number;
+  updated_at?: string;
   matches: PatternMatch[];
   bestMatch: PatternMatch;
 }
@@ -26,14 +28,11 @@ export class ChannelPatternMatcher {
   private ac: AhoCorasick | null = null;
   private patterns: ChannelPattern[] = [];
   private patternLookup: Map<string, ChannelPattern> = new Map();
-  private buildTime = 0;
 
   /**
    * Build Aho-Corasick automaton from channel patterns
    */
   buildFromPatterns(patterns: ChannelPattern[], normalizeFunction: (text: string) => string): void {
-    const startTime = performance.now();
-    
     this.patterns = patterns;
     this.patternLookup.clear();
 
@@ -50,8 +49,6 @@ export class ChannelPatternMatcher {
 
     // Build the automaton
     this.ac = new AhoCorasick(keywords);
-    
-    this.buildTime = performance.now() - startTime;
   }
 
   /**
@@ -62,8 +59,6 @@ export class ChannelPatternMatcher {
       throw new Error('Pattern matcher not initialized. Call buildFromPatterns() first.');
     }
 
-    const startTime = performance.now();
-    
     // Search for all patterns in normalized text
     const normalizedText = normalizeFunction(text);
     
@@ -107,8 +102,6 @@ export class ChannelPatternMatcher {
     // Group matches by channel slug and select best match per channel
     const channelMatches = this.groupAndRankMatches(patternMatches);
     
-    const searchTime = performance.now() - startTime;
-    
     return channelMatches;
   }
 
@@ -140,7 +133,9 @@ export class ChannelPatternMatcher {
         slug,
         title: bestMatch.pattern.title,
         author_name: bestMatch.pattern.author_name,
+        author_slug: bestMatch.pattern.author_slug,
         contents_count: bestMatch.pattern.contents_count,
+        updated_at: bestMatch.pattern.updated_at,
         matches: channelMatches,
         bestMatch
       });

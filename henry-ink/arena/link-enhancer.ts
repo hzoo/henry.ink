@@ -12,9 +12,6 @@ export interface EnhancementOptions {
 
 export interface EnhancementResult {
   matches: MatchResult[];
-  stats: {
-    processingTime: number;
-  };
 }
 
 
@@ -60,21 +57,13 @@ export class LinkEnhancer {
   async findChannelMatches(content: string, options: EnhancementOptions = {}): Promise<EnhancementResult> {
     await this.initialize();
 
-    const startTime = performance.now();
-    
     // Find all channel matches in content
     const matches = this.matcher.findMatches(content, this.storage.normalizeForMatching.bind(this.storage));
-    
     // Filter matches based on options
     const filteredMatches = this.filterMatches(matches, options);
 
-    const totalTime = performance.now() - startTime;
-
     return {
       matches: filteredMatches,
-      stats: {
-        processingTime: totalTime
-      }
     };
   }
 
