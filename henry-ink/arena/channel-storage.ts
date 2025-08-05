@@ -120,7 +120,6 @@ export class ChannelStorage {
       bulkInsert.run(...values);
     });
 
-    console.log(`Storing ${channels.length} channels...`);
     transaction();
 
     // Update sync metadata
@@ -128,8 +127,6 @@ export class ChannelStorage {
       INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
       VALUES ('last_sync', ?, ?)
     `).run(now, now);
-
-    console.log(`Stored ${channels.length} channels successfully`);
   }
 
   /**
