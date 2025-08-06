@@ -174,8 +174,8 @@ async function handleChannelBlocks(req: Request, corsHeaders: Record<string, str
   }
 
   try {
-    const body = await req.json() as { slug: string };
-    const { slug } = body;
+    const body = await req.json() as { slug: string; per?: number; page?: number };
+    const { slug, per = 5, page = 1 } = body;
     
     if (!slug || typeof slug !== 'string') {
       return new Response(
@@ -191,7 +191,7 @@ async function handleChannelBlocks(req: Request, corsHeaders: Record<string, str
     const { ArenaClient } = await import('./arena-client');
     const arenaClient = new ArenaClient();
     
-    const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug);
+    const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug, per, page);
     
     if (!channelWithBlocks) {
       // Clean up dead channels from database
@@ -452,7 +452,7 @@ console.log(`🔒 CORS Origins: ${CORS_ORIGINS.join(', ')}`);
 console.log('\nAvailable endpoints:');
 console.log('  POST /enhance           - Enhance content with Arena channel links');
 console.log('  POST /api/search-arena  - Search Arena channels and save to database');
-console.log('  POST /channel-blocks    - Fetch blocks for a specific Arena channel');
+console.log('  POST /channel-blocks    - Fetch blocks for a specific Arena channel (default 5, customizable via "per")');
 console.log('  GET  /health            - Health check');
 
 // Graceful shutdown

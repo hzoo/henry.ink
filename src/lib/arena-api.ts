@@ -51,7 +51,7 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
 /**
  * Fetch blocks for a specific Arena channel
  */
-export async function fetchChannelBlocks(slug: string): Promise<ArenaChannelWithBlocks | null> {
+export async function fetchChannelBlocks(slug: string, per: number = 24, page: number = 1): Promise<ArenaChannelWithBlocks | null> {
   const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
   
   const response = await fetch(`${apiUrl}/channel-blocks`, {
@@ -59,7 +59,7 @@ export async function fetchChannelBlocks(slug: string): Promise<ArenaChannelWith
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug, per, page }),
   });
 
   if (!response.ok) {
@@ -99,5 +99,5 @@ export function formatRelativeTime(dateString?: string): string {
  */
 export const arenaQueryKeys = {
   matches: (url: string | null) => ['arenaMatches', url || 'unknown'] as const,
-  blocks: (slug: string) => ['arenaBlocks', slug] as const,
+  blocks: (slug: string, per?: number, page?: number) => ['arenaBlocks', slug, per, page].filter(Boolean) as const,
 };
