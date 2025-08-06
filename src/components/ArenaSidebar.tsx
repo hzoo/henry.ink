@@ -3,14 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { LoadingItemList } from "@/src/components/LoadingItem";
 import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { ArenaChannelItem } from "@/src/components/ArenaChannelItem";
+import { ArenaChannelDetail } from "@/src/components/ArenaChannelDetail";
 import { contentStateSignal, arenaViewModeSignal } from "@/henry-ink/signals";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import { currentUrl } from "@/src/lib/messaging";
-import type { ArenaMatch } from "@/src/lib/arena-types";
+import { arenaNavigationState } from "@/src/lib/arena-navigation";
 
 export function ArenaSidebar() {
   const userDismissedError = useSignal(false);
   const contentState = contentStateSignal.value;
+  const navState = arenaNavigationState.value;
 
   // Use shared query with consistent key
   const {
@@ -21,7 +23,7 @@ export function ArenaSidebar() {
   } = useQuery({
     queryKey: arenaQueryKeys.matches(currentUrl.value || null),
     queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
-    enabled: contentState.type === 'success' && !!contentState.content,
+    enabled: contentState.type === 'success' && !!contentState.content && navState.route === 'channel-list',
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
   });
@@ -36,6 +38,11 @@ export function ArenaSidebar() {
   if (isError && error && userDismissedError.value) {
     // Reset dismissed state when error changes (new query)
     userDismissedError.value = false;
+  }
+
+  // Render channel detail view if navigated
+  if (navState.route === 'channel-detail' && navState.selectedChannel) {
+    return <ArenaChannelDetail channel={navState.selectedChannel} />;
   }
 
   return (

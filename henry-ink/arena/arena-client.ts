@@ -235,10 +235,10 @@ export class ArenaClient {
   /**
    * Fetch blocks for a specific channel using REST API
    */
-  async fetchChannelBlocks(slug: string): Promise<import('../../src/lib/arena-types').ArenaChannelWithBlocks | null> {
+  async fetchChannelBlocks(slug: string, per: number = 5, page: number = 1): Promise<import('../../src/lib/arena-types').ArenaChannelWithBlocks | null> {
     try {
       // Use REST API V2 to get channel with contents
-      const restUrl = `https://api.are.na/v2/channels/${slug}?per=5`;
+      const restUrl = `https://api.are.na/v2/channels/${slug}?per=${per}&page=${page}`;
       
       // Get app token from environment
       const appToken = process.env.VITE_ARENA_APP_TOKEN;
@@ -272,7 +272,7 @@ export class ArenaClient {
       }
 
       // Transform REST API response to our expected format
-      const blocks = channelData.contents.slice(0, 5).map((content: any) => {
+      const blocks = channelData.contents.map((content: any) => {
         const baseBlock = {
           id: content.id,
           title: content.title || content.generated_title || 'Untitled',

@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	fetchChannelBlocks,
 	arenaQueryKeys,
 	formatRelativeTime,
 } from "@/src/lib/arena-api";
 import { arenaNavigationRequest } from "@/src/lib/messaging";
+import { navigateToChannel } from "@/src/lib/arena-navigation";
 import type {
 	ArenaMatch,
 	ArenaBlock,
@@ -24,7 +25,7 @@ interface ArenaChannelItemProps {
 	viewMode: ArenaViewMode;
 }
 
-function ArenaBlockItem({ block }: { block: ArenaBlock }) {
+export function ArenaBlockItem({ block }: { block: ArenaBlock }) {
 	const handleBlockClick = () => {
 		window.open(`https://are.na${block.href}`, "_blank", "noopener,noreferrer");
 	};
@@ -220,10 +221,20 @@ export function ArenaChannelItem({
 	viewMode,
 }: ArenaChannelItemProps) {
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const queryClient = useQueryClient();
 
 	// Handle navigation to text position
 	const handleNavigateToMatch = (match: ArenaMatch) => {
 		arenaNavigationRequest.value = { matchedText: match.matchedText };
+	};
+
+	// Prefetch channel blocks on hover
+	const handleChannelHover = () => {
+		queryClient.prefetchQuery({
+			queryKey: arenaQueryKeys.blocks(match.slug, 24, 1),
+			queryFn: () => fetchChannelBlocks(match.slug, 24, 1),
+			staleTime: 10 * 60 * 1000,
+		});
 	};
 
 	// Fetch blocks for this channel (only in preview mode)
@@ -232,8 +243,8 @@ export function ArenaChannelItem({
 		isLoading: blocksLoading,
 		error: blocksError,
 	} = useQuery({
-		queryKey: arenaQueryKeys.blocks(match.slug),
-		queryFn: () => fetchChannelBlocks(match.slug),
+		queryKey: arenaQueryKeys.blocks(match.slug, 24, 1),
+		queryFn: () => fetchChannelBlocks(match.slug, 24, 1),
 		staleTime: 10 * 60 * 1000, // 10 minutes
 		retry: 1,
 		enabled: viewMode === "preview", // Only fetch in preview mode
@@ -260,15 +271,13 @@ export function ArenaChannelItem({
 			{/* Channel Title */}
 			<div className="flex gap-1 justify-between">
 				<div className="mb-1">
-					<a
-						href={match.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium text-sm leading-tight hover:underline inline-block"
-						onClick={(e) => e.stopPropagation()}
+					<button
+						onClick={() => navigateToChannel(match)}
+						onMouseEnter={handleChannelHover}
+						className="text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium text-sm leading-tight hover:underline text-left"
 					>
 						{match.title}
-					</a>
+					</button>
 				</div>
 
 				{/* Matched Text */}
