@@ -38,8 +38,6 @@
     "@preact/signals-react": "^3.2.1",
     "@tailwindcss/typography": "^0.5.16",
     "@tailwindcss/vite": "^4.1.11",
-    "@tanstack/query-persist-client-core": "^5.83.1",
-    "@tanstack/query-sync-storage-persister": "^5.83.1",
     "@tanstack/react-query": "^5.83.1",
     "@tanstack/react-query-persist-client": "^5.83.1",
     "dompurify": "^3.2.6",
