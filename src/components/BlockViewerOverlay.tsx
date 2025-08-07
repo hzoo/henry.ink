@@ -169,10 +169,11 @@ export function BlockViewerOverlay() {
     switch (block.__typename) {
       case "Image": {
         const imageBlock = block as ImageBlock;
-        const lowResUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_1x;
-        const highResUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_2x;
+        // Use CloudFront original URL for instant loading in fullscreen
+        const cloudFrontUrl = imageBlock.image_url;
+        const thumbnailUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_1x;
         
-        if (!lowResUrl) {
+        if (!cloudFrontUrl && !thumbnailUrl) {
           return (
             <div className="flex items-center justify-center h-96 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
               No image available
@@ -180,7 +181,12 @@ export function BlockViewerOverlay() {
           );
         }
 
-        return <ProgressiveImage lowResUrl={lowResUrl} highResUrl={highResUrl} alt={imageBlock.title || "Arena image"} />;
+        // Progressive loading: thumbnail preview → CloudFront original
+        return <ProgressiveImage 
+          lowResUrl={thumbnailUrl || cloudFrontUrl!} 
+          highResUrl={cloudFrontUrl}
+          alt={imageBlock.title || "Arena image"} 
+        />;
       }
 
       case "Text": {
@@ -201,12 +207,13 @@ export function BlockViewerOverlay() {
 
       case "Link": {
         const linkBlock = block as LinkBlock;
-        const imageUrl = linkBlock.resized_image?.grid_cell_resized_image?.src_2x ||
-                        linkBlock.resized_image?.grid_cell_resized_image?.src_1x;
+        // Prefer CloudFront original, fallback to display size (1200x1200)
+        console.log(linkBlock);
+        const imageUrl = linkBlock.image_url || linkBlock.resized_image?.grid_cell_resized_image?.src_2x;
         const domain = linkBlock.source?.url ? new URL(linkBlock.source.url).hostname : null;
         
         return (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             {imageUrl && (
               <div className="mb-6">
                 <img
@@ -236,11 +243,12 @@ export function BlockViewerOverlay() {
 
       case "Embed": {
         const embedBlock = block as EmbedBlock;
-        const imageUrl = embedBlock.resized_image?.grid_cell_resized_image?.src_2x ||
-                        embedBlock.resized_image?.grid_cell_resized_image?.src_1x;
+        // Prefer CloudFront original, fallback to display size (1200x1200)
+        const imageUrl = embedBlock.image_url ||
+                        embedBlock.resized_image?.grid_cell_resized_image?.src_2x;
         
         return (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             {imageUrl && (
               <div className="mb-6">
                 <img
@@ -260,11 +268,12 @@ export function BlockViewerOverlay() {
 
       case "Attachment": {
         const attachmentBlock = block as AttachmentBlock;
-        const imageUrl = attachmentBlock.resized_image?.grid_cell_resized_image?.src_2x ||
-                        attachmentBlock.resized_image?.grid_cell_resized_image?.src_1x;
+        // Prefer CloudFront original, fallback to display size (1200x1200)
+        const imageUrl = attachmentBlock.image_url ||
+                        attachmentBlock.resized_image?.grid_cell_resized_image?.src_2x;
         
         return (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             {imageUrl ? (
               <div className="mb-6">
                 <img
