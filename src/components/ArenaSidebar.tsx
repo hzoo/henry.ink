@@ -1,77 +1,26 @@
-import { useSignal } from "@preact/signals-react/runtime";
-import { useQuery } from "@tanstack/react-query";
-import { LoadingItemList } from "@/src/components/LoadingItem";
-import { ErrorMessage } from "@/src/components/ErrorMessage";
-import { ArenaChannelItem } from "@/src/components/ArenaChannelItem";
-import { ArenaChannelDetail } from "@/src/components/ArenaChannelDetail";
-import { contentStateSignal, arenaViewModeSignal } from "@/henry-ink/signals";
-import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
-import { currentUrl } from "@/src/lib/messaging";
-import { arenaNavigationState } from "@/src/lib/arena-navigation";
+import { ArenaChannelList } from "@/src/components/ArenaChannelList";
+import { ArenaChannelView } from "@/src/components/ArenaChannelView";
+import { BlockViewerOverlay } from "@/src/components/BlockViewerOverlay";
+import { arenaUrlState } from "@/src/lib/arena-navigation";
 
+/**
+ * Simple router for Arena components based on URL state
+ * Each component is self-contained and fetches its own data
+ */
 export function ArenaSidebar() {
-  const userDismissedError = useSignal(false);
-  const contentState = contentStateSignal.value;
-  const navState = arenaNavigationState.value;
-
-  // Use shared query with consistent key
-  const {
-    data: matches = [],
-    isLoading,
-    error,
-    isError
-  } = useQuery({
-    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
-    queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
-    enabled: contentState.type === 'success' && !!contentState.content && navState.route === 'channel-list',
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-    retry: 1,
-  });
-
-  // Group matches by matched text to identify duplicates (preserve original order from backend)
-  const matchTextCounts = matches.reduce((acc, match) => {
-    acc[match.matchedText] = (acc[match.matchedText] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Reset dismissed error when query key changes
-  if (isError && error && userDismissedError.value) {
-    // Reset dismissed state when error changes (new query)
-    userDismissedError.value = false;
-  }
-
-  // Render channel detail view if navigated
-  if (navState.route === 'channel-detail' && navState.selectedChannel) {
-    return <ArenaChannelDetail channel={navState.selectedChannel} />;
-  }
+  const urlState = arenaUrlState.value;
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {isLoading ? (
-        <LoadingItemList />
-      ) : isError && !userDismissedError.value ? (
-        <ErrorMessage
-          message={error instanceof Error ? error.message : 'Failed to fetch Arena channels'}
-          onDismiss={() => (userDismissedError.value = true)}
-        />
-      ) : matches.length === 0 ? (
-        <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-          <div className="mb-2">🔍</div>
-          <div className="text-sm">No Arena channels found for this content</div>
-        </div>
+    <div className="flex-1 flex flex-col h-full relative">
+      {/* Route based on URL state */}
+      {urlState.channelSlug ? (
+        <ArenaChannelView channelSlug={urlState.channelSlug} />
       ) : (
-        <>
-          {matches.map((match, index) => (
-            <ArenaChannelItem
-              key={`${match.slug}-${index}`}
-              match={match}
-              index={index}
-              matchTextCounts={matchTextCounts}
-              viewMode={arenaViewModeSignal.value}
-            />
-          ))}
-        </>
+        <ArenaChannelList />
       )}
+
+      {/* Block viewer overlay - rendered globally based on URL state */}
+      <BlockViewerOverlay />
     </div>
   );
 }

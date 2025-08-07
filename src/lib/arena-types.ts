@@ -103,5 +103,12 @@ export type ArenaBlock = ImageBlock | TextBlock | LinkBlock | EmbedBlock | Attac
 export interface ArenaChannelWithBlocks {
   id: number;
   slug: string;
+  title: string;
+  user: {
+    name: string;
+    slug: string;
+  };
+  length: number; // number of contents/blocks
+  updated_at: string;
   blocks: ArenaBlock[];
 }

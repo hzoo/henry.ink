@@ -18,9 +18,9 @@ interface TabbedSidebarProps {
 }
 
 export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSidebarProps) {
-	const contentState = contentStateSignal.value;
-	
 	useAtCute();
+
+	const contentState = contentStateSignal.value;
 	
 	// Access arena matches data from React Query cache
 	const { data: arenaMatches = [] } = useQuery<ArenaMatch[]>({

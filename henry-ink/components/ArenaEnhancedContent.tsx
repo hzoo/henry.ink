@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
+import { navigateToChannel } from "@/src/lib/arena-navigation";
 import type { ArenaMatch } from "@/src/lib/arena-types";
+import { useEffect } from "preact/hooks";
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
@@ -137,22 +139,31 @@ export function ArenaEnhancedContent({ htmlContent, contentRef }: ArenaEnhancedC
               
               if (before) newFragments.push(before);
               
-              // Create link element
-              const link = document.createElement('a');
-              link.href = `https://are.na/channels/${match.slug}`;
-              link.className = 'arena-channel-link';
-              link.target = '_blank';
-              link.rel = 'noopener noreferrer';
-              link.title = `${match.title} on Are.na`;
-              link.textContent = matchedText;
+              // Create link wrapper
+              const linkWrapper = document.createElement('span');
+              linkWrapper.className = 'arena-channel-link-wrapper';
               
-              // Add icon
-              const icon = document.createElement('span');
-              icon.className = 'arena-link-icon';
-              icon.textContent = '↗';
-              link.appendChild(icon);
+              // Create clickable text for internal navigation
+              const textLink = document.createElement('button');
+              textLink.className = 'arena-channel-link';
+              textLink.title = `View ${match.title} in sidebar`;
+              textLink.textContent = matchedText;
+              textLink.setAttribute('data-channel-slug', match.slug);
+              textLink.setAttribute('data-channel-data', JSON.stringify(match));
               
-              newFragments.push(link);
+              // Create external link icon
+              const externalLink = document.createElement('a');
+              externalLink.href = `https://are.na/channels/${match.slug}`;
+              externalLink.className = 'arena-link-icon';
+              externalLink.target = '_blank';
+              externalLink.rel = 'noopener noreferrer';
+              externalLink.title = `Open ${match.title} on Are.na`;
+              externalLink.textContent = '↗';
+              
+              linkWrapper.appendChild(textLink);
+              linkWrapper.appendChild(externalLink);
+              
+              newFragments.push(linkWrapper);
               if (after) newFragments.push(after);
             } else {
               newFragments.push(fragment);
@@ -178,6 +189,33 @@ export function ArenaEnhancedContent({ htmlContent, contentRef }: ArenaEnhancedC
 
     return tempDiv.innerHTML;
   });
+
+  // Add click handlers for arena channel links
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const handleChannelClick = (event: Event) => {
+      const button = event.target as HTMLElement;
+      if (button.classList.contains('arena-channel-link')) {
+        event.preventDefault();
+        const channelData = button.getAttribute('data-channel-data');
+        if (channelData) {
+          try {
+            const channel = JSON.parse(channelData) as ArenaMatch;
+            navigateToChannel(channel);
+          } catch (err) {
+            console.error('Failed to parse channel data:', err);
+          }
+        }
+      }
+    };
+
+    contentRef.current.addEventListener('click', handleChannelClick);
+    
+    return () => {
+      contentRef.current?.removeEventListener('click', handleChannelClick);
+    };
+  }, [contentRef, enhancedHtml.value]);
 
   return (
     <div

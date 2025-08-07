@@ -5,7 +5,7 @@ import {
 	formatRelativeTime,
 } from "@/src/lib/arena-api";
 import { arenaNavigationRequest } from "@/src/lib/messaging";
-import { navigateToChannel } from "@/src/lib/arena-navigation";
+import { navigateToChannel, openBlockOverlay } from "@/src/lib/arena-navigation";
 import type {
 	ArenaMatch,
 	ArenaBlock,
@@ -25,9 +25,14 @@ interface ArenaChannelItemProps {
 	viewMode: ArenaViewMode;
 }
 
-export function ArenaBlockItem({ block }: { block: ArenaBlock }) {
+interface ArenaBlockItemProps {
+	block: ArenaBlock;
+	channelSlug?: string;
+}
+
+export function ArenaBlockItem({ block, channelSlug }: ArenaBlockItemProps) {
 	const handleBlockClick = () => {
-		window.open(`https://are.na${block.href}`, "_blank", "noopener,noreferrer");
+		openBlockOverlay(block, channelSlug);
 	};
 
 	switch (block.__typename) {
@@ -39,7 +44,7 @@ export function ArenaBlockItem({ block }: { block: ArenaBlock }) {
 			if (!imageUrl) {
 				return (
 					<div
-						className="cursor-pointer group relative bg-gray-200 dark:bg-gray-700 rounded overflow-hidden aspect-square flex items-center justify-center"
+						className="cursor-pointer group relative bg-gray-200 dark:bg-gray-700 rounded overflow-hidden min-h-[100px] flex items-center justify-center"
 						onClick={handleBlockClick}
 						title={imageBlock.title || "Untitled image"}
 					>
@@ -50,14 +55,14 @@ export function ArenaBlockItem({ block }: { block: ArenaBlock }) {
 
 			return (
 				<div
-					className="cursor-pointer group relative bg-gray-100 dark:bg-gray-800 rounded overflow-hidden aspect-square hover:ring-2 hover:ring-green-500 hover:ring-opacity-50 transition-all duration-200"
+					className="cursor-pointer group relative bg-gray-100 dark:bg-gray-800 rounded overflow-hidden hover:ring-2 hover:ring-green-500 hover:ring-opacity-50 transition-all duration-200"
 					onClick={handleBlockClick}
 					title={imageBlock.title || "Untitled image"}
 				>
 					<img
 						src={imageUrl}
 						alt={imageBlock.title || "Arena image"}
-						className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+						className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
 						loading="lazy"
 						onError={(e) => {
 							const target = e.target as HTMLImageElement;
@@ -388,7 +393,7 @@ export function ArenaChannelItem({
 							>
 								{blocks.map((block) => (
 									<div key={block.id} className="flex-shrink-0 w-32">
-										<ArenaBlockItem block={block} />
+										<ArenaBlockItem block={block} channelSlug={match.slug} />
 									</div>
 								))}
 							</div>

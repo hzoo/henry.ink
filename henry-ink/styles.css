@@ -4,8 +4,19 @@
 @plugin "@tailwindcss/typography";
 
 /* Arena channel links styling */
+.arena-channel-link-wrapper {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
 .arena-channel-link {
   color: #17AD58; /* Arena green */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
   text-decoration: none;
   border-bottom: 1px dotted #17AD58;
   transition: all 0.2s ease;
@@ -17,14 +28,17 @@
 }
 
 .arena-link-icon {
-  font-size: 0.8em;
-  margin-left: 1px;
-  opacity: 0.7;
-  display: inline-block;
+  color: #17AD58;
+  font-size: 0.75em;
+  opacity: 0.6;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+  padding: 0 2px;
 }
 
-.arena-channel-link:hover .arena-link-icon {
+.arena-link-icon:hover {
   opacity: 1;
+  color: #0e7a3e;
 }
 
 /* Dark mode adjustments */
@@ -37,5 +51,13 @@
   .arena-channel-link:hover {
     color: #86EFAC;
     border-bottom-color: #86EFAC;
+  }
+
+  .arena-link-icon {
+    color: #4ADE80;
+  }
+
+  .arena-link-icon:hover {
+    color: #86EFAC;
   }
 }
