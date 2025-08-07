@@ -13,11 +13,11 @@ const LoadingItem = memo(() => (
 	</div>
 ));
 
-const LoadingItemList = memo(() => (
+const LoadingItemList = memo(({ length = 3 }: { length?: number }) => (
 	<div>
-		<LoadingItem />
-		<LoadingItem />
-		<LoadingItem />
+		{Array.from({ length }).map((_, index) => (
+			<LoadingItem key={index} />
+		))}
 	</div>
 ));
 
