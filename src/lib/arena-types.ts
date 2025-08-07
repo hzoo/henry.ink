@@ -57,6 +57,7 @@ export interface ArenaBlockBase {
 
 export interface ImageBlock extends ArenaBlockBase {
   __typename: 'Image';
+  image_url?: string;
   resized_image?: {
     grid_cell_resized_image: ResizedImage;
   };
@@ -72,6 +73,7 @@ export interface LinkBlock extends ArenaBlockBase {
   source?: {
     url?: string;
   };
+  image_url?: string;
   resized_image?: {
     grid_cell_resized_image: ResizedImage;
   };
@@ -83,6 +85,7 @@ export interface EmbedBlock extends ArenaBlockBase {
     url?: string;
     provider_name?: string;
   };
+  image_url?: string;
   resized_image?: {
     grid_cell_resized_image: ResizedImage;
   };
@@ -93,6 +96,7 @@ export interface AttachmentBlock extends ArenaBlockBase {
   file_content_type?: string;
   file_size?: number;
   file_extension?: string;
+  image_url?: string;
   resized_image?: {
     grid_cell_resized_image: ResizedImage;
   };

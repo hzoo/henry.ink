@@ -286,10 +286,11 @@ export class ArenaClient {
             return {
               ...baseBlock,
               __typename: 'Image',
+              image_url: content.image?.original?.url, // CloudFront URL for fast loading
               resized_image: content.image ? {
                 grid_cell_resized_image: {
-                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
-                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
+                  src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
                   width: content.image.square?.width || content.image.original?.width || 300,
                   height: content.image.square?.height || content.image.original?.height || 300
                 }
@@ -307,13 +308,14 @@ export class ArenaClient {
             return {
               ...baseBlock,
               __typename: 'Link',
+              image_url: content.image?.original?.url, // CloudFront URL for fast loading
               source: {
                 url: content.source?.url || content.url
               },
               resized_image: content.image ? {
                 grid_cell_resized_image: {
-                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
-                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
+                  src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
                   width: content.image.square?.width || content.image.original?.width || 300,
                   height: content.image.square?.height || content.image.original?.height || 300
                 }
@@ -325,14 +327,15 @@ export class ArenaClient {
             return {
               ...baseBlock,
               __typename: 'Embed',
+              image_url: content.image?.original?.url, // CloudFront URL for fast loading
               source: {
                 url: content.source?.url || content.url,
                 provider_name: content.source?.provider_name
               },
               resized_image: content.image ? {
                 grid_cell_resized_image: {
-                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
-                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
+                  src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
                   width: content.image.square?.width || content.image.original?.width || 300,
                   height: content.image.square?.height || content.image.original?.height || 300
                 }
@@ -343,13 +346,14 @@ export class ArenaClient {
             return {
               ...baseBlock,
               __typename: 'Attachment',
+              image_url: content.image?.original?.url, // CloudFront URL for fast loading
               file_content_type: content.file_content_type,
               file_size: content.file_size,
               file_extension: content.file_extension,
               resized_image: content.image ? {
                 grid_cell_resized_image: {
-                  src_1x: content.image.square?.url || content.image.thumb?.url || content.image.display?.url,
-                  src_2x: content.image.large?.url || content.image.display?.url || content.image.square?.url,
+                  src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
+                  src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
                   width: content.image.square?.width || content.image.original?.width || 300,
                   height: content.image.square?.height || content.image.original?.height || 300
                 }
