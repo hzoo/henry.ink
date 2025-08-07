@@ -39,7 +39,7 @@ export function ArenaBlockItem({ block, channelSlug }: ArenaBlockItemProps) {
 		case "Image":
 			const imageBlock = block as ImageBlock;
 			const imageUrl =
-				imageBlock.resized_image?.grid_cell_resized_image?.src_1x;
+				imageBlock.resized_image?.grid_cell_resized_image?.src_1x || imageBlock.image_url;
 
 			if (!imageUrl) {
 				return (
@@ -101,7 +101,7 @@ export function ArenaBlockItem({ block, channelSlug }: ArenaBlockItemProps) {
 		case "Link":
 			const linkBlock = block as LinkBlock;
 			const linkImageUrl =
-				linkBlock.resized_image?.grid_cell_resized_image?.src_1x;
+				linkBlock.resized_image?.grid_cell_resized_image?.src_1x || linkBlock.image_url;
 			const domain = linkBlock.source?.url
 				? new URL(linkBlock.source.url).hostname
 				: "Link";
@@ -140,7 +140,7 @@ export function ArenaBlockItem({ block, channelSlug }: ArenaBlockItemProps) {
 		case "Embed":
 			const embedBlock = block as EmbedBlock;
 			const embedImageUrl =
-				embedBlock.resized_image?.grid_cell_resized_image?.src_1x;
+				embedBlock.resized_image?.grid_cell_resized_image?.src_1x || embedBlock.image_url;
 			const provider = embedBlock.source?.provider_name || "Embed";
 
 			return (
@@ -177,7 +177,7 @@ export function ArenaBlockItem({ block, channelSlug }: ArenaBlockItemProps) {
 		case "Attachment":
 			const attachmentBlock = block as AttachmentBlock;
 			const attachmentImageUrl =
-				attachmentBlock.resized_image?.grid_cell_resized_image?.src_1x;
+				attachmentBlock.resized_image?.grid_cell_resized_image?.src_1x || attachmentBlock.image_url;
 			const fileType = attachmentBlock.file_extension?.toUpperCase() || "FILE";
 
 			return (
