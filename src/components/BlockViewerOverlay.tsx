@@ -186,14 +186,14 @@ export function BlockViewerOverlay() {
       case "Text": {
         const textBlock = block as TextBlock;
         return (
-          <div className="prose prose-xl dark:prose-invert max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto text-white text-lg leading-relaxed">
             {textBlock.content ? (
               <div 
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: content from Arena
                 dangerouslySetInnerHTML={{ __html: textBlock.content }}
               />
             ) : (
-              <p className="text-gray-500 dark:text-gray-400 italic">No text content</p>
+              <p className="text-white italic">No text content</p>
             )}
           </div>
         );
@@ -222,7 +222,7 @@ export function BlockViewerOverlay() {
                 href={linkBlock.source.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline text-lg"
+                className="text-white hover:text-gray-300 hover:underline text-lg"
               >
                 {domain}
                 <svg className="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,7 +251,7 @@ export function BlockViewerOverlay() {
                 />
               </div>
             )}
-            <p className="text-gray-600 dark:text-gray-400 text-lg">
+            <p className="text-white text-lg">
               {embedBlock.source?.provider_name || "Embed"}
             </p>
           </div>
@@ -326,6 +326,9 @@ export function BlockViewerOverlay() {
             <div className="text-lg font-medium">
               {channel.title}
             </div>
+            <div className="text-sm text-gray-400 mt-1">
+              {blockData.block.title || "No title"}
+            </div>
           </div>
         </div>
 
@@ -359,11 +362,6 @@ export function BlockViewerOverlay() {
 
         {/* Block content */}
         <div className="max-w-full max-h-full">
-          {blockData.block.title && (
-            <h1 className="text-2xl font-bold text-white mb-6 text-center">
-              {blockData.block.title}
-            </h1>
-          )}
           {renderBlockContent(blockData.block)}
         </div>
 
