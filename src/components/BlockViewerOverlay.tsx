@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { 
   arenaUrlState,
@@ -7,6 +7,42 @@ import {
 } from "@/src/lib/arena-navigation";
 import { fetchChannelBlocks, arenaQueryKeys } from "@/src/lib/arena-api";
 import type { ArenaBlock, ImageBlock, TextBlock, LinkBlock, EmbedBlock, AttachmentBlock } from "@/src/lib/arena-types";
+
+interface ProgressiveImageProps {
+  lowResUrl: string;
+  highResUrl?: string;
+  alt: string;
+}
+
+function ProgressiveImage({ lowResUrl, highResUrl, alt }: ProgressiveImageProps) {
+  const [currentImageUrl, setCurrentImageUrl] = useState(lowResUrl);
+  const [isHighResLoaded, setIsHighResLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!highResUrl) return;
+
+    // Preload high resolution image
+    const highResImage = new Image();
+    highResImage.onload = () => {
+      setCurrentImageUrl(highResUrl);
+      setIsHighResLoaded(true);
+    };
+    highResImage.src = highResUrl;
+  }, [highResUrl]);
+
+  return (
+    <div className="flex justify-center">
+      <img
+        src={currentImageUrl}
+        alt={alt}
+        className={`max-w-full max-h-[80vh] object-contain rounded shadow-lg transition-opacity duration-300 ${
+          !isHighResLoaded && highResUrl ? 'opacity-90' : 'opacity-100'
+        }`}
+        loading="eager"
+      />
+    </div>
+  );
+}
 
 export function BlockViewerOverlay() {
   const urlState = arenaUrlState.value;
@@ -133,10 +169,10 @@ export function BlockViewerOverlay() {
     switch (block.__typename) {
       case "Image": {
         const imageBlock = block as ImageBlock;
-        const imageUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_2x || 
-                        imageBlock.resized_image?.grid_cell_resized_image?.src_1x;
+        const lowResUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_1x;
+        const highResUrl = imageBlock.resized_image?.grid_cell_resized_image?.src_2x;
         
-        if (!imageUrl) {
+        if (!lowResUrl) {
           return (
             <div className="flex items-center justify-center h-96 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
               No image available
@@ -144,16 +180,7 @@ export function BlockViewerOverlay() {
           );
         }
 
-        return (
-          <div className="flex justify-center">
-            <img
-              src={imageUrl}
-              alt={imageBlock.title || "Arena image"}
-              className="max-w-full max-h-[80vh] object-contain rounded shadow-lg"
-              loading="eager"
-            />
-          </div>
-        );
+        return <ProgressiveImage lowResUrl={lowResUrl} highResUrl={highResUrl} alt={imageBlock.title || "Arena image"} />;
       }
 
       case "Text": {
