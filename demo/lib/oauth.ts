@@ -78,10 +78,20 @@ export const useAtCute = () => {
 						atCuteState.value = { agent, rpc, session };
 						localStorage.setItem("atcute-oauth:did", session.info.sub);
 						console.log("Web OAuth successful, session established.");
+						
+						// Redirect back to the original page
+						const returnUrl = localStorage.getItem("oauth-return-url");
+						localStorage.removeItem("oauth-return-url");
+						if (returnUrl && returnUrl !== window.location.href) {
+							console.log(`Redirecting back to: ${returnUrl}`);
+							window.location.assign(returnUrl);
+							return;
+						}
 					}
 				} catch (error) {
 					console.error("OAuth finalization error (Web Flow):", error);
 					localStorage.removeItem("atcute-oauth:did");
+					localStorage.removeItem("oauth-return-url"); // Clean up on error
 					if (isMounted) atCuteState.value = null;
 				} finally {
 					if (isMounted) {
@@ -191,6 +201,16 @@ class LoginAbortError extends Error {
 
 export const startLoginProcess = async (handleOrDid?: string) => {
 	try {
+		// Store the current URL to return to after login (only if it's not the main page)
+		const returnUrl = window.location.href;
+		const isMainPage = window.location.pathname === '/' || window.location.pathname === '';
+		if (!isMainPage) {
+			localStorage.setItem("oauth-return-url", returnUrl);
+			console.log(`Storing return URL: ${returnUrl}`);
+		} else {
+			console.log('Starting login from main page, no return URL needed');
+		}
+		
 		let authUrl: URL;
 		
 		if (handleOrDid && handleOrDid.trim()) {
@@ -246,6 +266,17 @@ export const startLoginProcess = async (handleOrDid?: string) => {
 			atCuteState.value = { agent, rpc, session };
 			localStorage.setItem("atcute-oauth:did", session.info.sub);
 			console.log("Extension login successful, session established.");
+			
+			// For extensions, redirect back to the original page if stored
+			const returnUrl = localStorage.getItem("oauth-return-url");
+			if (returnUrl && returnUrl !== window.location.href) {
+				console.log(`Extension login complete, redirecting back to: ${returnUrl}`);
+				localStorage.removeItem("oauth-return-url");
+				window.location.assign(returnUrl);
+			} else {
+				localStorage.removeItem("oauth-return-url");
+			}
+			
 			if (isLoadingSession.peek()) isLoadingSession.value = false; // Ensure loading state is false
 		} else {
 			// Standard web flow
@@ -256,10 +287,12 @@ export const startLoginProcess = async (handleOrDid?: string) => {
 	} catch (error) {
 		if (error instanceof LoginAbortError) {
 			console.log(error.message); // Just log cancellation
+			localStorage.removeItem("oauth-return-url"); // Clean up on cancellation
 			if (isLoadingSession.peek()) isLoadingSession.value = false;
 			return;
 		}
 		console.error("Login initiation or finalization error:", error);
+		localStorage.removeItem("oauth-return-url"); // Clean up on error
 		const errorMsg = error instanceof Error ? error.message.toLowerCase() : "";
 		// Don't alert for cancellations
 		if (!(errorMsg.includes("cancelled") || errorMsg.includes("user closed"))) {
