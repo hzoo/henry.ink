@@ -99,5 +99,10 @@ export function formatRelativeTime(dateString?: string): string {
  */
 export const arenaQueryKeys = {
   matches: (url: string | null) => ['arenaMatches', url || 'unknown'] as const,
-  blocks: (slug: string, per?: number, page?: number) => ['arenaBlocks', slug, per, page].filter(Boolean) as const,
+  blocks: (slug: string, per?: number, page?: number) => {
+    if (per && page) {
+      return ['arenaBlocks', slug, 'pagination', per, page] as const;
+    }
+    return ['arenaBlocks', slug] as const;
+  },
 };

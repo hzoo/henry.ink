@@ -1,49 +1,98 @@
-import { signal } from "@preact/signals";
-import type { ArenaMatch } from "./arena-types";
+import { computed, signal } from "@preact/signals";
+import type { ArenaMatch, ArenaBlock } from "./arena-types";
 
-export type ArenaNavigationRoute = 'channel-list' | 'channel-detail';
+// Location signal that updates on popstate/navigation
+export const locationSignal = signal(typeof window !== 'undefined' ? window.location.search : '');
 
-export interface ArenaNavigationState {
-  route: ArenaNavigationRoute;
-  selectedChannel: ArenaMatch | null;
-  history: ArenaNavigationRoute[];
+// Initialize and listen for browser navigation
+if (typeof window !== 'undefined') {
+  // Initialize from current URL on load
+  locationSignal.value = window.location.search;
+  
+  // Listen for browser navigation (back/forward)
+  window.addEventListener('popstate', () => {
+    locationSignal.value = window.location.search;
+  });
 }
 
-// Navigation state signals
-export const arenaNavigationState = signal<ArenaNavigationState>({
-  route: 'channel-list',
-  selectedChannel: null,
-  history: ['channel-list']
+// Get URL search params (reactive to location changes)
+function getUrlParams() {
+  // Access the signal to make this reactive
+  const search = locationSignal.value;
+  return new URLSearchParams(search);
+}
+
+// URL-driven navigation state
+export const arenaUrlState = computed(() => {
+  const params = getUrlParams();
+  const channelSlug = params.get('channel');
+  const blockId = params.get('block');
+  
+  return {
+    route: channelSlug ? 'channel' : 'list' as const,
+    channelSlug,
+    blockId: blockId ? parseInt(blockId, 10) : null
+  };
 });
 
-// Navigation actions
+// Navigation functions using URL manipulation
 export function navigateToChannel(channel: ArenaMatch) {
-  arenaNavigationState.value = {
-    route: 'channel-detail',
-    selectedChannel: channel,
-    history: [...arenaNavigationState.value.history, 'channel-detail']
-  };
+  const currentPath = window.location.pathname;
+  const newUrl = `${currentPath}?channel=${channel.slug}`;
+  window.history.pushState({}, '', newUrl);
+  
+  // Update location signal for reactive updates
+  locationSignal.value = `?channel=${channel.slug}`;
 }
 
-export function navigateBack() {
-  const currentHistory = arenaNavigationState.value.history;
-  if (currentHistory.length > 1) {
-    // Remove current route
-    const newHistory = currentHistory.slice(0, -1);
-    const previousRoute = newHistory[newHistory.length - 1];
+export function openBlockOverlay(block: ArenaBlock, channelSlug?: string) {
+  // Get channel slug from parameter or URL
+  let targetChannelSlug = channelSlug;
+  if (!targetChannelSlug) {
+    const params = getUrlParams();
+    targetChannelSlug = params.get('channel') || undefined;
+  }
+  
+  if (!targetChannelSlug) {
+    console.error('No channel context for block overlay');
+    return;
+  }
+  
+  const currentPath = window.location.pathname;
+  const newUrl = `${currentPath}?channel=${targetChannelSlug}&block=${block.id}`;
+  window.history.pushState({}, '', newUrl);
+  
+  // Update location signal
+  locationSignal.value = `?channel=${targetChannelSlug}&block=${block.id}`;
+}
+
+// Note: navigateToNextBlock and navigateToPrevBlock removed
+// BlockViewerOverlay now handles its own navigation using local data
+
+export function closeBlockOverlay() {
+  const params = getUrlParams();
+  const channelSlug = params.get('channel');
+  
+  if (channelSlug) {
+    const currentPath = window.location.pathname;
+    const newUrl = `${currentPath}?channel=${channelSlug}`;
+    window.history.pushState({}, '', newUrl);
     
-    arenaNavigationState.value = {
-      route: previousRoute,
-      selectedChannel: previousRoute === 'channel-detail' ? arenaNavigationState.value.selectedChannel : null,
-      history: newHistory
-    };
+    // Update location signal
+    locationSignal.value = `?channel=${channelSlug}`;
+  } else {
+    navigateToChannelList();
   }
 }
 
-export function resetNavigation() {
-  arenaNavigationState.value = {
-    route: 'channel-list',
-    selectedChannel: null,
-    history: ['channel-list']
-  };
+export function navigateToChannelList() {
+  const currentPath = window.location.pathname;
+  window.history.pushState({}, '', currentPath);
+  
+  // Update location signal
+  locationSignal.value = '';
+}
+
+export function navigateBack() {
+  window.history.back();
 }

@@ -4,10 +4,18 @@ import { TabbedSidebar } from "@/src/components/TabbedSidebar";
 import { AppLayout, SidebarContent } from "@/src/components/AppLayout";
 import { currentUrl } from "@/src/lib/messaging";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
-import { contentStateSignal } from "@/henry-ink/signals";
+import { contentStateSignal, activeTabSignal } from "@/henry-ink/signals";
+import { fetchChannelBlocks, arenaQueryKeys } from "@/src/lib/arena-api";
+import { queryClient } from "@/src/lib/queryClient";
+import { arenaUrlState } from "@/src/lib/arena-navigation";
 
 const targetPostRkey = signal<string | null>(null);
 
+effect(() => {
+	if (arenaUrlState.value.channelSlug) {
+		activeTabSignal.value = 'arena';
+	}
+});
 
 // Update page title based on content title or current URL
 effect(() => {
@@ -79,11 +87,35 @@ effect(() => {
 
 
 export function App() {
-	// Parse URL parameters for post targeting
 	useEffect(() => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const postParam = urlParams.get('post');
 		targetPostRkey.value = postParam;
+		
+		// Handle arena deep linking
+		const channelParam = urlParams.get('channel');
+		const blockParam = urlParams.get('block');
+		
+		if (channelParam) {
+			// Switch to arena tab for deep linking
+			activeTabSignal.value = 'arena';
+			
+			// Prefetch channel blocks if we have a channel but no cached data
+			const hasPreviewData = queryClient.getQueryData(arenaQueryKeys.blocks(channelParam, 24, 1));
+			const hasInfiniteData = queryClient.getQueryData(arenaQueryKeys.blocks(channelParam));
+			
+			if (!hasPreviewData && !hasInfiniteData) {
+				// Fetch (not just prefetch) blocks to support the block overlay
+				// Using fetchQuery ensures data is available for deep linking
+				queryClient.fetchQuery({
+					queryKey: arenaQueryKeys.blocks(channelParam, 24, 1),
+					queryFn: () => fetchChannelBlocks(channelParam, 24, 1),
+					staleTime: 10 * 60 * 1000, // 10 minutes
+				}).then(() => {
+					// Data is now in cache, computed signals will update automatically
+				});
+			}
+		}
 	}, []);
 
 	return (

@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchChannelBlocks, arenaQueryKeys, formatRelativeTime } from "@/src/lib/arena-api";
-import { navigateBack } from "@/src/lib/arena-navigation";
-import type { ArenaMatch, ArenaBlock } from "@/src/lib/arena-types";
+import { arenaQueryKeys, formatRelativeTime } from "@/src/lib/arena-api";
+import { navigateToChannelList } from "@/src/lib/arena-navigation";
+import type { ArenaMatch } from "@/src/lib/arena-types";
 import { ArenaBlockItem } from "./ArenaChannelItem";
 import { useEffect, useRef } from "preact/hooks";
 
@@ -99,7 +99,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
       {/* Header with back button */}
       <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-3 z-10">
         <button
-          onClick={navigateBack}
+          onClick={navigateToChannelList}
           className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors mb-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +184,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
         {/* Infinite scroll trigger and loading indicator */}
         <div 
           ref={loadMoreRef} 
-          className="py-8 flex justify-center min-h-[100px]" 
+          className="py-4 flex justify-center min-h-[100px]" 
           style={{ backgroundColor: hasNextPage ? 'rgba(34, 197, 94, 0.05)' : 'transparent' }}
         >
           {isFetchingNextPage && (
@@ -194,7 +194,11 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
             </div>
           )}
           {!hasNextPage && blocks.length > 0 && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">All {blocks.length} blocks loaded</span>
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">End of channel</span>
+              <div className="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+            </div>
           )}
         </div>
       </div>

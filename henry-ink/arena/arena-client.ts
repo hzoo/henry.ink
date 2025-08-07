@@ -368,6 +368,13 @@ export class ArenaClient {
       return {
         id: channelData.id,
         slug: channelData.slug,
+        title: channelData.title,
+        user: {
+          name: channelData.user?.name || channelData.user?.username || 'Unknown',
+          slug: channelData.user?.slug || ''
+        },
+        length: channelData.length || channelData.contents?.length || 0,
+        updated_at: channelData.updated_at,
         blocks
       };
     } catch (error) {
