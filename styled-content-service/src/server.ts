@@ -13,13 +13,14 @@ setInterval(() => {
   for (const [domain, timestamp] of extractedDomains.entries()) {
     if (now - timestamp > FIFTEEN_MINUTES) {
       extractedDomains.delete(domain);
-      console.log(`Cleaned up expired domain: ${domain}`);
+      
     }
   }
 }, 15 * 60 * 1000);
 
 const server = serve({
   development: true,
+  port: 3000,
   
   routes: {
     "/": homepage,
@@ -38,7 +39,7 @@ const server = serve({
           // Track the domain being extracted
           const domain = parsedUrl.hostname.replace(/^www\./, '');
           extractedDomains.set(domain, Date.now());
-          console.log(`Tracking extracted domain: ${domain}`);
+          
           
           const content = await extractContent(url, config);
           return Response.json(content, {
@@ -82,11 +83,11 @@ const server = serve({
           const isTrustedCDN = trustedCDNs.some(cdn => fontDomain.endsWith(cdn));
           
           if (!isTrustedCDN && (!extractTime || (Date.now() - extractTime) > FIFTEEN_MINUTES)) {
-            console.log(`Font domain not authorized: ${fontDomain}`);
+            
             return Response.json({ error: "Font domain not recently extracted" }, { status: 403 });
           }
 
-          console.log("Proxying font:", fontUrl);
+          
 
           // Fetch the font file
           const response = await fetch(fontUrl, {
@@ -149,4 +150,4 @@ const server = serve({
   }
 });
 
-console.log(`🚀 Server running on ${server.url}`);
+console.log(`🚀 styled-content-service running on ${server.url}`);
