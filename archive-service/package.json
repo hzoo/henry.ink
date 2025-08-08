@@ -1,0 +1,20 @@
+{
+  "name": "archive-service",
+  "version": "1.0.0",
+  "description": "Create secure archives of web pages with Lightning CSS validation",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "bun run --watch src/server.ts",
+    "start": "bun run src/server.ts"
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0",
+    "lightningcss": "^1.30.1",
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "module": "src/index.ts",
+  "type": "module"
+}

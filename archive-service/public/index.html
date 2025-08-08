@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archive Test</title>
+</head>
+<body>
+  <!-- Default archive header with integrated controls -->
+  <div style="position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(240, 240, 240, 0.95); backdrop-filter: blur(4px); padding: 6px 12px; font-size: 11px; color: #666; border-bottom: 1px solid #ddd; height: 24px; line-height: 12px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif;">
+    <span>Archive Test</span>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <input
+        type="url"
+        id="urlInput"
+        value="https://henryzoo.com/image"
+        placeholder="paste url"
+        style="width: 200px; padding: 2px 6px; outline: none; font-size: 11px; color: black; border: 1px solid #ccc; border-radius: 3px; height: 16px;"
+      >
+      <button
+        id="createArchive"
+        onclick="createArchive()"
+        style="padding: 2px 8px; font-size: 11px; background: #171717; color: white; border: none; border-radius: 3px; cursor: pointer; height: 16px; line-height: 1;"
+        onmouseover="this.style.background='#404040'"
+        onmouseout="this.style.background='#171717'"
+      >
+        Archive
+      </button>
+    </div>
+  </div>
+  
+  <!-- Content area pushed down to avoid header overlap -->
+  <div style="margin-top: 24px;">
+    <div id="archiveContent" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function createArchive() {
+      const url = document.getElementById('urlInput').value;
+      const button = document.getElementById('createArchive');
+      
+      if (!url) {
+        alert('Please enter a URL');
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = '...';
+      
+      try {
+        const response = await fetch('/api/archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed: ${response.status}`);
+        }
+
+        const archive = await response.json();
+        
+        // Display the archive directly in the page
+        const content = document.getElementById('archiveContent');
+        content.innerHTML = archive.html;
+        content.style.display = 'block';
+        
+        // Update the header to show archive info instead of controls
+        const header = document.querySelector('body > div');
+        const archiveDate = new Date().toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric' 
+        });
+        header.innerHTML = `
+          <span>Archived from <a href="${url}" target="_blank" style="color: #0066cc; text-decoration: none;">${archive.domain}</a> • ${archiveDate}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input
+              type="url"
+              id="urlInput"
+              value=""
+              placeholder="paste new url"
+              style="width: 200px; padding: 2px 6px; outline: none; font-size: 11px; color: black; border: 1px solid #ccc; border-radius: 3px; height: 16px;"
+            >
+            <button
+              id="createArchive"
+              onclick="createArchive()"
+              style="padding: 2px 8px; font-size: 11px; background: #171717; color: white; border: none; border-radius: 3px; cursor: pointer; height: 16px; line-height: 1;"
+              onmouseover="this.style.background='#404040'"
+              onmouseout="this.style.background='#171717'"
+            >
+              Archive
+            </button>
+          </div>
+        `;
+        
+        console.log(`✅ Archive created: ${archive.title} (${Math.round(archive.contentSize / 1024)}KB in ${archive.extractionTime}ms)`);
+        
+      } catch (error) {
+        alert('Failed: ' + error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Archive';
+      }
+    }
+
+    // Enter key triggers archive
+    document.getElementById('urlInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') createArchive();
+    });
+
+    // Auto-archive the default URL on page load
+    window.addEventListener('load', () => {
+      createArchive();
+    });
+  </script>
+</body>
+</html>
