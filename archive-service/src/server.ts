@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import homepage from "../public/index.html";
-import { extractContent } from "./processor";
+import { createArchive } from "./archive-processor";
 
 // Simple in-memory store for tracking extracted domains
 const extractedDomains = new Map<string, number>(); // domain -> timestamp
@@ -13,7 +13,6 @@ setInterval(() => {
   for (const [domain, timestamp] of extractedDomains.entries()) {
     if (now - timestamp > FIFTEEN_MINUTES) {
       extractedDomains.delete(domain);
-      
     }
   }
 }, 15 * 60 * 1000);
@@ -24,36 +23,6 @@ const server = serve({
   
   routes: {
     "/": homepage,
-    
-    "/api/extract": {
-      async POST(req) {
-        try {
-          const { url, config } = await req.json();
-          
-          // Validate URL format and require HTTPS
-          const parsedUrl = new URL(url);
-          if (parsedUrl.protocol !== 'https:') {
-            return Response.json({ error: "Only HTTPS URLs allowed" }, { status: 403 });
-          }
-          
-          // Track the domain being extracted
-          const domain = parsedUrl.hostname.replace(/^www\./, '');
-          extractedDomains.set(domain, Date.now());
-          
-          
-          const content = await extractContent(url, config);
-          return Response.json(content, {
-            headers: {
-              'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; img-src 'self' data: https:; script-src 'self'",
-              'X-Content-Type-Options': 'nosniff',
-              'X-Frame-Options': 'DENY'
-            }
-          });
-        } catch (error) {
-          return Response.json({ error: 'Failed to extract content' }, { status: 500 });
-        }
-      }
-    },
 
     "/api/font-proxy": {
       async GET(req) {
@@ -83,11 +52,8 @@ const server = serve({
           const isTrustedCDN = trustedCDNs.some(cdn => fontDomain.endsWith(cdn));
           
           if (!isTrustedCDN && (!extractTime || (Date.now() - extractTime) > FIFTEEN_MINUTES)) {
-            
             return Response.json({ error: "Font domain not recently extracted" }, { status: 403 });
           }
-
-          
 
           // Fetch the font file
           const response = await fetch(fontUrl, {
@@ -146,8 +112,39 @@ const server = serve({
           }, { status: 500 });
         }
       }
+    },
+
+    "/api/archive": {
+      async POST(req) {
+        try {
+          const { url } = await req.json();
+          
+          // Validate URL format and require HTTPS
+          const parsedUrl = new URL(url);
+          if (parsedUrl.protocol !== 'https:') {
+            return Response.json({ error: "Only HTTPS URLs allowed" }, { status: 403 });
+          }
+          
+          // Track the domain being archived
+          const domain = parsedUrl.hostname.replace(/^www\./, '');
+          extractedDomains.set(domain, Date.now());
+          
+          const archive = await createArchive(url);
+          return Response.json(archive, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:;",
+              'X-Content-Type-Options': 'nosniff',
+              'X-Frame-Options': 'DENY'
+            }
+          });
+        } catch (error) {
+          console.error("Archive creation error:", error);
+          return Response.json({ error: 'Failed to create archive' }, { status: 500 });
+        }
+      }
     }
   }
 });
 
-console.log(`🚀 styled-content-service running on ${server.url}`);
+console.log(`🚀 archive-service running on ${server.url}`);
