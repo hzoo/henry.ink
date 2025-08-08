@@ -55,7 +55,7 @@ bun run release          # Release new version
 - **Demo Sites**:
   - `demo/` - Annotation demo website
   - `henry-ink/` - henry.ink (renders URL with comments)
-  - `styled-content-service/` - Backend experiment for HTML/CSS stripping
+  - `archive-service/` - Secure web page archiving service
 - **Shared Components**: `/src/components/` used across extension and demo sites
 
 ### Henry's Note (henry-ink/) - Full Web Application
@@ -114,7 +114,7 @@ The **henry.ink** website is a full-featured web application that provides annot
 - `/src/lib/` - Core utilities, API clients, and state management
 - `/demo/` - Annotation demo website
 - `/henry-ink/` - henry.ink URL rendering with comments
-- `/styled-content-service/` - Backend experiment for content extraction
+- `/archive-service/` - Secure web page archiving service
 - `/public/` - Static assets and extension manifest
 
 ## Development Patterns
