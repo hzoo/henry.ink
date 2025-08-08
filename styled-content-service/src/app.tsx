@@ -3,15 +3,11 @@ import { useState, useEffect } from "react";
 
 function App() {
 	const [url, setUrl] = useState(
-		"https://time.com/7295195/ai-chatgpt-google-learning-school/",
+		// "https://time.com/7295195/ai-chatgpt-google-learning-school/",
+		"https://dynamicland.org/2024/FAQ/"
 	);
 	const [content, setContent] = useState<any>(null);
 	const [loading, setLoading] = useState(false);
-	const [availableFonts, setAvailableFonts] = useState<string[]>([]);
-	const [selectedHeadingFont, setSelectedHeadingFont] = useState<string>("");
-	const [fontLoadingStatus, setFontLoadingStatus] = useState<
-		Record<string, string>
-	>({});
 
 	// Format date helper
 	const formatDate = (dateString: string) => {
@@ -68,7 +64,7 @@ function App() {
 			} = content;
 
 			// Set the root font size to match the source site
-			document.documentElement.style.fontSize = rootFontSize;
+				document.documentElement.style.fontSize = rootFontSize;
 
 			// Apply background color if available
 			if (content.styles.backgroundColor) {
@@ -77,7 +73,6 @@ function App() {
 
 			// Create CSS variables and font rules dynamically
 			let fontFaceRules = "";
-			const collectedFonts: string[] = [];
 
 			// Add extracted CSS variables to :root
 			if (cssVariables && Object.keys(cssVariables).length > 0) {
@@ -120,7 +115,7 @@ function App() {
 						}
 					`;
 
-						collectedFonts.push(mapping.semanticName);
+						// No UI tracking of fonts in minimal mode
 					},
 				);
 			}
@@ -200,10 +195,14 @@ function App() {
 				}
 			`;
 
-			// Add the original CSS rules with scoped selectors
+			// STEP 1: Add the original CSS rules in their ORIGINAL ORDER
+			// This preserves the cascade as intended by the source site
 			if (extractedCSS && extractedCSS.length > 0) {
+				console.log(`Applying ${extractedCSS.length} extracted CSS rules in original order`);
+				
+				// Apply rules in the order they were extracted (preserves cascade)
 				extractedCSS.forEach((rule: any, index: number) => {
-					// Scope the selector to our article content
+					// Scope the selector to our article content with increased specificity
 					const scopedSelector = rule.selector
 						.split(",")
 						.map((s: string) => {
@@ -211,6 +210,16 @@ function App() {
 							// Don't add .article-content if the selector already includes it
 							if (trimmed.startsWith(".article-content")) {
 								return trimmed;
+							}
+							// Add higher specificity for important elements
+							if (trimmed === "a" || trimmed.startsWith("a:")) {
+								return `.article-content ${trimmed}`;
+							}
+							if (trimmed === "li" || trimmed.startsWith("li") || trimmed.includes("li")) {
+								return `.article-content ${trimmed}`;
+							}
+							if (trimmed.startsWith("h") && trimmed.match(/^h[1-6]/)) {
+								return `.article-content ${trimmed}`;
 							}
 							return `.article-content ${trimmed}`;
 						})
@@ -220,20 +229,24 @@ function App() {
 					const match = rule.cssText.match(/\{([^}]*)\}/);
 					if (match) {
 						const properties = match[1].trim();
+						
+						// Apply the extracted CSS rules as-is to preserve original styling
 						styleRules += `${scopedSelector} { ${properties} }\n`;
 					}
 				});
 			}
 
-			// Add base styles that won't conflict with existing classes
+			// STEP 2: Add base styles as fallbacks only (without !important)
 			styleRules += `
+				/* Base styles - will be overridden by extracted CSS */
 				.article-content {
 					font-family: ${fonts.primary};
 					font-size: ${ensureMinFontSize(fonts.fontSize)};
 					line-height: ${fonts.lineHeight};
 				}
 				
-				.article-content p:not([class]) {
+				/* Paragraph fallbacks for elements without classes */
+				.article-content p:not([class]):not([id]) {
 					font-size: ${ensureMinFontSize(paragraph.fontSize)};
 					line-height: ${paragraph.lineHeight};
 					color: ${paragraph.color};
@@ -242,24 +255,60 @@ function App() {
 				}
 			`;
 
-			// Only add fallback link styles if no CSS was extracted for links
+			// Always add comprehensive link styles (with extracted styles taking priority)
 			const hasLinkCSS = extractedCSS?.some(
 				(rule: any) =>
 					rule.selector.includes("a") || rule.selector.includes("link"),
 			);
 
-			if (link && !hasLinkCSS) {
+			// STEP 3: Add computed styles as ultra-weak fallbacks
+			if (!hasLinkCSS && link) {
+				console.log("No link CSS rules found, adding computed link styles as fallback");
 				styleRules += `
-					.article-content a:not([class]) {
+					/* Link fallbacks - low specificity */
+					.article-content a:where(:not([class]):not([id])) {
 						color: ${link.color};
-						text-decoration: ${link.textDecoration};
-						text-decoration-color: ${link.textDecorationColor};
-						text-underline-offset: ${link.textUnderlineOffset};
+						text-decoration: ${link.textDecoration || 'none'};
+						${link.textDecorationColor ? `text-decoration-color: ${link.textDecorationColor};` : ''}
+						${link.textUnderlineOffset ? `text-underline-offset: ${link.textUnderlineOffset};` : ''}
+						${link.fontWeight && link.fontWeight !== 'normal' ? `font-weight: ${link.fontWeight};` : ''}
+						${link.fontSize ? `font-size: ${link.fontSize};` : ''}
+						${link.fontFamily ? `font-family: ${link.fontFamily};` : ''}
 					}
+					
+					${link.hoverColor ? `
+					.article-content a:where(:not([class]):not([id])):hover {
+						color: ${link.hoverColor};
+						${link.hoverTextDecoration ? `text-decoration: ${link.hoverTextDecoration};` : ''}
+					}
+					` : ''}
 				`;
 			}
 
-			// Add heading styles only for elements without classes
+			// STEP 4: List element fallbacks
+			styleRules += `
+				/* List fallbacks */
+				.article-content ul:where(:not([class]):not([id])), 
+				.article-content ol:where(:not([class]):not([id])) {
+					margin: 1em 0;
+					padding-left: 2em;
+				}
+				
+				.article-content li:where(:not([class]):not([id])) {
+					color: ${paragraph.color};
+					margin-bottom: 0.5em;
+				}
+				
+				.article-content ul:where(:not([class])) li:where(:not([class])) {
+					list-style-type: disc;
+				}
+				
+				.article-content ol:where(:not([class])) li:where(:not([class])) {
+					list-style-type: decimal;
+				}
+			`;
+
+			// STEP 5: Heading fallbacks using computed styles
 			Object.entries(headings).forEach(([tag, style]: [string, any]) => {
 				// Ensure minimum sizes for headings too (in rem)
 				const minSizes: Record<string, number> = {
@@ -270,23 +319,35 @@ function App() {
 					h5: 1,
 					h6: 1,
 				};
+				// Use :where() for zero specificity fallbacks
 				styleRules += `
-					.article-content ${tag}:not([class]) {
+					/* ${tag} fallbacks - zero specificity */
+					.article-content ${tag}:where(:not([class]):not([id])) {
 						font-family: ${style.fontFamily};
 						font-size: ${ensureMinFontSize(style.fontSize, minSizes[tag])};
 						font-weight: ${style.fontWeight};
 						line-height: ${style.lineHeight};
 						color: ${style.color};
+						${style.backgroundColor ? `background-color: ${style.backgroundColor};` : ''}
+						${style.padding ? `padding: ${style.padding};` : ''}
+						${style.paddingTop ? `padding-top: ${style.paddingTop};` : ''}
+						${style.paddingRight ? `padding-right: ${style.paddingRight};` : ''}
+						${style.paddingBottom ? `padding-bottom: ${style.paddingBottom};` : ''}
+						${style.paddingLeft ? `padding-left: ${style.paddingLeft};` : ''}
+						${style.borderRadius ? `border-radius: ${style.borderRadius};` : ''}
+						${style.border ? `border: ${style.border};` : ''}
+						${style.textAlign && style.textAlign !== 'start' ? `text-align: ${style.textAlign};` : ''}
 						margin-top: ${style.marginTop};
 						margin-bottom: ${style.marginBottom};
 					}
 				`;
 			});
 
-			// Add blockquote styles if available
+			// STEP 6: Blockquote fallbacks
 			if (blockquote) {
 				styleRules += `
-					.article-content blockquote:not([class]) {
+					/* Blockquote fallbacks */
+					.article-content blockquote:where(:not([class]):not([id])) {
 						border-left: ${blockquote.borderLeftWidth} solid ${blockquote.borderLeftColor};
 						padding-left: ${blockquote.paddingLeft};
 						font-style: ${blockquote.fontStyle};
@@ -295,48 +356,7 @@ function App() {
 				`;
 			}
 
-			// Update available fonts for the debugging UI
-			setAvailableFonts([...collectedFonts, "system-ui"]);
-			// if (!selectedHeadingFont && collectedFonts.length > 0) {
-			// 	setSelectedHeadingFont(collectedFonts[0]);
-			// }
-
-			// Check if fonts are actually loading
-			const checkFontLoading = async () => {
-				const status: Record<string, string> = {};
-
-				for (const fontName of collectedFonts) {
-					try {
-						// Use document.fonts.load to test if font is available
-						await document.fonts.load(`16px "${fontName}"`);
-
-						// Check if font is actually different from fallback
-						const canvas = document.createElement("canvas");
-						const ctx = canvas.getContext("2d");
-						if (ctx) {
-							// Test text with target font
-							ctx.font = `16px "${fontName}", monospace`;
-							const targetWidth = ctx.measureText("M").width;
-
-							// Test text with known fallback
-							ctx.font = "16px monospace";
-							const fallbackWidth = ctx.measureText("M").width;
-
-							status[fontName] =
-								targetWidth !== fallbackWidth ? "loaded" : "fallback";
-						} else {
-							status[fontName] = "unknown";
-						}
-					} catch (e) {
-						status[fontName] = "failed";
-					}
-				}
-
-				setFontLoadingStatus(status);
-			};
-
-			// Check font loading after a brief delay
-			setTimeout(checkFontLoading, 1000);
+			// Minimal mode: omit font debug UI and loading checks
 
 			// Add CSS sanitization
 			const sanitizeCSS = (css: string): string => {
@@ -363,34 +383,7 @@ function App() {
 		}
 	}, [content]);
 
-	// Function to dynamically change heading fonts
-	const swapHeadingFont = (fontFamily: string) => {
-		setSelectedHeadingFont(fontFamily);
-
-		// Create override style for headings
-		const existingOverride = document.getElementById("font-override");
-		if (existingOverride) {
-			existingOverride.remove();
-		}
-
-		// Sanitize font family name to prevent CSS injection
-		const sanitizedFontFamily = fontFamily.replace(/[^a-zA-Z0-9\s\-_]/g, "");
-
-		const override = document.createElement("style");
-		override.id = "font-override";
-		override.textContent = `
-			.article-content h1,
-			.article-content h2,
-			.article-content h3,
-			.article-content h4,
-			.article-content h5,
-			.article-content h6,
-			.article-content .font-editorial {
-				font-family: "${sanitizedFontFamily}", system-ui, -apple-system, sans-serif !important;
-			}
-		`;
-		document.head.appendChild(override);
-	};
+	// Minimal UI: remove heading font override feature
 
 	useEffect(() => {
 		processUrl();
@@ -398,73 +391,37 @@ function App() {
 
 	return (
 		<div className="min-h-screen">
-			{/* Font Debug Panel */}
-			{availableFonts.length > 0 && (
-				<div className="fixed top-3 right-3 flex items-center gap-1 bg-black/5 rounded px-2 py-1 text-xs z-50">
-					<select
-						value={selectedHeadingFont}
-						onChange={(e) => swapHeadingFont(e.target.value)}
-						className="bg-transparent border-0 text-xs outline-none cursor-pointer"
-						style={{ fontSize: "11px" }}
-					>
-						{availableFonts.map((font) => {
-							const status = fontLoadingStatus[font];
-							const statusIcon =
-								status === "loaded" ? "✓" : status === "fallback" ? "○" : "✗";
-							return (
-								<option key={font} value={font}>
-									{statusIcon}{" "}
-									{font.replace("Captured", "").replace("Font", "")}
-								</option>
-							);
-						})}
-					</select>
-				</div>
-			)}
+			{/* Compact floating controls to maximize content space */}
+			<div className="fixed top-3 right-3 z-50 flex items-center gap-1 bg-white/80 backdrop-blur px-2 py-1 rounded border border-neutral-200 shadow-sm">
+				<input
+					type="url"
+					value={url}
+					onChange={(e) => setUrl(e.target.value)}
+					onKeyDown={(e) => e.key === "Enter" && processUrl()}
+					placeholder="paste url"
+					className="w-56 px-2 py-1 bg-transparent outline-none text-xs placeholder:text-neutral-400"
+				/>
+				<button
+					onClick={processUrl}
+					disabled={loading}
+					className="px-2 py-1 text-xs bg-neutral-900 text-white rounded hover:bg-neutral-800 disabled:opacity-50"
+				>
+					{loading ? ".." : "Go"}
+				</button>
+			</div>
 
 			<div className="max-w-2xl mx-auto px-4 py-8">
-				{/* Minimal Header */}
-				<div className="mb-12">
-					<h1 className="text-sm font-normal text-neutral-500 mb-6">
-						reader mode
-					</h1>
-
-					<div className="flex gap-2">
-						<input
-							type="url"
-							value={url}
-							onChange={(e) => setUrl(e.target.value)}
-							onKeyDown={(e) => e.key === "Enter" && processUrl()}
-							placeholder="paste url here"
-							className="flex-1 px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-400 text-sm placeholder:text-neutral-400"
-						/>
-						<button
-							onClick={processUrl}
-							disabled={loading}
-							className="px-6 py-2 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 disabled:opacity-50 transition-colors"
-						>
-							{loading ? ".." : "→"}
-						</button>
-					</div>
-				</div>
-
 				{/* Content */}
 				{content && (
-					<article className="space-y-8">
-						<header className="pb-8 border-b border-neutral-200">
-							{content.publishedTime && (
-								<div className="text-xs text-neutral-500 uppercase tracking-tighter mb-2">
-									{formatDate(content.publishedTime)}
-								</div>
-							)}
+					<article className="space-y-6">
+						<header className="mb-2">
+						{content.publishedTime && (
+							<div className="text-[10px] text-neutral-500 uppercase tracking-tight mb-1">
+								{formatDate(content.publishedTime)}
+							</div>
+						)}
 							<h2 className="article-title">{content.title}</h2>
-							<div className="flex items-center gap-2 text-sm text-neutral-600">
-								{content.author && (
-									<>
-										<span className="font-medium">{content.author}</span>
-										<span className="text-neutral-400">•</span>
-									</>
-								)}
+							<div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
 								<a
 									href={content.url}
 									target="_blank"

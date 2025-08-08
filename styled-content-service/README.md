@@ -11,7 +11,7 @@ npx playwright install chromium
 
 ## Usage
 
-Start the server:
+Start the server (port 3000):
 ```bash
 bun run dev
 ```
@@ -23,7 +23,7 @@ bun run test.ts
 
 ## API
 
-### POST /process-url
+### POST /api/extract
 
 Request:
 ```json
@@ -35,21 +35,22 @@ Request:
 Response:
 ```json
 {
-  "html": "<article style='...'>cleaned content with inline styles</article>",
-  "metadata": {
-    "title": "Article Title",
-    "author": "Author Name",
-    "domain": "example.com",
-    "favicon": "/favicon.ico",
-    "image": "https://example.com/image.jpg",
-    "published": "2024-01-01"
-  }
+  "html": "<article>cleaned content</article>",
+  "title": "Article Title",
+  "author": "Author Name",
+  "domain": "example.com",
+  "image": "https://example.com/image.jpg",
+  "publishedTime": "2024-01-01T12:00:00Z",
+  "url": "https://example.com/article",
+  "styles": { ... },
+  "extractedCSS": [ ... ],
+  "fontUrls": [ ... ]
 }
 ```
 
 ## Features
 
-- ✅ Mobile viewport simulation (375px width)
+- ✅ Mobile viewport simulation (375×812)
 - ✅ Remove hidden/clutter elements  
 - ✅ Smart content detection
 - ✅ Inline styles preservation
