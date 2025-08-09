@@ -11,6 +11,20 @@ async function getSharedBrowser(): Promise<Browser> {
   return sharedBrowserPromise;
 }
 
+// Simple in-memory cache for archived pages (1 hour TTL)
+const archiveCache = new Map<string, { result: ArchiveResult; timestamp: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+// Clean up old cache entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [url, entry] of archiveCache.entries()) {
+    if (now - entry.timestamp > CACHE_TTL) {
+      archiveCache.delete(url);
+    }
+  }
+}, 15 * 60 * 1000); // Clean every 15 minutes
+
 // Strip JavaScript from HTML for security while preserving all styling
 function stripJavaScript(html: string): string {
   const dom = new JSDOM(html);
@@ -147,6 +161,13 @@ interface ArchiveResult {
 export async function createArchive(url: string): Promise<ArchiveResult> {
   const startTime = Date.now();
 
+  // Check cache first
+  const cached = archiveCache.get(url);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    console.log(`⚡ Cache hit | Total: ${Date.now() - startTime}ms`);
+    return cached.result;
+  }
+
   const browser = await getSharedBrowser();
   const context = await browser.newContext({
     ...devices["Desktop Chrome"],
@@ -157,13 +178,12 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
 
   try {
     // Load the page and let JavaScript execute
+    const gotoStart = Date.now();
     await page.goto(url, {
       waitUntil: "networkidle",
       timeout: 30000,
     });
-    
-    // Wait a bit longer for any dynamic content to render
-    await page.waitForTimeout(2000);
+    const pageLoadTime = Date.now() - gotoStart;
     
     // Get the full rendered HTML after JavaScript execution
     const fullHTMLContent = await page.content();
@@ -388,8 +408,9 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
     const archivedHTML = dom.serialize();
 
     const extractionTime = Date.now() - startTime;
+    console.log(`⏱️ Page: ${pageLoadTime}ms | Total: ${extractionTime}ms`);
 
-    return {
+    const result = {
       html: archivedHTML,
       title: pageMetadata.title,
       author: pageMetadata.author || '',
@@ -399,6 +420,14 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
       extractionTime,
       contentSize: archivedHTML.length
     };
+
+    // Cache the result
+    archiveCache.set(url, {
+      result,
+      timestamp: Date.now()
+    });
+
+    return result;
 
   } catch (error) {
     console.error("❌ Error creating archive:", error);
