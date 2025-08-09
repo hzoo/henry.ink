@@ -7,7 +7,7 @@
 </head>
 <body>
   <!-- Default archive header with integrated controls -->
-  <div style="position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(240, 240, 240, 0.95); backdrop-filter: blur(4px); padding: 6px 12px; font-size: 11px; color: #666; border-bottom: 1px solid #ddd; height: 24px; line-height: 12px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif;">
+  <div id="mainHeader" style="position: fixed; top: 0; left: 0; right: 0; z-index: 10000; background: rgba(240, 240, 240, 0.95); backdrop-filter: blur(4px); padding: 6px 12px; font-size: 11px; color: #666; border-bottom: 1px solid #ddd; height: 24px; line-height: 12px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif;">
     <span>Archive Test</span>
     <div style="display: flex; align-items: center; gap: 6px;">
       <input
@@ -65,8 +65,14 @@
         content.innerHTML = archive.html;
         content.style.display = 'block';
         
+        // Hide the archive's own header since we have our own controls
+        const archiveHeader = content.querySelector('.archive-info');
+        if (archiveHeader) {
+          archiveHeader.style.display = 'none';
+        }
+        
         // Update the header to show archive info instead of controls
-        const header = document.querySelector('body > div');
+        const header = document.getElementById('mainHeader');
         const archiveDate = new Date().toLocaleDateString('en-US', { 
           month: 'short', 
           day: 'numeric', 
@@ -78,7 +84,7 @@
             <input
               type="url"
               id="urlInput"
-              value=""
+              value="${url}"
               placeholder="paste new url"
               style="width: 200px; padding: 2px 6px; outline: none; font-size: 11px; color: black; border: 1px solid #ccc; border-radius: 3px; height: 16px;"
             >
@@ -93,6 +99,11 @@
             </button>
           </div>
         `;
+        
+        // Re-attach event listener to the new input element
+        document.getElementById('urlInput').addEventListener('keypress', e => {
+          if (e.key === 'Enter') createArchive();
+        });
         
         console.log(`✅ Archive created: ${archive.title} (${Math.round(archive.contentSize / 1024)}KB in ${archive.extractionTime}ms)`);
         
