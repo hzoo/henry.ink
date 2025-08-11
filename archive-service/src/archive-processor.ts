@@ -75,7 +75,7 @@ function stripJavaScript(html: string): string {
 }
 
 // Function to rewrite font URLs (Google Fonts direct, others via proxy)
-function rewriteFontUrls(css: string, baseUrl: string): string {
+function rewriteFontUrls(css: string, baseUrl: string, fontProxyBaseUrl: string): string {
   // Find all font URLs in @font-face rules and CSS imports
   const fontUrlRegex = /url\((["']?)([^)]+)\1\)/g;
   
@@ -103,7 +103,7 @@ function rewriteFontUrls(css: string, baseUrl: string): string {
         }
         
         // For non-Google fonts, use proxy for security with full URL
-        const proxiedUrl = `http://localhost:3000/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+        const proxiedUrl = `${fontProxyBaseUrl}/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
         
         // Replace the original URL with the proxy URL
         const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
@@ -122,7 +122,7 @@ function rewriteFontUrls(css: string, baseUrl: string): string {
 
 // Function to validate and minify CSS using Lightning CSS (with conservative targets for JSDOM compatibility)
 async function validateAndProcessCSS(css: string): Promise<string | null> {
-  console.log(`🎨 Processing CSS, length: ${css.length}`);
+  // console.log(`🎨 Processing CSS, length: ${css.length}`);
   
   if (!css.trim()) {
     console.log('❌ Empty CSS provided to validator');
@@ -135,9 +135,9 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
       minify: false, // Disable minification to avoid breaking complex selectors
       targets: {
         // Use more modern browser targets to support newer CSS features
-        chrome: 80 << 16,  // Chrome 80 (2020)
-        firefox: 75 << 16,  // Firefox 75 (2020)
-        safari: 13 << 16,   // Safari 13 (2019)
+        chrome: 109 << 16, 
+        firefox: 128 << 16,
+        safari: 18 << 16,
       },
       // Additional flags to make CSS more compatible
       unusedSymbols: [],
@@ -145,18 +145,86 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
         nesting: true,  // Allow CSS nesting as it's widely supported
       },
       errorRecovery: true, // Continue processing even if some CSS is invalid
+      // Add visitor to transform selectors for archive mode scoping
+      visitor: {
+        Rule: {
+          style(rule) {
+            try {
+              // The rule structure is different - access the actual style rule via rule.value
+              const styleRule = rule.value;
+              
+              if (!styleRule || !styleRule.selectors || !Array.isArray(styleRule.selectors)) {
+                // console.log(`⚠️  StyleRule has no selectors:`, typeof styleRule?.selectors);
+                return rule;
+              }
+              
+              // console.log(`🔍 Processing rule with ${styleRule.selectors.length} selectors`);
+              
+              // Transform each selector to add .archive-mode prefix  
+              styleRule.selectors = styleRule.selectors.map(selector => {
+                // Lightning CSS selectors are arrays of SelectorComponent objects
+                // console.log(`🔍 Processing selector components (length: ${selector.length})`);
+                
+                // Check if first component is a special root-level selector
+                if (selector.length === 1) {
+                  const component = selector[0];
+                  if (component.type === 'type' && 
+                      (component.name === 'html' || component.name === 'body')) {
+                    // console.log(`🔄 Transforming ${component.name} → .archive-mode`);
+                    // Replace with .archive-mode class selector
+                    return [{
+                      type: 'class',
+                      name: 'archive-mode'
+                    }];
+                  }
+                  // Handle :root pseudo-class
+                  if (component.type === 'pseudo-class' && component.kind === 'root') {
+                    // console.log(`🔄 Transforming :root → .archive-mode`);
+                    return [{
+                      type: 'class',
+                      name: 'archive-mode'
+                    }];
+                  }
+                }
+                
+                // Check if already scoped (first component is .archive-mode class)
+                if (selector.length > 0 && 
+                    selector[0].type === 'class' && 
+                    selector[0].name === 'archive-mode') {
+                  // console.log(`✅ Already scoped selector`);
+                  return selector;
+                }
+                
+                // For all other selectors, prepend .archive-mode class and descendant combinator
+                const archiveModeClass = { type: 'class' as const, name: 'archive-mode' };
+                const descendantCombinator = { type: 'combinator' as const, value: 'descendant' as const };
+                const scopedSelector = [archiveModeClass, descendantCombinator, ...selector];
+                
+                // console.log(`🔄 Transforming selector → .archive-mode descendant`);
+                return scopedSelector;
+              });
+              
+              return rule;
+            } catch (error) {
+              console.log(`❌ Error transforming selector: ${error instanceof Error ? error.message : String(error)}`);
+              // console.log(`❌ Rule structure:`, JSON.stringify(rule, null, 2));
+              return rule;
+            }
+          }
+        }
+      }
     });
     
-    console.log(`✅ CSS validation succeeded, output length: ${result.code.toString().length}`);
+    // console.log(`✅ CSS validation succeeded, output length: ${result.code.toString().length}`);
     return result.code.toString();
     
   } catch (error) {
-    console.log(`❌ CSS validation failed: ${error.message}`);
-    console.log(`📝 First 500 chars of failed CSS:`, css.substring(0, 500));
+    console.log(`❌ CSS validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    // console.log(`📝 First 500 chars of failed CSS:`, css.substring(0, 500));
     
     // Instead of returning null, return the original CSS
     // This ensures we don't lose styles due to overly strict validation
-    console.log(`🔄 Returning original CSS due to validation failure`);
+    // console.log(`🔄 Returning original CSS due to validation failure`);
     return css;
   }
 }
@@ -182,7 +250,7 @@ interface ArchiveResult {
   };
 }
 
-export async function createArchive(url: string): Promise<ArchiveResult> {
+export async function createArchive(url: string, fontProxyBaseUrl?: string): Promise<ArchiveResult> {
   const startTime = Date.now();
 
   // Check cache first
@@ -212,36 +280,48 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
     // Get the full rendered HTML after JavaScript execution
     const fullHTMLContent = await page.content();
     
-    // Extract and inline all external CSS files
-    const { externalCSS, baseUrl } = await page.evaluate(async () => {
-      const stylesheets = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+    // Extract all CSS (external and inline) in document order
+    const { allCSS, baseUrl } = await page.evaluate(async () => {
+      // Get all stylesheet-related elements in document order
+      const allStyleElements = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'));
       const cssContents: string[] = [];
       
-      for (const link of stylesheets) {
+      for (const element of allStyleElements) {
         try {
-          const href = link.getAttribute('href');
-          if (!href) continue;
-          
-          // Convert relative URLs to absolute
-          const cssUrl = new URL(href, window.location.href).href;
-          const response = await fetch(cssUrl);
-          if (response.ok) {
-            const cssText = await response.text();
-            cssContents.push(`/* From: ${cssUrl} */\n${cssText}`);
+          if (element.tagName.toLowerCase() === 'link') {
+            // External stylesheet
+            const link = element as HTMLLinkElement;
+            const href = link.getAttribute('href');
+            if (!href) continue;
+            
+            // Convert relative URLs to absolute
+            const cssUrl = new URL(href, window.location.href).href;
+            const response = await fetch(cssUrl);
+            if (response.ok) {
+              const cssText = await response.text();
+              cssContents.push(`/* From: ${cssUrl} */\n${cssText}`);
+            }
+          } else if (element.tagName.toLowerCase() === 'style') {
+            // Inline style tag
+            const styleElement = element as HTMLStyleElement;
+            const cssText = styleElement.textContent || '';
+            if (cssText.trim()) {
+              cssContents.push(`/* Inline styles */\n${cssText}`);
+            }
           }
         } catch (error) {
-          console.log(`❌ Failed to fetch CSS: ${link.getAttribute('href')}`);
+          console.log(`❌ Failed to process CSS element: ${element.tagName}`);
         }
       }
       
       return {
-        externalCSS: cssContents.join('\n\n'),
+        allCSS: cssContents.join('\n\n'),
         baseUrl: window.location.href
       };
     });
     
     // Process fonts in the CSS to use font proxy
-    const fontProcessedCSS = rewriteFontUrls(externalCSS, baseUrl);
+    const fontProcessedCSS = rewriteFontUrls(allCSS, baseUrl, fontProxyBaseUrl || 'http://localhost:3000');
     
     // Validate and minify CSS with Lightning CSS for security
     const processedCSS = await validateAndProcessCSS(fontProcessedCSS);
@@ -296,14 +376,14 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
     const cleanedHTML = stripJavaScript(fullHTMLContent);
 
     // Combine all CSS into a single bundle for client-side injection
-    console.log(`📦 Combining CSS - processedCSS length: ${processedCSS?.length || 0}`);
+    // console.log(`📦 Combining CSS - processedCSS length: ${processedCSS?.length || 0}`);
     if (processedCSS) {
-      console.log(`📦 ProcessedCSS preview:`, processedCSS.substring(0, 300));
+      // console.log(`📦 ProcessedCSS preview:`, processedCSS.substring(0, 300));
     } else {
-      console.log(`❌ processedCSS is null or empty!`);
+      // console.log(`❌ processedCSS is null or empty!`);
     }
     
-    const allCSS = [
+    const finalCSS = [
       processedCSS,
       `
         /* Responsive images */
@@ -321,7 +401,7 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
       `
     ].filter(Boolean).join('\n\n');
     
-    console.log(`📦 Final combined CSS length: ${allCSS.length}`);
+    // console.log(`📦 Final combined CSS length: ${finalCSS.length}`);
 
     // Create virtual console to suppress CSS parsing errors (Lightning CSS handles validation)
     const virtualConsole = new VirtualConsole();
@@ -371,8 +451,7 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
       }
     });
 
-    // Get clean body content without CSS processing
-    const cleanBodyContent = document.body.innerHTML;
+    // Body content is already included in the full HTML
     
     // Remove all style tags and CSS links from the HTML since we'll return CSS separately
     const styleTags = document.querySelectorAll('style');
@@ -388,7 +467,7 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
 
     const result = {
       html: cleanHTML,
-      css: allCSS,
+      css: finalCSS,
       title: pageMetadata.title,
       author: pageMetadata.author || '',
       publishedTime: pageMetadata.publishedTime || '',
