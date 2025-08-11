@@ -127,7 +127,7 @@ const server = serve({
       },
       async POST(req) {
         try {
-          const { url } = await req.json();
+          const { url, linkRewriteBaseUrl } = await req.json();
           
           // Validate URL format and require HTTPS
           const parsedUrl = new URL(url);
@@ -148,7 +148,7 @@ const server = serve({
           const requestUrl = new URL(req.url);
           const fontProxyBaseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
           
-          const archive = await createArchive(url, fontProxyBaseUrl);
+          const archive = await createArchive(url, fontProxyBaseUrl, linkRewriteBaseUrl);
           return Response.json(archive, {
             headers: {
               'Content-Type': 'application/json',
