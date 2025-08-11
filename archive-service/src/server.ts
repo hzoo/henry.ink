@@ -115,6 +115,16 @@ const server = serve({
     },
 
     "/api/archive": {
+      async OPTIONS(req) {
+        return new Response(null, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400'
+          }
+        });
+      },
       async POST(req) {
         try {
           const { url } = await req.json();
@@ -122,7 +132,12 @@ const server = serve({
           // Validate URL format and require HTTPS
           const parsedUrl = new URL(url);
           if (parsedUrl.protocol !== 'https:') {
-            return Response.json({ error: "Only HTTPS URLs allowed" }, { status: 403 });
+            return Response.json({ error: "Only HTTPS URLs allowed" }, { 
+              status: 403,
+              headers: {
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
           }
           
           // Track the domain being archived
@@ -133,6 +148,7 @@ const server = serve({
           return Response.json(archive, {
             headers: {
               'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
               'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:;",
               'X-Content-Type-Options': 'nosniff',
               'X-Frame-Options': 'DENY'
@@ -140,7 +156,12 @@ const server = serve({
           });
         } catch (error) {
           console.error("Archive creation error:", error);
-          return Response.json({ error: 'Failed to create archive' }, { status: 500 });
+          return Response.json({ error: 'Failed to create archive' }, { 
+            status: 500,
+            headers: {
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
         }
       }
     }
