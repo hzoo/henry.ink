@@ -49,7 +49,10 @@ async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
 			const response = await fetch(`${archiveUrl}/api/archive`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: targetUrl }),
+				body: JSON.stringify({ 
+					url: targetUrl,
+					linkRewriteBaseUrl: window.location.origin 
+				}),
 			});
 
 			if (!response.ok) {

@@ -22,14 +22,14 @@ effect(() => {
 	const contentState = contentStateSignal.value;
 
 	if (contentState.type === "success" && contentState.title) {
-		document.title = `${contentState.title}`;
+		document.title = `${contentState.title} | Henry's Note`;
 	} else if (currentUrl.value) {
 		try {
 			const url = new URL(currentUrl.value);
 			const pathname = url.pathname === "/" ? "" : url.pathname;
-			document.title = `${url.hostname}${pathname}`;
+			document.title = `${url.hostname}${pathname} | Henry's Note`;
 		} catch {
-			document.title = `${currentUrl.value}`;
+			document.title = `${currentUrl.value} | Henry's Note`;
 		}
 	} else {
 		document.title = "Henry's Note";

@@ -250,7 +250,7 @@ interface ArchiveResult {
   };
 }
 
-export async function createArchive(url: string, fontProxyBaseUrl?: string): Promise<ArchiveResult> {
+export async function createArchive(url: string, fontProxyBaseUrl?: string, linkRewriteBaseUrl?: string): Promise<ArchiveResult> {
   const startTime = Date.now();
 
   // Check cache first
@@ -450,6 +450,32 @@ export async function createArchive(url: string, fontProxyBaseUrl?: string): Pro
         }
       }
     });
+
+    // Convert relative link URLs to henry.ink routes
+    if (linkRewriteBaseUrl) {
+      const links = document.querySelectorAll('a[href]');
+      let linkCount = 0;
+      links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && 
+            !href.startsWith('http') && 
+            !href.startsWith('#') && 
+            !href.startsWith('mailto:') && 
+            !href.startsWith('javascript:') &&
+            !href.startsWith('tel:')) {
+          try {
+            // Convert relative URL to absolute, then wrap with henry.ink
+            const absoluteUrl = new URL(href, baseUrl).href;
+            const henryInkUrl = `${linkRewriteBaseUrl}/${absoluteUrl}`;
+            link.setAttribute('href', henryInkUrl);
+            linkCount++;
+          } catch (error) {
+            console.log(`❌ Invalid link URL: ${href}`);
+          }
+        }
+      });
+      console.log(`🔗 Processed ${linkCount} relative links`);
+    }
 
     // Body content is already included in the full HTML
     
