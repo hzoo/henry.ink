@@ -60,19 +60,6 @@ async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
 			}
 
 			const archive = await response.json();
-			console.log('📡 Archive API response:', {
-				title: archive.title,
-				htmlLength: archive.html?.length || 0,
-				cssLength: archive.css?.length || 0,
-				hasHtmlAttrs: !!archive.htmlAttrs,
-				hasBodyAttrs: !!archive.bodyAttrs
-			});
-			
-			if (archive.css) {
-				console.log('📡 Archive CSS preview:', archive.css.substring(0, 300));
-			} else {
-				console.log('❌ No CSS returned from archive API');
-			}
 			
 			// Extract text content from HTML for Arena matching
 			let textContent = '';

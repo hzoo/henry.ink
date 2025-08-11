@@ -144,7 +144,11 @@ const server = serve({
           const domain = parsedUrl.hostname.replace(/^www\./, '');
           extractedDomains.set(domain, Date.now());
           
-          const archive = await createArchive(url);
+          // Build font proxy base URL from request origin
+          const requestUrl = new URL(req.url);
+          const fontProxyBaseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+          
+          const archive = await createArchive(url, fontProxyBaseUrl);
           return Response.json(archive, {
             headers: {
               'Content-Type': 'application/json',

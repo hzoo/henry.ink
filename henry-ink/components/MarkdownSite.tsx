@@ -27,11 +27,8 @@ export function MarkdownSite() {
 	// Handle CSS injection for archive mode
 	useEffect(() => {
 		if (contentMode === 'archive' && contentState.type === 'success' && contentState.css) {
-			console.log('🎨 Archive CSS detected, length:', contentState.css.length);
-			console.log('🎨 First 500 chars:', contentState.css.substring(0, 500));
 			injectArchiveCSS(contentState.css);
 		} else {
-			console.log('🎨 Cleaning up archive CSS, mode:', contentMode, 'state:', contentState.type, 'hasCss:', !!(contentState.type === 'success' && contentState.css));
 			cleanupArchiveCSS();
 		}
 		
@@ -180,7 +177,10 @@ export function MarkdownSite() {
 						>
 							<div className="archive-mode">
 								<ArenaEnhancedContent 
-									htmlContent={DOMPurify.sanitize(contentState.html)}
+									htmlContent={DOMPurify.sanitize(contentState.html, {
+										USE_PROFILES: { html: true },
+										ALLOWED_ATTR: ['id', 'class', 'style', 'href', 'src', 'alt', 'title', 'target', 'rel']
+									})}
 									contentRef={contentRef}
 									mode="archive"
 								/>

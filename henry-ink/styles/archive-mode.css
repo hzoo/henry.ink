@@ -41,25 +41,8 @@
   line-height: 1.6;
 }
 
-/* Restore default margins for common elements if they were reset by universal selectors */
-.archive-mode p:not([style*="margin"]) {
-  margin: 1em 0;
-}
-
-.archive-mode h1:not([style*="margin"]),
-.archive-mode h2:not([style*="margin"]),
-.archive-mode h3:not([style*="margin"]),
-.archive-mode h4:not([style*="margin"]),
-.archive-mode h5:not([style*="margin"]),
-.archive-mode h6:not([style*="margin"]) {
-  margin: 1.5em 0 0.5em;
-}
-
-.archive-mode ul:not([style*="margin"]),
-.archive-mode ol:not([style*="margin"]) {
-  margin: 1em 0;
-  padding-left: 2em;
-}
+/* Archive CSS scoping now handles all original styles via Lightning CSS visitor */
+/* Removed conflicting margin fallbacks that override original styling */
 
 /* Ensure Tailwind utilities don't leak into archive content */
 @layer tailwind {

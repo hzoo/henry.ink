@@ -1,7 +1,56 @@
+/* Main Tailwind CSS import and configuration */
 @import "tailwindcss";
 @source "../demo";
 @source "../src";
 @plugin "@tailwindcss/typography";
+
+/* Archive Mode - Restore browser defaults for archived content */
+@layer archive-defaults {
+  /* Override Tailwind's reset for archive mode content */
+  .archive-mode,
+  .archive-mode * {
+    /* Restore user agent stylesheet defaults */
+    all: revert;
+  }
+  
+  /* Container layout */
+  .archive-mode {
+    display: block;
+    position: relative;
+  }
+  
+  /* Typography - Browser default styles */
+  .archive-mode h1 { margin: 0.67em 0; font-size: 2em; font-weight: bold; }
+  .archive-mode h2 { margin: 0.75em 0; font-size: 1.5em; font-weight: bold; }
+  .archive-mode h3 { margin: 0.83em 0; font-size: 1.17em; font-weight: bold; }
+  .archive-mode h4 { margin: 1.12em 0; font-weight: bold; }
+  .archive-mode h5 { margin: 1.5em 0; font-size: 0.83em; font-weight: bold; }
+  .archive-mode h6 { margin: 1.67em 0; font-size: 0.75em; font-weight: bold; }
+  
+  .archive-mode p { margin: 1em 0; }
+  .archive-mode blockquote { margin: 1em 40px; }
+  .archive-mode ul, .archive-mode ol { margin: 1em 0; padding-left: 40px; }
+  .archive-mode li { display: list-item; }
+  .archive-mode ul li { list-style-type: disc; }
+  .archive-mode ol li { list-style-type: decimal; }
+  
+  .archive-mode hr { 
+    margin: 0.5em auto; 
+    border: 0;
+    border-top: 1px solid #ccc;
+  }
+  
+  .archive-mode pre { margin: 1em 0; white-space: pre; }
+  .archive-mode code { font-family: monospace; }
+  
+  /* Text formatting */
+  .archive-mode b, .archive-mode strong { font-weight: bold; }
+  .archive-mode i, .archive-mode em { font-style: italic; }
+  
+  /* Links */
+  .archive-mode a { color: blue; text-decoration: underline; }
+  .archive-mode a:visited { color: purple; }
+}
 
 /* Arena channel links styling */
 .arena-channel-link-wrapper {
@@ -10,21 +59,42 @@
   gap: 2px;
 }
 
+/* Base Arena link styles */
 .arena-channel-link {
-  color: #17AD58; /* Arena green */
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
+  color: #17AD58 !important; /* Arena green */
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  font: inherit !important;
   cursor: pointer;
-  text-decoration: none;
-  border-bottom: 1px dotted #17AD58;
+  text-decoration: none !important;
+  border-bottom: 1px dotted #17AD58 !important;
   transition: all 0.2s ease;
 }
 
 .arena-channel-link:hover {
-  color: #0e7a3e; /* Darker green on hover */
-  border-bottom-style: solid;
+  color: #0e7a3e !important; /* Darker green on hover */
+  border-bottom-style: solid !important;
+  text-decoration: none !important;
+}
+
+/* Higher specificity for prose mode - override Tailwind prose styles */
+.prose .arena-channel-link,
+.prose-lg .arena-channel-link {
+  color: #17AD58 !important;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+  border-bottom: 1px dotted #17AD58 !important;
+  font-weight: inherit !important;
+}
+
+.prose .arena-channel-link:hover,
+.prose-lg .arena-channel-link:hover {
+  color: #0e7a3e !important;
+  border-bottom-style: solid !important;
+  text-decoration: none !important;
 }
 
 .arena-link-icon {
@@ -43,14 +113,18 @@
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
-  .arena-channel-link {
-    color: #4ADE80; /* Lighter green for dark mode */
-    border-bottom-color: #4ADE80;
+  .arena-channel-link,
+  .prose .arena-channel-link,
+  .prose-lg .arena-channel-link {
+    color: #4ADE80 !important; /* Lighter green for dark mode */
+    border-bottom-color: #4ADE80 !important;
   }
   
-  .arena-channel-link:hover {
-    color: #86EFAC;
-    border-bottom-color: #86EFAC;
+  .arena-channel-link:hover,
+  .prose .arena-channel-link:hover,
+  .prose-lg .arena-channel-link:hover {
+    color: #86EFAC !important;
+    border-bottom-color: #86EFAC !important;
   }
 
   .arena-link-icon {
