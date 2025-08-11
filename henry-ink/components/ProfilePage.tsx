@@ -13,7 +13,7 @@ export function ProfilePage() {
 
 	// Update page title
 	useEffect(() => {
-		document.title = `@${username}`;
+		document.title = `@${username} | Henry's Note`;
 	}, [username]);
 
 	// Fetch profile data
