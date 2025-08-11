@@ -1,53 +1,107 @@
 import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { contentStateSignal } from "@/henry-ink/signals";
+import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 
-async function fetchSimplifiedContent(targetUrl: string) {
+async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
 	if (!targetUrl || !targetUrl.startsWith("http")) {
 		contentStateSignal.value = {
 			type: "error",
 			message: "Invalid URL provided for fetching.",
+			mode,
 		};
 		return;
 	}
 
-	contentStateSignal.value = { type: "loading" };
+	contentStateSignal.value = { type: "loading", mode };
 
 	try {
-		// The worker expects the target URL as a path segment AFTER the initial slash.
-		// So, if targetUrl is "https://example.com", the request path to worker is "/https://example.com"
-		const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${targetUrl}`);
+		if (mode === 'md') {
+			// Original ji.na flow for markdown content
+			const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${targetUrl}`);
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`Worker error: ${response.status} ${response.statusText}. ${errorText}`,
-			);
-		}
-		const content = await response.text();
-		
-		// Extract title from the content (look for first h1 or title tag)
-		let title = '';
-		try {
-			const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
-							   content.match(/^#\s+(.+)$/m) ||
-							   content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-			if (titleMatch) {
-				title = titleMatch[1].trim();
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(
+					`Worker error: ${response.status} ${response.statusText}. ${errorText}`,
+				);
 			}
-		} catch (e) {
-			// Ignore title extraction errors
+			const content = await response.text();
+			
+			// Extract title from the content (look for first h1 or title tag)
+			let title = '';
+			try {
+				const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
+								   content.match(/^#\s+(.+)$/m) ||
+								   content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+				if (titleMatch) {
+					title = titleMatch[1].trim();
+				}
+			} catch (e) {
+				// Ignore title extraction errors
+			}
+			
+			contentStateSignal.value = { type: "success", content, title, mode };
+		} else if (mode === 'archive') {
+			// New archive service flow for full HTML content
+			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
+			const response = await fetch(`${archiveUrl}/api/archive`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url: targetUrl }),
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(
+					`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
+				);
+			}
+
+			const archive = await response.json();
+			console.log('📡 Archive API response:', {
+				title: archive.title,
+				htmlLength: archive.html?.length || 0,
+				cssLength: archive.css?.length || 0,
+				hasHtmlAttrs: !!archive.htmlAttrs,
+				hasBodyAttrs: !!archive.bodyAttrs
+			});
+			
+			if (archive.css) {
+				console.log('📡 Archive CSS preview:', archive.css.substring(0, 300));
+			} else {
+				console.log('❌ No CSS returned from archive API');
+			}
+			
+			// Extract text content from HTML for Arena matching
+			let textContent = '';
+			try {
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(archive.html, 'text/html');
+				textContent = doc.body?.textContent || '';
+			} catch (e) {
+				console.warn('Failed to extract text from archive HTML:', e);
+				textContent = archive.html; // Fallback to raw HTML
+			}
+			
+			contentStateSignal.value = { 
+				type: "success", 
+				content: textContent, // Text content for Arena enhancement
+				title: archive.title,
+				mode,
+				html: archive.html, // Store full HTML for direct rendering
+				css: archive.css, // Store CSS for injection
+				htmlAttrs: archive.htmlAttrs,
+				bodyAttrs: archive.bodyAttrs
+			};
 		}
-		
-		contentStateSignal.value = { type: "success", content, title };
 	} catch (e: unknown) {
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
 			type: "error",
-			message:
-				e.message || "An unexpected error occurred while fetching content.",
+			message: e.message || "An unexpected error occurred while fetching content.",
+			mode,
 		};
 	}
 }
@@ -74,14 +128,17 @@ export function useUrlPathSyncer() {
 	}, [location.path]);
 }
 
-// Effect to fetch content when currentUrl changes
+// Effect to fetch content when currentUrl or mode changes
 export function useContentFetcher() {
 	useSignalEffect(() => {
-		if (currentUrl.value?.startsWith("http")) {
-			fetchSimplifiedContent(currentUrl.value);
+		const url = currentUrl.value;
+		const mode = contentModeSignal.value;
+		
+		if (url?.startsWith("http")) {
+			fetchSimplifiedContent(url, mode);
 		} else {
 			// If targetUrl is cleared or invalid, reset to idle
-			if (!currentUrl.value) {
+			if (!url) {
 				contentStateSignal.value = { type: "idle" };
 			}
 		}

@@ -10,13 +10,14 @@ import { useEffect } from "preact/hooks";
 interface ArenaEnhancedContentProps {
   htmlContent: string;
   contentRef: React.RefObject<HTMLDivElement>;
+  mode: 'md' | 'archive';
 }
 
 /**
  * Component that enhances HTML content with Arena channel links
  * Uses text matching instead of positions for accuracy
  */
-export function ArenaEnhancedContent({ htmlContent, contentRef }: ArenaEnhancedContentProps) {
+export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
 
   // Use shared query with URL-based key (much smaller than content)
@@ -217,10 +218,11 @@ export function ArenaEnhancedContent({ htmlContent, contentRef }: ArenaEnhancedC
     };
   }, [contentRef, enhancedHtml.value]);
 
+  // Both modes now use regular rendering - CSS isolation handled at parent level
   return (
     <div
       ref={contentRef}
-      className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
+      className={mode === 'archive' ? 'max-w-none' : 'prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words'}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
       dangerouslySetInnerHTML={{ __html: enhancedHtml.value }}
     />

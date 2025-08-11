@@ -102,8 +102,8 @@ function rewriteFontUrls(css: string, baseUrl: string): string {
           continue;
         }
         
-        // For non-Google fonts, use proxy for security
-        const proxiedUrl = `/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+        // For non-Google fonts, use proxy for security with full URL
+        const proxiedUrl = `http://localhost:3000/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
         
         // Replace the original URL with the proxy URL
         const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
@@ -122,33 +122,48 @@ function rewriteFontUrls(css: string, baseUrl: string): string {
 
 // Function to validate and minify CSS using Lightning CSS (with conservative targets for JSDOM compatibility)
 async function validateAndProcessCSS(css: string): Promise<string | null> {
+  console.log(`🎨 Processing CSS, length: ${css.length}`);
+  
+  if (!css.trim()) {
+    console.log('❌ Empty CSS provided to validator');
+    return null;
+  }
+  
   try {
     const result = transform({
       code: Buffer.from(css),
-      minify: true,
+      minify: false, // Disable minification to avoid breaking complex selectors
       targets: {
-        // Use older browser targets to avoid modern CSS features that break JSDOM
-        chrome: 70 << 16,  // Chrome 70 (2018) - more conservative
-        firefox: 65 << 16,  // Firefox 65 (2019) - more conservative  
-        safari: 12 << 16,   // Safari 12 (2018) - more conservative
+        // Use more modern browser targets to support newer CSS features
+        chrome: 80 << 16,  // Chrome 80 (2020)
+        firefox: 75 << 16,  // Firefox 75 (2020)
+        safari: 13 << 16,   // Safari 13 (2019)
       },
       // Additional flags to make CSS more compatible
       unusedSymbols: [],
       drafts: {
-        nesting: false,  // Disable CSS nesting
+        nesting: true,  // Allow CSS nesting as it's widely supported
       },
+      errorRecovery: true, // Continue processing even if some CSS is invalid
     });
     
+    console.log(`✅ CSS validation succeeded, output length: ${result.code.toString().length}`);
     return result.code.toString();
     
   } catch (error) {
     console.log(`❌ CSS validation failed: ${error.message}`);
-    return null;
+    console.log(`📝 First 500 chars of failed CSS:`, css.substring(0, 500));
+    
+    // Instead of returning null, return the original CSS
+    // This ensures we don't lose styles due to overly strict validation
+    console.log(`🔄 Returning original CSS due to validation failure`);
+    return css;
   }
 }
 
 interface ArchiveResult {
   html: string;
+  css: string;
   title: string;
   author: string;
   publishedTime: string;
@@ -156,6 +171,15 @@ interface ArchiveResult {
   url: string;
   extractionTime: number;
   contentSize: number;
+  htmlAttrs: {
+    class: string;
+    style: string;
+    lang: string;
+  };
+  bodyAttrs: {
+    class: string;
+    style: string;
+  };
 }
 
 export async function createArchive(url: string): Promise<ArchiveResult> {
@@ -271,14 +295,17 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
     // Strip JavaScript from the HTML for security while preserving all styling
     const cleanedHTML = stripJavaScript(fullHTMLContent);
 
-    // Insert validated CSS into HTML string
-    let htmlWithCSS = cleanedHTML;
+    // Combine all CSS into a single bundle for client-side injection
+    console.log(`📦 Combining CSS - processedCSS length: ${processedCSS?.length || 0}`);
     if (processedCSS) {
-      const externalCSSBlock = `<style>\n/* External stylesheets validated and minified by Lightning CSS */\n${processedCSS}\n</style>`;
-      htmlWithCSS = htmlWithCSS.replace('</head>', `${externalCSSBlock}\n</head>`);
+      console.log(`📦 ProcessedCSS preview:`, processedCSS.substring(0, 300));
+    } else {
+      console.log(`❌ processedCSS is null or empty!`);
     }
     
-    const additionalCSSBlock = `<style>
+    const allCSS = [
+      processedCSS,
+      `
         /* Responsive images */
         img { 
           max-width: 100% !important; 
@@ -291,35 +318,10 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
           overflow-wrap: break-word !important;
           box-sizing: border-box !important;
         }
-        
-        /* Minimal fixed archive info banner */
-        .archive-info { 
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          z-index: 1000 !important;
-          background: rgba(240, 240, 240, 0.95) !important;
-          backdrop-filter: blur(4px) !important;
-          padding: 6px 12px !important;
-          font-size: 11px !important;
-          color: #666 !important;
-          border-bottom: 1px solid #ddd !important;
-          height: 24px !important;
-          line-height: 12px !important;
-          box-sizing: border-box !important;
-        }
-        .archive-info a { 
-          color: #0066cc !important; 
-          text-decoration: none !important;
-        }
-        
-        /* Push content down to avoid overlap with fixed header */
-        .archive-html-wrapper {
-          margin-top: 24px !important;
-        }
-      </style>`;
-    htmlWithCSS = htmlWithCSS.replace('</head>', `${additionalCSSBlock}\n</head>`);
+      `
+    ].filter(Boolean).join('\n\n');
+    
+    console.log(`📦 Final combined CSS length: ${allCSS.length}`);
 
     // Create virtual console to suppress CSS parsing errors (Lightning CSS handles validation)
     const virtualConsole = new VirtualConsole();
@@ -327,8 +329,8 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
       // Suppress JSDOM CSS parsing errors - Lightning CSS already validated the CSS
     });
 
-    // Parse HTML with JSDOM
-    const dom = new JSDOM(htmlWithCSS, {
+    // Parse HTML with JSDOM (use cleaned HTML without CSS)
+    const dom = new JSDOM(cleanedHTML, {
       resources: "usable",
       runScripts: "outside-only",
       pretendToBeVisual: false,
@@ -369,56 +371,33 @@ export async function createArchive(url: string): Promise<ArchiveResult> {
       }
     });
 
-    // Wrap content with preserved html/body styling and add archive banner
-    const existingBodyContent = document.body.innerHTML;
+    // Get clean body content without CSS processing
+    const cleanBodyContent = document.body.innerHTML;
     
-    // Build style attributes from extracted html/body attributes
-    const htmlWrapperStyle = [
-      pageData.htmlAttrs.style,
-    ].filter(Boolean).join('; ');
+    // Remove all style tags and CSS links from the HTML since we'll return CSS separately
+    const styleTags = document.querySelectorAll('style');
+    styleTags.forEach(tag => tag.remove());
     
-    const bodyWrapperStyle = [
-      pageData.bodyAttrs.style,
-    ].filter(Boolean).join('; ');
-    
-    const htmlWrapperClass = pageData.htmlAttrs.class;
-    const bodyWrapperClass = pageData.bodyAttrs.class;
-    
-    // Create new body content with preserved styling and minimal archive banner
-    const archiveDate = new Date().toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    const wrappedContent = `
-      <div class="archive-info">
-        Archived from <a href="${url}" target="_blank">${pageMetadata.domain}</a> • ${archiveDate}
-      </div>
-      
-      <div class="archive-html-wrapper${htmlWrapperClass ? ' ' + htmlWrapperClass : ''}"${htmlWrapperStyle ? ` style="${htmlWrapperStyle}"` : ''}>
-        <div class="archive-body-wrapper${bodyWrapperClass ? ' ' + bodyWrapperClass : ''}"${bodyWrapperStyle ? ` style="${bodyWrapperStyle}"` : ''}>
-          ${existingBodyContent}
-        </div>
-      </div>
-    `;
-    
-    document.body.innerHTML = wrappedContent;
+    const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
+    cssLinks.forEach(link => link.remove());
 
-    const archivedHTML = dom.serialize();
+    const cleanHTML = dom.serialize();
 
     const extractionTime = Date.now() - startTime;
     console.log(`⏱️ Page: ${pageLoadTime}ms | Total: ${extractionTime}ms`);
 
     const result = {
-      html: archivedHTML,
+      html: cleanHTML,
+      css: allCSS,
       title: pageMetadata.title,
       author: pageMetadata.author || '',
       publishedTime: pageMetadata.publishedTime || '',
       domain: pageMetadata.domain,
       url: url,
       extractionTime,
-      contentSize: archivedHTML.length
+      contentSize: cleanHTML.length,
+      htmlAttrs: pageData.htmlAttrs,
+      bodyAttrs: pageData.bodyAttrs
     };
 
     // Cache the result
