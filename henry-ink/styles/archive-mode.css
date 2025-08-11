@@ -1,0 +1,114 @@
+/* Archive Mode Wrapper Styles */
+
+/* Main wrapper that contains everything */
+.archive-mode-wrapper {
+  /* Ensure full width and proper containment */
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  
+  /* Create a new stacking context */
+  isolation: isolate;
+  
+  /* Prevent margin collapse */
+  display: flow-root;
+}
+
+/* HTML-level simulation */
+.archive-mode-html {
+  /* Default HTML styles that might be expected */
+  display: block;
+  min-height: 100%;
+}
+
+/* Body-level simulation */
+.archive-mode-body {
+  /* Default body styles */
+  display: block;
+  margin: 0;
+  min-height: 100%;
+}
+
+/* The actual archive content container */
+.archive-mode {
+  /* Already handled by injected styles, but ensure basics */
+  display: block;
+  position: relative;
+  
+  /* Fallback layout constraints for readable content */
+  max-width: min(100%, 80rem);
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Restore default margins for common elements if they were reset by universal selectors */
+.archive-mode p:not([style*="margin"]) {
+  margin: 1em 0;
+}
+
+.archive-mode h1:not([style*="margin"]),
+.archive-mode h2:not([style*="margin"]),
+.archive-mode h3:not([style*="margin"]),
+.archive-mode h4:not([style*="margin"]),
+.archive-mode h5:not([style*="margin"]),
+.archive-mode h6:not([style*="margin"]) {
+  margin: 1.5em 0 0.5em;
+}
+
+.archive-mode ul:not([style*="margin"]),
+.archive-mode ol:not([style*="margin"]) {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+/* Ensure Tailwind utilities don't leak into archive content */
+@layer tailwind {
+  /* This ensures Tailwind styles are properly layered */
+}
+
+/* Additional resets for common conflicts */
+.archive-mode-wrapper {
+  /* Reset Tailwind's default font stack */
+  font-family: initial;
+}
+
+/* Preserve interactive elements */
+.archive-mode a,
+.archive-mode button {
+  cursor: pointer;
+}
+
+/* Ensure images are responsive */
+.archive-mode img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Preserve Arena enhancement visibility */
+.archive-mode .arena-channel-link-wrapper,
+.archive-mode .arena-channel-link,
+.archive-mode .arena-link-icon {
+  /* These styles are preserved via all: revert in injected CSS */
+}
+
+/* Handle overflow for better containment */
+.archive-mode-wrapper {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Debug mode - uncomment to see boundaries */
+/*
+.archive-mode-wrapper {
+  border: 2px solid red;
+}
+.archive-mode-html {
+  border: 2px solid blue;
+}
+.archive-mode-body {
+  border: 2px solid green;
+}
+.archive-mode {
+  border: 2px solid purple;
+}
+*/
