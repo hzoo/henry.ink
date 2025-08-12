@@ -2,8 +2,7 @@
 
 /* Main wrapper that contains everything */
 .archive-mode-wrapper {
-  /* Ensure full width and proper containment */
-  width: 100%;
+  /* Let content determine its own width */
   min-height: 100vh;
   position: relative;
   
@@ -12,6 +11,13 @@
   
   /* Prevent margin collapse */
   display: flow-root;
+  
+  /* Reset Tailwind's default font stack */
+  font-family: initial;
+  
+  /* Handle overflow for better containment */
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 /* HTML-level simulation */
@@ -35,24 +41,8 @@
   display: block;
   position: relative;
   
-  /* Fallback layout constraints for readable content */
-  max-width: min(100%, 80rem);
-  margin: 0 auto;
+  /* Let the original site determine its own width and centering */
   line-height: 1.6;
-}
-
-/* Archive CSS scoping now handles all original styles via Lightning CSS visitor */
-/* Removed conflicting margin fallbacks that override original styling */
-
-/* Ensure Tailwind utilities don't leak into archive content */
-@layer tailwind {
-  /* This ensures Tailwind styles are properly layered */
-}
-
-/* Additional resets for common conflicts */
-.archive-mode-wrapper {
-  /* Reset Tailwind's default font stack */
-  font-family: initial;
 }
 
 /* Preserve interactive elements */
@@ -65,19 +55,6 @@
 .archive-mode img {
   max-width: 100%;
   height: auto;
-}
-
-/* Preserve Arena enhancement visibility */
-.archive-mode .arena-channel-link-wrapper,
-.archive-mode .arena-channel-link,
-.archive-mode .arena-link-icon {
-  /* These styles are preserved via all: revert in injected CSS */
-}
-
-/* Handle overflow for better containment */
-.archive-mode-wrapper {
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 /* Debug mode - uncomment to see boundaries */

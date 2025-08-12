@@ -86,7 +86,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 
 				{/* Main Content */}
 				<div class="flex-1 flex flex-col overflow-auto">
-					<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 flex-1 flex flex-col w-full min-w-0">
+					<div class="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 flex-1 flex flex-col w-full min-w-0">
 						{children}
 					</div>
 				</div>
