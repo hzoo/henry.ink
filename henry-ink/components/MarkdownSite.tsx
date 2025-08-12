@@ -93,8 +93,8 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
-					{/* Content mode tabs */}
-					<div className="mb-2 flex gap-1 items-center">
+					{/* Content mode tabs - always constrained */}
+					<div className="max-w-4xl mx-auto mb-2 flex gap-1 items-center">
 						{/* Mode buttons */}
 						<button
 							onClick={() => contentModeSignal.value = 'md'}
@@ -170,29 +170,32 @@ export function MarkdownSite() {
 						</a>
 					</div>
 					
-					{contentMode === 'archive' && contentState.html ? (
-						<ArchiveModeWrapper
-							htmlAttrs={contentState.htmlAttrs}
-							bodyAttrs={contentState.bodyAttrs}
-						>
-							<div className="archive-mode">
-								<ArenaEnhancedContent 
-									htmlContent={DOMPurify.sanitize(contentState.html, {
-										USE_PROFILES: { html: true },
-										ALLOWED_ATTR: ['id', 'class', 'style', 'href', 'src', 'alt', 'title', 'target', 'rel']
-									})}
-									contentRef={contentRef}
-									mode="archive"
-								/>
-							</div>
-						</ArchiveModeWrapper>
-					) : (
-						<ArenaEnhancedContent 
-							htmlContent={DOMPurify.sanitize(marked.parse(contentState.content) as string)}
-							contentRef={contentRef}
-							mode="md"
-						/>
-					)}
+					{/* Content - conditional width based on mode */}
+					<div className={contentMode === 'archive' ? '' : 'max-w-4xl mx-auto'}>
+						{contentMode === 'archive' && contentState.html ? (
+							<ArchiveModeWrapper
+								htmlAttrs={contentState.htmlAttrs}
+								bodyAttrs={contentState.bodyAttrs}
+							>
+								<div className="archive-mode">
+									<ArenaEnhancedContent 
+										htmlContent={DOMPurify.sanitize(contentState.html, {
+											USE_PROFILES: { html: true },
+											ALLOWED_ATTR: ['id', 'class', 'style', 'href', 'src', 'alt', 'title', 'target', 'rel']
+										})}
+										contentRef={contentRef}
+										mode="archive"
+									/>
+								</div>
+							</ArchiveModeWrapper>
+						) : (
+							<ArenaEnhancedContent 
+								htmlContent={DOMPurify.sanitize(marked.parse(contentState.content) as string)}
+								contentRef={contentRef}
+								mode="md"
+							/>
+						)}
+					</div>
 					<HighlightController contentRef={contentRef} />
 					<QuotePositionDots contentRef={contentRef} />
 					<ArenaNavigationController contentRef={contentRef} enabled={contentState.type === 'success'} />
