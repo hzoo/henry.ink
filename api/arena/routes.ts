@@ -3,6 +3,10 @@ import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
 import type { ArenaChannel } from './arena-client';
 
+// Arena API tokens
+const APP_TOKEN = process.env.ARENA_APP_TOKEN;
+const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
+
 // Shared instances for arena functionality
 const DB_PATH = process.env.ARENA_DB_PATH || './api/arena/data/channels.db';
 const storage = new ChannelStorage(DB_PATH);
@@ -210,20 +214,16 @@ export async function arenaSearchRoute(req: Request) {
     searchUrl.searchParams.set('q', query);
     searchUrl.searchParams.set('per', '100');
     
-    // Get tokens from environment
-    const appToken = process.env.VITE_ARENA_APP_TOKEN;
-    const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
-    
     const headers: Record<string, string> = {
       'Accept': 'application/json',
     };
     
-    if (appToken) {
-      headers['x-app-token'] = appToken;
+    if (APP_TOKEN) {
+      headers['x-app-token'] = APP_TOKEN;
     }
     
-    if (authToken) {
-      headers['x-auth-token'] = authToken;
+    if (AUTH_TOKEN) {
+      headers['x-auth-token'] = AUTH_TOKEN;
     }
     
     const response = await fetch(searchUrl.toString(), {
@@ -345,15 +345,13 @@ export async function channelBlocksRoute(req: Request) {
       if (existingChannel?.author_slug == null) {
         // Fetch channel info to get author data
         const channelInfoUrl = `https://api.are.na/v2/channels/${slug}`;
-        const appToken = process.env.VITE_ARENA_APP_TOKEN;
-        const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
         
         const headers: Record<string, string> = {
           'Accept': 'application/json',
         };
         
-        if (appToken) headers['x-app-token'] = appToken;
-        if (authToken) headers['x-auth-token'] = authToken;
+        if (APP_TOKEN) headers['x-app-token'] = APP_TOKEN;
+        if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
 
         const channelResponse = await fetch(channelInfoUrl, { headers });
         if (channelResponse.ok) {
