@@ -12,6 +12,7 @@ import {
 // https://vitejs.dev/config/
 export default defineConfig({
 	root: __dirname,
+	envDir: "../", // Load .env files from project root
 	build: {
 		outDir: "dist",
 		emptyOutDir: true,

@@ -3,6 +3,10 @@
  * Fetches channels with filtering and pagination
  */
 
+// Arena API tokens
+const APP_TOKEN = process.env.ARENA_APP_TOKEN;
+const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
+
 export interface ArenaChannel {
   id: number;
   slug: string;
@@ -78,21 +82,17 @@ export class ArenaClient {
       onProgress
     } = options;
 
-    // Get app token from environment
-    const appToken = process.env.VITE_ARENA_APP_TOKEN;
-    const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
-    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
     
-    if (appToken) {
-      headers['x-app-token'] = appToken;
+    if (APP_TOKEN) {
+      headers['x-app-token'] = APP_TOKEN;
     }
     
-    if (authToken) {
-      headers['x-auth-token'] = authToken;
+    if (AUTH_TOKEN) {
+      headers['x-auth-token'] = AUTH_TOKEN;
     }
 
     const requestBody = {
@@ -240,20 +240,16 @@ export class ArenaClient {
       // Use REST API V2 to get channel with contents
       const restUrl = `https://api.are.na/v2/channels/${slug}?per=${per}&page=${page}`;
       
-      // Get app token from environment
-      const appToken = process.env.VITE_ARENA_APP_TOKEN;
-      const authToken = process.env.VITE_ARENA_AUTH_TOKEN;
-      
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };
       
-      if (appToken) {
-        headers['x-app-token'] = appToken;
+      if (APP_TOKEN) {
+        headers['x-app-token'] = APP_TOKEN;
       }
       
-      if (authToken) {
-        headers['x-auth-token'] = authToken;
+      if (AUTH_TOKEN) {
+        headers['x-auth-token'] = AUTH_TOKEN;
       }
 
       const response = await fetch(restUrl, {
@@ -411,16 +407,15 @@ export class ArenaClient {
     `;
 
     try {
-      // Get app token from environment
-      const appToken = process.env.VITE_ARENA_APP_TOKEN;
+      // Use token from top level
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
       
-      if (appToken) {
-        headers['x-app-token'] = appToken;
+      if (APP_TOKEN) {
+        headers['x-app-token'] = APP_TOKEN;
       }
 
       const response = await fetch(this.endpoint, {
