@@ -4,8 +4,7 @@
   "private": true,
   "version": "0.0.10",
   "workspaces": [
-    "styled-content-service",
-    "henry-ink/arena"
+    "api"
   ],
   "type": "module",
   "scripts": {
@@ -25,7 +24,9 @@
     "deploy:demo": "bun run build:demo && CLOUDFLARE_ACCOUNT_ID=899db3f6d2659dfb20376c7e752c862d bunx wrangler pages deploy demo/dist --project-name=annotation-sidebar-demo --branch=main",
     "deploy:notes": "bun run build:ink && CLOUDFLARE_ACCOUNT_ID=4eb8c64e85c6cc2bcb31e3df36da1959 bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
     "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
-    "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml"
+    "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml",
+    "api": "bun api/server.ts",
+    "migrate:api": "bun scripts/migrate-api.ts"
   },
   "dependencies": {
     "@atcute/atproto": "^3.1.1",
@@ -43,7 +44,6 @@
     "dompurify": "^3.2.6",
     "idb": "^8.0.3",
     "marked": "^16.1.2",
-    "modern-ahocorasick": "^2.0.4",
     "preact": "^10.27.0",
     "preact-iso": "^2.9.2"
   },
