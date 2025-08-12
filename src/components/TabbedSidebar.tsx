@@ -72,7 +72,7 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 
 			{/* Control Bar */}
 			{(activeTabSignal.value === 'bluesky' || activeTabSignal.value === 'arena') && (
-				<div className="flex-shrink-0 px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex justify-end">
+				<div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex justify-end">
 					{activeTabSignal.value === 'bluesky' ? (
 						<button
 							onClick={handleRefresh}
