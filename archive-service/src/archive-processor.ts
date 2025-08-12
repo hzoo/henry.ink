@@ -96,20 +96,27 @@ function rewriteFontUrls(css: string, baseUrl: string, fontProxyBaseUrl: string)
       if (!fontUrls.includes(absoluteUrl)) {
         fontUrls.push(absoluteUrl);
         
-        // Check if this is a Google Fonts URL (safe to load directly)
-        if (absoluteUrl.includes('fonts.googleapis.com') || absoluteUrl.includes('fonts.gstatic.com')) {
+        // Check if this is actually a font file (not an image or other asset)
+        const isFontFile = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i.test(absoluteUrl);
+        const isGoogleFont = absoluteUrl.includes('fonts.googleapis.com') || absoluteUrl.includes('fonts.gstatic.com');
+        
+        if (isGoogleFont) {
           // Keep Google Fonts URLs as-is (no proxying needed)
           continue;
+        } else if (isFontFile) {
+          // Only proxy actual font files
+          const proxiedUrl = `${fontProxyBaseUrl}/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+          
+          // Replace the original URL with the proxy URL
+          const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
+          processedCSS = processedCSS.replace(urlPattern, `url("${proxiedUrl}")`);
+          
+          proxiedFonts.push(absoluteUrl);
+        } else {
+          // For non-font assets (SVG, PNG, etc.), just convert to absolute URL
+          const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
+          processedCSS = processedCSS.replace(urlPattern, `url("${absoluteUrl}")`);
         }
-        
-        // For non-Google fonts, use proxy for security with full URL
-        const proxiedUrl = `${fontProxyBaseUrl}/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        
-        // Replace the original URL with the proxy URL
-        const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
-        processedCSS = processedCSS.replace(urlPattern, `url("${proxiedUrl}")`);
-        
-        proxiedFonts.push(absoluteUrl);
       }
     } catch (error) {
       console.log(`❌ Invalid font URL: ${fontUrl}`);
@@ -177,13 +184,10 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
                       name: 'archive-mode'
                     }];
                   }
-                  // Handle :root pseudo-class
+                  // Handle :root pseudo-class - preserve unchanged to maintain CSS custom properties
                   if (component.type === 'pseudo-class' && component.kind === 'root') {
-                    // console.log(`🔄 Transforming :root → .archive-mode`);
-                    return [{
-                      type: 'class',
-                      name: 'archive-mode'
-                    }];
+                    // Don't transform - preserve original :root selector to avoid CSS variable conflicts
+                    return selector;
                   }
                 }
                 

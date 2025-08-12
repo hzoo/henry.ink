@@ -71,17 +71,28 @@ const server = serve({
             }, { status: response.status });
           }
 
-          // Validate content type
+          // Validate content type and exclude non-font files
           const contentType = response.headers.get('content-type') || '';
-          const isValidFont = contentType.includes('font/') ||
+          const isValidFont = (contentType.includes('font/') ||
                              fontUrl.includes('.woff') ||
                              fontUrl.includes('.woff2') ||
                              fontUrl.includes('.ttf') ||
-                             fontUrl.includes('.otf');
+                             fontUrl.includes('.otf')) &&
+                             !fontUrl.includes('.svg') &&
+                             !fontUrl.includes('.png') &&
+                             !fontUrl.includes('.jpg') &&
+                             !fontUrl.includes('.jpeg') &&
+                             !fontUrl.includes('.gif') &&
+                             !contentType.includes('image/');
           
           if (!isValidFont) {
-            console.error(`Invalid font content type: ${contentType}`);
-            return Response.json({ error: "Not a valid font file" }, { status: 400 });
+            console.error(`Invalid font content type: ${contentType} for URL: ${fontUrl}`);
+            return Response.json({ error: "Not a valid font file" }, { 
+              status: 400,
+              headers: {
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
           }
 
           // Check file size (max 5MB)
