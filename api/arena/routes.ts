@@ -13,6 +13,13 @@ const storage = new ChannelStorage(DB_PATH);
 const matcher = new ChannelPatternMatcher();
 const enhancer = new LinkEnhancer(storage, matcher);
 
+// Initialize the pattern matcher on module load
+enhancer.initialize().then(() => {
+  console.log('🏗️ Arena pattern matcher initialized successfully');
+}).catch((error) => {
+  console.error('❌ Failed to initialize arena pattern matcher:', error);
+});
+
 // LRU cache with proper eviction
 class LRUCache<K, V> {
   private cache = new Map<K, V>();
