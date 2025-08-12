@@ -31,9 +31,9 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
     } : undefined,
     persister: undefined, // Disable persistence for infinite queries
     queryFn: async ({ pageParam = 1 }) => {
-      const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
       
-      const response = await fetch(`${apiUrl}/channel-blocks`, {
+      const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

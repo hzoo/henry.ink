@@ -8,9 +8,9 @@ import type { ArenaApiResponse, ArenaMatch, ArenaChannelWithBlocks } from './are
  * Fetch Arena matches from the API
  */
 export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> {
-  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
   
-  const response = await fetch(`${apiUrl}/enhance`, {
+  const response = await fetch(`${apiUrl}/api/arena/enhance`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -52,9 +52,9 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
  * Fetch blocks for a specific Arena channel
  */
 export async function fetchChannelBlocks(slug: string, per: number = 24, page: number = 1): Promise<ArenaChannelWithBlocks | null> {
-  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3001';
+  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
   
-  const response = await fetch(`${apiUrl}/channel-blocks`, {
+  const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

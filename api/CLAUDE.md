@@ -1,7 +1,15 @@
-# Archive Service
+# API Services
 
-## Purpose
-This service creates secure archives of web pages by capturing the full HTML content and validating CSS with Lightning CSS. It strips JavaScript for security while preserving visual styling and fonts.
+## Overview
+Unified API server providing Arena and Archive services through a single endpoint. Contains modular services for content enhancement and web page archiving.
+
+## Services
+
+### Archive Service
+Creates secure archives of web pages by capturing the full HTML content and validating CSS with Lightning CSS. It strips JavaScript for security while preserving visual styling and fonts.
+
+### Arena Service  
+Enhances content with Arena channel links using pattern matching and provides search/discovery capabilities for Arena channels.
 
 ## Key Goals
 - Create secure archives without JavaScript execution risks
@@ -49,16 +57,22 @@ This service creates secure archives of web pages by capturing the full HTML con
 ## Development Commands
 
 ```bash
-# Start development server
-bun run dev
+# Unified API server (production)
+bun start                # Port 3000 - all services
 
-# Build for production  
-bun run start
+# Individual service testing
+bun run dev:archive     # Port 3002 - Archive service only (with test page)
+
+# From project root
+bun run api             # Start unified API server
+bun run dev:archive     # Start archive dev server
 ```
 
 ## API Endpoints
 
-### POST `/api/archive`
+### Archive Service
+
+#### POST `/api/archive`
 Creates a secure archive of a web page.
 
 **Request:**
@@ -72,6 +86,7 @@ Creates a secure archive of a web page.
 ```json
 {
   "html": "archived HTML with security processing",
+  "css": "processed and validated CSS",
   "title": "Page Title",
   "author": "Author Name", 
   "domain": "example.com",
@@ -81,17 +96,52 @@ Creates a secure archive of a web page.
 }
 ```
 
-### GET `/api/font-proxy`
+#### GET `/api/font-proxy`
 Proxies non-Google fonts with validation.
 
 **Query Parameters:**
 - `url` - Font URL to proxy
 
-**Security:**
-- Validates content type is font/*
-- Checks file size limit (5MB)
-- Only allows recently extracted domains
-- Includes trusted CDN whitelist
+### Arena Service
+
+#### POST `/api/arena/enhance`
+Enhances content with Arena channel links.
+
+**Request:**
+```json
+{
+  "content": "text content to enhance",
+  "url": "https://example.com/page",
+  "options": { "minWords": 2 }
+}
+```
+
+#### POST `/api/arena/search`
+Searches Arena channels and saves to database.
+
+**Request:**
+```json
+{
+  "query": "search term"
+}
+```
+
+#### POST `/api/arena/channel-blocks`
+Fetches blocks for a specific Arena channel.
+
+**Request:**
+```json
+{
+  "slug": "channel-slug",
+  "per": 5,
+  "page": 1
+}
+```
+
+### Health Checks
+
+#### GET `/api/health`
+Unified API health check.
 
 ## Technical Details
 
