@@ -4,6 +4,9 @@
 @source "../src";
 @plugin "@tailwindcss/typography";
 
+/* Define dark mode variant for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Archive Mode - Restore browser defaults for archived content */
 @layer archive-defaults {
   /* Override Tailwind's reset for archive mode content */

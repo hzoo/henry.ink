@@ -61,14 +61,14 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 	}, []);
 
 	return (
-		<div class="flex h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+		<div class="flex h-screen text-gray-900 dark:text-gray-100 overflow-hidden">
 			{/* Main Content Area */}
 			<main
 				ref={mockContainerRef}
 				class="flex-1 flex flex-col overflow-auto min-w-0"
 			>
 				{/* Header */}
-				<header class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 flex-shrink-0">
+				<header class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
 					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
 						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
 							<a
@@ -102,7 +102,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 
 				{/* Resizable Sidebar */}
 				<aside
-					class="hidden lg:flex flex-col dark:bg-gray-800 bg-gray-50 border-l border-gray-200 dark:border-gray-700"
+					class="hidden lg:flex flex-col border-l border-gray-200 dark:border-gray-700"
 					style={{ width: `${sidebarWidth.value}px` }}
 				>
 					{sidebar}
@@ -168,7 +168,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 					></div>
 
 					{/* Mobile Sidebar Content - Wider on mobile */}
-					<div class="w-full max-w-sm sm:max-w-md bg-gray-50 dark:bg-gray-850 flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
+					<div class="w-full max-w-sm sm:max-w-md flex flex-col border-l border-gray-200 dark:border-gray-700 shadow-xl">
 						{sidebar}
 					</div>
 				</div>
