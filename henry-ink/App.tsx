@@ -4,7 +4,8 @@ import { TabbedSidebar } from "@/src/components/TabbedSidebar";
 import { AppLayout, SidebarContent } from "@/src/components/AppLayout";
 import { currentUrl } from "@/src/lib/messaging";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
-import { contentStateSignal, activeTabSignal } from "@/henry-ink/signals";
+import { contentStateSignal, activeTabSignal, contentModeSignal } from "@/henry-ink/signals";
+import { isDarkMode } from "@/src/lib/settings";
 import { fetchChannelBlocks, arenaQueryKeys } from "@/src/lib/arena-api";
 import { queryClient } from "@/src/lib/queryClient";
 import { arenaUrlState } from "@/src/lib/arena-navigation";
@@ -85,6 +86,83 @@ effect(() => {
 	return () => clearTimeout(timer);
 });
 
+// Apply dark mode class when isDarkMode signal changes
+effect(() => {
+	if (isDarkMode.value) {
+		document.documentElement.classList.add('dark');
+	} else {
+		document.documentElement.classList.remove('dark');
+	}
+});
+
+// Helper function to determine if a color is dark
+function isColorDark(color: string): boolean {
+	// Parse rgb values from color string
+	const rgb = color.match(/\d+/g);
+	if (!rgb || rgb.length < 3) return false;
+	
+	// Convert to 0-1 range and calculate luminance
+	const [r, g, b] = rgb.map(x => parseInt(x) / 255);
+	const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+	
+	// Consider dark if luminance < 50%
+	return luminance < 0.5;
+}
+
+// Helper function to check if background is valid (not empty/default)
+function isValidBackground(background: string): boolean {
+	return !!background && 
+		background !== 'rgba(0, 0, 0, 0)' && 
+		background !== 'transparent' &&
+		background !== 'initial' &&
+		background !== 'inherit' &&
+		background !== 'none' &&
+		// Filter out the verbose default background shorthand
+		!background.includes('rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box');
+}
+
+// Extract and apply archived site background color to henry.ink body
+effect(() => {
+	const contentState = contentStateSignal.value;
+	const contentMode = contentModeSignal.value;
+	
+	if (contentMode === 'archive' && contentState.type === 'success') {
+		// Wait for DOM to render archive content
+		setTimeout(() => {
+			// Check background colors in priority order
+			const selectors = [
+				'.archive-mode-html',
+				'.archive-mode-body',
+				'.archive-mode'
+			];
+			
+			for (const selector of selectors) {
+				const element = document.querySelector(selector);
+				if (element) {
+					const background = getComputedStyle(element).background;
+					
+					if (isValidBackground(background)) {
+						// Apply full background (including gradients) to henry.ink body
+						document.body.style.background = background;
+						
+						// Extract first color from background for dark mode detection
+						const firstColor = background.match(/rgba?\([^)]+\)/)?.[0];
+						if (firstColor && isColorDark(firstColor)) {
+							isDarkMode.value = true;
+						} else {
+							isDarkMode.value = false;
+						}
+						break;
+					}
+				}
+			}
+		}, 100);
+	} else {
+		// Reset background and let theme system handle dark mode
+		// document.body.style.background = '';
+		// Note: Don't reset isDarkMode here as it should respect user's theme preference
+	}
+});
 
 export function App() {
 	useEffect(() => {
