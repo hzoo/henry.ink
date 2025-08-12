@@ -135,3 +135,11 @@
     color: #86EFAC;
   }
 }
+
+/* Archive Mode Wrapper - Create containing block for fixed positioned elements */
+.archive-mode-wrapper {
+  /* Transform creates a new containing block for position: fixed elements
+     This ensures fixed positioned elements in archived content stay contained
+     within the archive area instead of escaping to henry.ink's viewport */
+  transform: translateZ(0);
+}
