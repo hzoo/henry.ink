@@ -387,13 +387,13 @@ export async function createArchive(url: string, fontProxyBaseUrl?: string, link
       processedCSS,
       `
         /* Responsive images */
-        img { 
+        .archive-mode img { 
           max-width: 100% !important; 
           height: auto !important; 
         }
         
         /* Ensure text wraps properly */
-        * { 
+        .archive-mode * { 
           word-wrap: break-word !important;
           overflow-wrap: break-word !important;
           box-sizing: border-box !important;
