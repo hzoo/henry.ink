@@ -60,9 +60,30 @@
 
         const archive = await response.json();
         
-        // Display the archive directly in the page
+        // 1. Inject CSS into page head
+        let archiveStyle = document.getElementById('archive-style');
+        if (!archiveStyle) {
+          archiveStyle = document.createElement('style');
+          archiveStyle.id = 'archive-style';
+          document.head.appendChild(archiveStyle);
+        }
+        archiveStyle.textContent = archive.css || '';
+        
+        // 2. Create proper wrapper structure with archive mode classes
         const content = document.getElementById('archiveContent');
-        content.innerHTML = archive.html;
+        content.innerHTML = `
+          <div class="archive-mode-wrapper">
+            <div class="archive-mode archive-mode-html" 
+                 style="${archive.htmlAttrs?.style || ''}"
+                 ${archive.htmlAttrs?.class ? `data-original-class="${archive.htmlAttrs.class}"` : ''}>
+              <div class="archive-mode-body" 
+                   style="${archive.bodyAttrs?.style || ''}"
+                   ${archive.bodyAttrs?.class ? `data-original-class="${archive.bodyAttrs.class}"` : ''}>
+                ${archive.html}
+              </div>
+            </div>
+          </div>
+        `;
         content.style.display = 'block';
         
         // Hide the archive's own header since we have our own controls
