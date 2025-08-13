@@ -127,6 +127,7 @@ function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: 
   return processedCSS;
 }
 
+
 // Function to validate and minify CSS using Lightning CSS (with conservative targets for JSDOM compatibility)
 async function validateAndProcessCSS(css: string): Promise<string | null> {
   // console.log(`🎨 Processing CSS, length: ${css.length}`);
@@ -170,31 +171,51 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
               // Transform each selector to add .archive-mode prefix  
               styleRule.selectors = styleRule.selectors.map(selector => {
                 // Lightning CSS selectors are arrays of SelectorComponent objects
-                // console.log(`🔍 Processing selector components (length: ${selector.length})`);
+                // console.log(`🔍 Processing selector:`, selector.map(c => `${c.type}:${(c as any).name || (c as any).kind || (c as any).value || 'unknown'}`).join(' '));
                 
-                // Check if first component is a special root-level selector
-                if (selector.length === 1) {
-                  const component = selector[0];
-                  if (component.type === 'type' && 
-                      (component.name === 'html' || component.name === 'body')) {
-                    // console.log(`🔄 Transforming ${component.name} → .archive-mode`);
-                    // Replace with .archive-mode class selector
-                    return [{
-                      type: 'class',
-                      name: 'archive-mode'
-                    }];
+                // Transform html/body/root selectors using :where() for zero specificity
+                let needsTransform = false;
+                const transformedSelector = selector.map(component => {
+                  if (component.type === 'type') {
+                    if (component.name === 'html') {
+                      needsTransform = true;
+                      // Transform to :where(.archive-mode-html) for zero specificity
+                      return { 
+                        type: 'pseudo-class' as const, 
+                        kind: 'where' as const,
+                        selectors: [[{ type: 'class' as const, name: 'archive-mode-html' }]]
+                      };
+                    } else if (component.name === 'body') {
+                      needsTransform = true;
+                      // Transform to :where(.archive-mode-body) for zero specificity
+                      return { 
+                        type: 'pseudo-class' as const, 
+                        kind: 'where' as const,
+                        selectors: [[{ type: 'class' as const, name: 'archive-mode-body' }]]
+                      };
+                    }
+                  } else if (component.type === 'pseudo-class' && component.kind === 'root') {
+                    needsTransform = true;
+                    // console.log(`🔍 Found :root rule - will transform to :where(.archive-mode-html)`);
+                    // Transform :root to :where(.archive-mode-html) for zero specificity
+                    return { 
+                      type: 'pseudo-class' as const, 
+                      kind: 'where' as const,
+                      selectors: [[{ type: 'class' as const, name: 'archive-mode-html' }]]
+                    };
                   }
-                  // Handle :root pseudo-class - preserve unchanged to maintain CSS custom properties
-                  if (component.type === 'pseudo-class' && component.kind === 'root') {
-                    // Don't transform - preserve original :root selector to avoid CSS variable conflicts
-                    return selector;
-                  }
+                  return component;
+                });
+                
+                if (needsTransform) {
+                  // console.log(`🔄 Transformed html/body/root selector to :where() for zero specificity`);
+                  return transformedSelector;
                 }
                 
                 // Check if already scoped (first component is .archive-mode class)
                 if (selector.length > 0 && 
                     selector[0].type === 'class' && 
-                    selector[0].name === 'archive-mode') {
+                    (selector[0] as any).name === 'archive-mode') {
                   // console.log(`✅ Already scoped selector`);
                   return selector;
                 }
@@ -204,7 +225,7 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
                 const descendantCombinator = { type: 'combinator' as const, value: 'descendant' as const };
                 const scopedSelector = [archiveModeClass, descendantCombinator, ...selector];
                 
-                // console.log(`🔄 Transforming selector → .archive-mode descendant`);
+                // console.log(`🔄 Adding .archive-mode ancestor prefix`);
                 return scopedSelector;
               });
               
@@ -387,23 +408,18 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       // console.log(`❌ processedCSS is null or empty!`);
     }
     
-    const finalCSS = [
-      processedCSS,
-      `
-        /* Responsive images */
-        .archive-mode img { 
-          max-width: 100% !important; 
-          height: auto !important; 
-        }
-        
-        /* Ensure text wraps properly */
-        .archive-mode * { 
-          word-wrap: break-word !important;
-          overflow-wrap: break-word !important;
-          box-sizing: border-box !important;
-        }
-      `
-    ].filter(Boolean).join('\n\n');
+    let finalCSS = processedCSS || '';
+    
+    // Check if there are any html/body transformations that need layer consistency
+    const hasHtmlBodyRules = finalCSS.includes(':where(.archive-mode-html)') || finalCSS.includes(':where(.archive-mode-body)');
+    
+    if (hasHtmlBodyRules) {
+      // Wrap each :where() rule individually in @layer utilities, preserving surrounding context
+      finalCSS = finalCSS.replace(
+        /:where\(\.archive-mode-(html|body)\)\s*\{[^}]+\}/g, 
+        (match) => `@layer utilities {\n  ${match}\n}`
+      );
+    }
     
     // console.log(`📦 Final combined CSS length: ${finalCSS.length}`);
 
@@ -444,7 +460,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     const sources = document.querySelectorAll('source[srcset]');
     let imageCount = 0;
     
-    console.log(`🖼️ Found ${images.length} img elements and ${sources.length} source elements to process`);
+    // console.log(`🖼️ Found ${images.length} img elements and ${sources.length} source elements to process`);
     
     // Helper function to process a single URL
     const processImageUrl = (url: string, element: Element, attributeName: string) => {
@@ -461,13 +477,13 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
         const requestUrl = new URL(baseUrl);
         
         if (imageUrl.origin === requestUrl.origin) {
-          console.log(`ℹ️ Same-origin image, keeping direct: ${absoluteUrl}`);
+          // console.log(`ℹ️ Same-origin image, keeping direct: ${absoluteUrl}`);
           return absoluteUrl;
         }
         
         // Use asset proxy for external images
         const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        console.log(`✅ Proxied external image: ${url} → ${proxiedUrl}`);
+        // console.log(`✅ Proxied external image: ${url} → ${proxiedUrl}`);
         imageCount++;
         return proxiedUrl;
       } catch (error) {
@@ -479,7 +495,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Process img[src] attributes
     images.forEach((img, index) => {
       const src = img.getAttribute('src');
-      console.log(`🖼️ img[${index + 1}]: ${src}`);
+      // console.log(`🖼️ img[${index + 1}]: ${src}`);
       
       if (src) {
         const processedSrc = processImageUrl(src, img, 'src');
@@ -490,7 +506,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Process source[srcset] attributes
     sources.forEach((source, index) => {
       const srcset = source.getAttribute('srcset');
-      console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
+      // console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
       
       if (srcset) {
         // Parse srcset format: "url1 w1, url2 w2, ..."
@@ -508,7 +524,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
           .join(', ');
         
         source.setAttribute('srcset', processedSrcset);
-        console.log(`🔄 Updated srcset: ${processedSrcset}`);
+        // console.log(`🔄 Updated srcset: ${processedSrcset}`);
       }
     });
 
@@ -535,7 +551,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
           }
         }
       });
-      console.log(`🔗 Processed ${linkCount} relative links`);
+      // console.log(`🔗 Processed ${linkCount} relative links`);
     }
 
     // Body content is already included in the full HTML
