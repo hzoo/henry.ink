@@ -308,35 +308,51 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     const { allCSS, baseUrl } = await page.evaluate(async () => {
       // Get all stylesheet-related elements in document order
       const allStyleElements = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'));
-      const cssContents: string[] = [];
       
-      for (const element of allStyleElements) {
+      // Process all CSS elements in parallel
+      const cssPromises = allStyleElements.map(async (element, index) => {
         try {
           if (element.tagName.toLowerCase() === 'link') {
             // External stylesheet
             const link = element as HTMLLinkElement;
             const href = link.getAttribute('href');
-            if (!href) continue;
+            if (!href) return { content: '', index };
             
             // Convert relative URLs to absolute
             const cssUrl = new URL(href, window.location.href).href;
             const response = await fetch(cssUrl);
             if (response.ok) {
               const cssText = await response.text();
-              cssContents.push(`/* From: ${cssUrl} */\n${cssText}`);
+              return { 
+                content: `/* From: ${cssUrl} */\n${cssText}`, 
+                index 
+              };
             }
           } else if (element.tagName.toLowerCase() === 'style') {
             // Inline style tag
             const styleElement = element as HTMLStyleElement;
             const cssText = styleElement.textContent || '';
             if (cssText.trim()) {
-              cssContents.push(`/* Inline styles */\n${cssText}`);
+              return { 
+                content: `/* Inline styles */\n${cssText}`, 
+                index 
+              };
             }
           }
         } catch (error) {
           console.log(`❌ Failed to process CSS element: ${element.tagName}`);
         }
-      }
+        return { content: '', index };
+      });
+      
+      // Wait for all CSS to be fetched in parallel
+      const cssResults = await Promise.all(cssPromises);
+      
+      // Sort by original order and filter out empty content
+      const cssContents = cssResults
+        .sort((a, b) => a.index - b.index)
+        .map(result => result.content)
+        .filter(content => content.length > 0);
       
       return {
         allCSS: cssContents.join('\n\n'),
