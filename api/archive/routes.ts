@@ -46,6 +46,7 @@ export async function createArchiveRoute(req: Request) {
   
   try {
     const { url, linkRewriteBaseUrl } = await req.json();
+    console.log(`📦 Archive request: ${url} (linkRewriteBaseUrl: ${linkRewriteBaseUrl})`);
     
     // Validate URL format and require HTTPS
     const parsedUrl = new URL(url);
@@ -62,11 +63,11 @@ export async function createArchiveRoute(req: Request) {
     const domain = parsedUrl.hostname.replace(/^www\./, '');
     extractedDomains.set(domain, Date.now());
     
-    // Build font proxy base URL from request origin
+    // Build asset proxy base URL from request origin
     const requestUrl = new URL(req.url);
-    const fontProxyBaseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+    const assetProxyBaseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
     
-    const archive = await createArchive(url, fontProxyBaseUrl, linkRewriteBaseUrl);
+    const archive = await createArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl);
     return Response.json(archive, {
       headers: {
         ...corsHeaders,
@@ -85,23 +86,23 @@ export async function createArchiveRoute(req: Request) {
   }
 }
 
-export async function fontProxyRoute(req: Request) {
+export async function assetProxyRoute(req: Request) {
   const origin = req.headers.get('Origin') || '';
   const corsHeaders = getCorsHeaders(origin);
   
   try {
     const url = new URL(req.url);
-    const fontUrl = url.searchParams.get('url');
+    const assetUrl = url.searchParams.get('url');
     
-    if (!fontUrl) {
-      return Response.json({ error: "Missing font URL parameter" }, { 
+    if (!assetUrl) {
+      return Response.json({ error: "Missing asset URL parameter" }, { 
         status: 400,
         headers: corsHeaders
       });
     }
 
     // Validate URL format and require HTTPS
-    const parsedUrl = new URL(fontUrl);
+    const parsedUrl = new URL(assetUrl);
     if (parsedUrl.protocol !== 'https:') {
       return Response.json({ error: "Only HTTPS URLs allowed" }, { 
         status: 403,
@@ -109,96 +110,169 @@ export async function fontProxyRoute(req: Request) {
       });
     }
 
-    // Validate font URL domain
-    const fontDomain = parsedUrl.hostname.replace(/^www\./, '');
+    // Validate asset URL domain
+    const assetDomain = parsedUrl.hostname.replace(/^www\./, '');
     
     // Check if this domain was recently extracted (last 15 minutes)
-    const extractTime = extractedDomains.get(fontDomain);
+    const extractTime = extractedDomains.get(assetDomain);
     const FIFTEEN_MINUTES = 15 * 60 * 1000;
     
     // Also allow trusted CDNs
-    const trustedCDNs = ['fonts.gstatic.com', 'fonts.googleapis.com', 'use.typekit.net', 'cdn.jsdelivr.net'];
-    const isTrustedCDN = trustedCDNs.some(cdn => fontDomain.endsWith(cdn));
+    const trustedCDNs = [
+      'fonts.gstatic.com', 'fonts.googleapis.com', 'use.typekit.net', 
+      'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com'
+    ];
+    const isTrustedCDN = trustedCDNs.some(cdn => assetDomain.endsWith(cdn));
     
     if (!isTrustedCDN && (!extractTime || (Date.now() - extractTime) > FIFTEEN_MINUTES)) {
-      return Response.json({ error: "Font domain not recently extracted" }, { 
+      return Response.json({ error: "Asset domain not recently extracted" }, { 
         status: 403,
         headers: corsHeaders
       });
     }
 
-    // Fetch the font file
-    const response = await fetch(fontUrl, {
+    // Detect asset type from URL and prepare appropriate headers
+    const assetType = detectAssetType(assetUrl);
+    const acceptHeader = getAcceptHeaderForAssetType(assetType);
+
+    // Fetch the asset file
+    const response = await fetch(assetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'font/woff2,font/woff;q=0.8,*/*;q=0.1',
+        'Accept': acceptHeader,
         'Accept-Encoding': 'gzip, deflate, br',
       },
     });
 
     if (!response.ok) {
-      console.error(`Font fetch failed: ${response.status} ${response.statusText}`);
+      console.error(`Asset fetch failed: ${response.status} ${response.statusText}`);
       return Response.json({ 
-        error: `Failed to fetch font: ${response.status} ${response.statusText}` 
+        error: `Failed to fetch asset: ${response.status} ${response.statusText}` 
       }, { 
         status: response.status,
         headers: corsHeaders
       });
     }
 
-    // Validate content type and exclude non-font files
+    // Validate content type based on asset type
     const contentType = response.headers.get('content-type') || '';
-    const isValidFont = (contentType.includes('font/') ||
-                       fontUrl.includes('.woff') ||
-                       fontUrl.includes('.woff2') ||
-                       fontUrl.includes('.ttf') ||
-                       fontUrl.includes('.otf')) &&
-                       !fontUrl.includes('.svg') &&
-                       !fontUrl.includes('.png') &&
-                       !fontUrl.includes('.jpg') &&
-                       !fontUrl.includes('.jpeg') &&
-                       !fontUrl.includes('.gif') &&
-                       !contentType.includes('image/');
-    
-    if (!isValidFont) {
-      console.error(`Invalid font content type: ${contentType} for URL: ${fontUrl}`);
-      return Response.json({ error: "Not a valid font file" }, { 
+    if (!isValidAssetType(assetUrl, contentType, assetType)) {
+      console.error(`Invalid asset content type: ${contentType} for URL: ${assetUrl}`);
+      return Response.json({ error: `Not a valid ${assetType} file` }, { 
         status: 400,
         headers: corsHeaders
       });
     }
 
-    // Check file size (max 5MB)
+    // Check file size based on asset type
     const contentLength = response.headers.get('content-length');
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = getMaxSizeForAssetType(assetType);
     if (contentLength && parseInt(contentLength) > maxSize) {
-      return Response.json({ error: "Font file too large" }, { 
+      return Response.json({ error: `${assetType} file too large` }, { 
         status: 413,
         headers: corsHeaders
       });
     }
 
-    // Get the font data
-    const fontBuffer = await response.arrayBuffer();
+    // Get the asset data
+    const assetBuffer = await response.arrayBuffer();
 
-    // Return the font with proper headers
-    return new Response(fontBuffer, {
+    // Return the asset with proper headers
+    return new Response(assetBuffer, {
       headers: {
         ...corsHeaders,
-        'Content-Type': contentType || 'font/woff2',
+        'Content-Type': contentType || getDefaultContentType(assetType),
         'Cache-Control': 'public, max-age=31536000',
         'X-Content-Type-Options': 'nosniff'
       },
     });
 
   } catch (error) {
-    console.error("Font proxy error:", error);
+    console.error("Asset proxy error:", error);
     return Response.json({ 
-      error: "Internal server error while proxying font",
+      error: "Internal server error while proxying asset",
       details: error instanceof Error ? error.message : String(error)
     }, { 
       status: 500,
       headers: corsHeaders
     });
+  }
+}
+
+// Helper functions for asset type detection and validation
+function detectAssetType(url: string): 'font' | 'image' | 'unknown' {
+  const urlLower = url.toLowerCase();
+  
+  // Font detection
+  if (urlLower.includes('.woff') || urlLower.includes('.woff2') || 
+      urlLower.includes('.ttf') || urlLower.includes('.otf') || 
+      urlLower.includes('.eot')) {
+    return 'font';
+  }
+  
+  // Image detection
+  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || 
+      urlLower.includes('.png') || urlLower.includes('.gif') || 
+      urlLower.includes('.webp') || urlLower.includes('.svg') ||
+      urlLower.includes('.avif') || urlLower.includes('.bmp')) {
+    return 'image';
+  }
+  
+  return 'unknown';
+}
+
+function getAcceptHeaderForAssetType(assetType: string): string {
+  switch (assetType) {
+    case 'font':
+      return 'font/woff2,font/woff;q=0.8,*/*;q=0.1';
+    case 'image':
+      return 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+    default:
+      return '*/*';
+  }
+}
+
+function isValidAssetType(url: string, contentType: string, assetType: string): boolean {
+  const urlLower = url.toLowerCase();
+  const contentTypeLower = contentType.toLowerCase();
+  
+  switch (assetType) {
+    case 'font':
+      return (contentTypeLower.includes('font/') ||
+              urlLower.includes('.woff') || urlLower.includes('.woff2') ||
+              urlLower.includes('.ttf') || urlLower.includes('.otf')) &&
+              !contentTypeLower.includes('image/');
+    
+    case 'image':
+      return contentTypeLower.includes('image/') ||
+             urlLower.includes('.jpg') || urlLower.includes('.jpeg') ||
+             urlLower.includes('.png') || urlLower.includes('.gif') ||
+             urlLower.includes('.webp') || urlLower.includes('.svg') ||
+             urlLower.includes('.avif') || urlLower.includes('.bmp');
+    
+    default:
+      return true; // Allow unknown types through for now
+  }
+}
+
+function getMaxSizeForAssetType(assetType: string): number {
+  switch (assetType) {
+    case 'font':
+      return 5 * 1024 * 1024; // 5MB for fonts
+    case 'image':
+      return 10 * 1024 * 1024; // 10MB for images
+    default:
+      return 5 * 1024 * 1024; // 5MB default
+  }
+}
+
+function getDefaultContentType(assetType: string): string {
+  switch (assetType) {
+    case 'font':
+      return 'font/woff2';
+    case 'image':
+      return 'image/jpeg';
+    default:
+      return 'application/octet-stream';
   }
 }
