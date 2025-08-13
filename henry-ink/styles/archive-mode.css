@@ -20,41 +20,16 @@
   overflow-y: auto;
 }
 
-/* HTML-level simulation */
-.archive-mode-html {
-  /* Default HTML styles that might be expected */
-  display: block;
-  min-height: 100%;
-}
-
-/* Body-level simulation */
-.archive-mode-body {
-  /* Default body styles */
-  display: block;
-  margin: 0;
-  min-height: 100%;
-}
-
-/* The actual archive content container */
 .archive-mode {
-  /* Already handled by injected styles, but ensure basics */
+  /* Only essential containment styles */
   display: block;
   position: relative;
-  
-  /* Let the original site determine its own width and centering */
-  line-height: 1.6;
 }
 
-/* Preserve interactive elements */
-.archive-mode a,
-.archive-mode button {
+/* Preserve interactive elements only if they don't have explicit cursor styles */
+.archive-mode a:not([style*="cursor"]),
+.archive-mode button:not([style*="cursor"]) {
   cursor: pointer;
-}
-
-/* Ensure images are responsive */
-.archive-mode img {
-  max-width: 100%;
-  height: auto;
 }
 
 /* Debug mode - uncomment to see boundaries */
