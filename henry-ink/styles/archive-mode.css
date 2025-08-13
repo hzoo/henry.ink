@@ -12,9 +12,6 @@
   /* Prevent margin collapse */
   display: flow-root;
   
-  /* Reset Tailwind's default font stack */
-  font-family: initial;
-  
   /* Handle overflow for better containment */
   overflow-x: auto;
   overflow-y: auto;

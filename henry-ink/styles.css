@@ -7,7 +7,7 @@
 /* Define dark mode variant for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Archive Mode - Restore browser defaults for archived content */
+/* Archive Mode - Minimal containment styles only */
 @layer archive-defaults {
   /* Override Tailwind's reset for archive mode content */
   .archive-mode,
@@ -16,43 +16,11 @@
     all: revert;
   }
   
-  /* Container layout */
+  /* Container layout - only essential containment */
   .archive-mode {
     display: block;
     position: relative;
   }
-  
-  /* Typography - Browser default styles */
-  .archive-mode h1 { margin: 0.67em 0; font-size: 2em; font-weight: bold; }
-  .archive-mode h2 { margin: 0.75em 0; font-size: 1.5em; font-weight: bold; }
-  .archive-mode h3 { margin: 0.83em 0; font-size: 1.17em; font-weight: bold; }
-  .archive-mode h4 { margin: 1.12em 0; font-weight: bold; }
-  .archive-mode h5 { margin: 1.5em 0; font-size: 0.83em; font-weight: bold; }
-  .archive-mode h6 { margin: 1.67em 0; font-size: 0.75em; font-weight: bold; }
-  
-  .archive-mode p { margin: 1em 0; }
-  .archive-mode blockquote { margin: 1em 40px; }
-  .archive-mode ul, .archive-mode ol { margin: 1em 0; padding-left: 40px; }
-  .archive-mode li { display: list-item; }
-  .archive-mode ul li { list-style-type: disc; }
-  .archive-mode ol li { list-style-type: decimal; }
-  
-  .archive-mode hr { 
-    margin: 0.5em auto; 
-    border: 0;
-    border-top: 1px solid #ccc;
-  }
-  
-  .archive-mode pre { margin: 1em 0; white-space: pre; }
-  .archive-mode code { font-family: monospace; }
-  
-  /* Text formatting */
-  .archive-mode b, .archive-mode strong { font-weight: bold; }
-  .archive-mode i, .archive-mode em { font-style: italic; }
-  
-  /* Links */
-  .archive-mode a { color: blue; text-decoration: underline; }
-  .archive-mode a:visited { color: purple; }
 }
 
 /* Arena channel links styling */

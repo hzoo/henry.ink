@@ -46,7 +46,6 @@ export async function createArchiveRoute(req: Request) {
   
   try {
     const { url, linkRewriteBaseUrl } = await req.json();
-    console.log(`📦 Archive request: ${url} (linkRewriteBaseUrl: ${linkRewriteBaseUrl})`);
     
     // Validate URL format and require HTTPS
     const parsedUrl = new URL(url);
