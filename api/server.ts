@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import { 
   createArchiveRoute, 
-  fontProxyRoute, 
+  assetProxyRoute, 
   archiveOptionsRoute 
 } from "./archive/routes";
 import { 
@@ -53,9 +53,9 @@ const server = serve({
         if (req.method === 'POST') {
           return createArchiveRoute(req);
         }
-      } else if (path === '/api/font-proxy') {
+      } else if (path === '/api/asset-proxy') {
         if (req.method === 'GET') {
-          return fontProxyRoute(req);
+          return assetProxyRoute(req);
         }
       }
       
@@ -115,7 +115,7 @@ console.log(`🚀 Unified API server running on http://localhost:${PORT}`);
 console.log('\n📦 Available services:');
 console.log('  Archive Service:');
 console.log('    POST /api/archive          - Create secure archive of a web page');
-console.log('    GET  /api/font-proxy       - Proxy fonts with security validation');
+console.log('    GET  /api/asset-proxy      - Proxy assets (fonts, images) with security validation');
 console.log('  Arena Service:');
 console.log('    POST /api/arena/enhance    - Enhance content with Arena channel links');
 console.log('    POST /api/arena/search     - Search Arena channels');

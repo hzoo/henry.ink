@@ -74,8 +74,8 @@ function stripJavaScript(html: string): string {
   return dom.serialize();
 }
 
-// Function to rewrite font URLs (Google Fonts direct, others via proxy)
-function rewriteFontUrls(css: string, baseUrl: string, fontProxyBaseUrl: string): string {
+// Function to rewrite asset URLs (fonts via proxy, Google Fonts direct)
+function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
   // Find all font URLs in @font-face rules and CSS imports
   const fontUrlRegex = /url\((["']?)([^)]+)\1\)/g;
   
@@ -105,7 +105,7 @@ function rewriteFontUrls(css: string, baseUrl: string, fontProxyBaseUrl: string)
           continue;
         } else if (isFontFile) {
           // Only proxy actual font files
-          const proxiedUrl = `${fontProxyBaseUrl}/api/font-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+          const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
           
           // Replace the original URL with the proxy URL
           const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
@@ -254,7 +254,7 @@ interface ArchiveResult {
   };
 }
 
-export async function createArchive(url: string, fontProxyBaseUrl?: string, linkRewriteBaseUrl?: string): Promise<ArchiveResult> {
+export async function createArchive(url: string, assetProxyBaseUrl?: string, linkRewriteBaseUrl?: string): Promise<ArchiveResult> {
   const startTime = Date.now();
 
   // Check cache first
@@ -324,8 +324,8 @@ export async function createArchive(url: string, fontProxyBaseUrl?: string, link
       };
     });
     
-    // Process fonts in the CSS to use font proxy
-    const fontProcessedCSS = rewriteFontUrls(allCSS, baseUrl, fontProxyBaseUrl || 'http://localhost:3000');
+    // Process fonts in the CSS to use asset proxy
+    const fontProcessedCSS = rewriteAssetUrlsInCSS(allCSS, baseUrl, assetProxyBaseUrl || 'http://localhost:3000');
     
     // Validate and minify CSS with Lightning CSS for security
     const processedCSS = await validateAndProcessCSS(fontProcessedCSS);
@@ -439,19 +439,76 @@ export async function createArchive(url: string, fontProxyBaseUrl?: string, link
     const preloadLinks = document.querySelectorAll('link[rel="preload"], link[rel="prefetch"], link[rel="dns-prefetch"], link[rel="modulepreload"]');
     preloadLinks.forEach(link => link.remove());
 
-    // Convert relative image URLs to absolute URLs
+    // Convert image URLs to use asset proxy (both img[src] and source[srcset])
     const images = document.querySelectorAll('img[src]');
+    const sources = document.querySelectorAll('source[srcset]');
     let imageCount = 0;
-    images.forEach(img => {
-      const src = img.getAttribute('src');
-      if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-        try {
-          const absoluteUrl = new URL(src, baseUrl).href;
-          img.setAttribute('src', absoluteUrl);
-          imageCount++;
-        } catch (error) {
-          console.log(`❌ Invalid image URL: ${src}`);
+    
+    console.log(`🖼️ Found ${images.length} img elements and ${sources.length} source elements to process`);
+    
+    // Helper function to process a single URL
+    const processImageUrl = (url: string, element: Element, attributeName: string) => {
+      if (!url || url.startsWith('data:')) {
+        return url; // Keep data URLs as-is
+      }
+      
+      try {
+        // Convert to absolute URL first
+        const absoluteUrl = url.startsWith('http') ? url : new URL(url, baseUrl).href;
+        
+        // Check if it's a same-origin image (don't proxy our own images)
+        const imageUrl = new URL(absoluteUrl);
+        const requestUrl = new URL(baseUrl);
+        
+        if (imageUrl.origin === requestUrl.origin) {
+          console.log(`ℹ️ Same-origin image, keeping direct: ${absoluteUrl}`);
+          return absoluteUrl;
         }
+        
+        // Use asset proxy for external images
+        const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+        console.log(`✅ Proxied external image: ${url} → ${proxiedUrl}`);
+        imageCount++;
+        return proxiedUrl;
+      } catch (error) {
+        console.log(`❌ Invalid image URL: ${url} - ${error.message}`);
+        return url; // Return original on error
+      }
+    };
+    
+    // Process img[src] attributes
+    images.forEach((img, index) => {
+      const src = img.getAttribute('src');
+      console.log(`🖼️ img[${index + 1}]: ${src}`);
+      
+      if (src) {
+        const processedSrc = processImageUrl(src, img, 'src');
+        img.setAttribute('src', processedSrc);
+      }
+    });
+    
+    // Process source[srcset] attributes
+    sources.forEach((source, index) => {
+      const srcset = source.getAttribute('srcset');
+      console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
+      
+      if (srcset) {
+        // Parse srcset format: "url1 w1, url2 w2, ..."
+        const processedSrcset = srcset
+          .split(',')
+          .map(srcItem => {
+            const trimmed = srcItem.trim();
+            const parts = trimmed.split(/\s+/);
+            const url = parts[0];
+            const descriptor = parts.slice(1).join(' '); // width descriptor like "512w"
+            
+            const processedUrl = processImageUrl(url, source, 'srcset');
+            return descriptor ? `${processedUrl} ${descriptor}` : processedUrl;
+          })
+          .join(', ');
+        
+        source.setAttribute('srcset', processedSrcset);
+        console.log(`🔄 Updated srcset: ${processedSrcset}`);
       }
     });
 
