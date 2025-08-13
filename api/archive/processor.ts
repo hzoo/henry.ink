@@ -171,7 +171,6 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
               // Transform each selector to add .archive-mode prefix  
               styleRule.selectors = styleRule.selectors.map(selector => {
                 // Lightning CSS selectors are arrays of SelectorComponent objects
-                // console.log(`🔍 Processing selector:`, selector.map(c => `${c.type}:${(c as any).name || (c as any).kind || (c as any).value || 'unknown'}`).join(' '));
                 
                 // Transform html/body/root selectors using :where() for zero specificity
                 let needsTransform = false;
@@ -281,7 +280,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
   // Check cache first
   const cached = archiveCache.get(url);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    console.log(`⚡ Cache hit | Total: ${Date.now() - startTime}ms`);
+    console.log(`📦 Archive: ${url} | Cache hit | 0ms`);
     return cached.result;
   }
 
@@ -566,7 +565,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     const cleanHTML = dom.serialize();
 
     const extractionTime = Date.now() - startTime;
-    console.log(`⏱️ Page: ${pageLoadTime}ms | Total: ${extractionTime}ms`);
+    console.log(`📦 Archive: ${url} | ${extractionTime}ms`);
 
     const result = {
       html: cleanHTML,
