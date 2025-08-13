@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import homepage from "./public/index.html";
-import { createArchiveRoute, fontProxyRoute, archiveOptionsRoute } from "./routes";
+import { createArchiveRoute, assetProxyRoute, archiveOptionsRoute } from "./routes";
 
 // Development server for testing archive functionality
 // Includes test HTML page on root route
@@ -13,8 +13,8 @@ const server = serve({
     "/": homepage,
 
     // API routes
-    "/api/font-proxy": {
-      GET: fontProxyRoute
+    "/api/asset-proxy": {
+      GET: assetProxyRoute
     },
 
     "/api/archive": {
