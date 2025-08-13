@@ -65,7 +65,8 @@ export async function createArchiveRoute(req: Request) {
     
     // Build asset proxy base URL from request origin
     const requestUrl = new URL(req.url);
-    const assetProxyBaseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+    const host = req.headers.get('Host') || requestUrl.host;
+    const assetProxyBaseUrl = host.includes('henry.ink') ? `https://${host}` : `${requestUrl.protocol}//${requestUrl.host}`;
     
     const archive = await createArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl);
     return Response.json(archive, {
