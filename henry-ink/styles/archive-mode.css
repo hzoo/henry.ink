@@ -1,15 +1,26 @@
 /* Archive Mode Wrapper Styles */
 
-/* Main wrapper that contains everything */
+/* Main wrapper that contains everything with comprehensive isolation */
 .archive-mode-wrapper {
-  /* Let content determine its own width */
+  /* Container isolation for size calculations */
+  container-type: inline-size;
+  
+  /* Color scheme independence */
+  color-scheme: light dark;
+  
+  /* Stacking context isolation */
+  isolation: isolate;
+  z-index: 0;
+  
+  /* Contain fixed positioning - creates containing block for position: fixed */
+  transform: translateZ(0);
+  
+  /* Contain layout and styles */
+  contain: layout style;
+  
+  /* Layout properties */
   min-height: 100vh;
   position: relative;
-  
-  /* Create a new stacking context */
-  isolation: isolate;
-  
-  /* Prevent margin collapse */
   display: flow-root;
   
   /* Handle overflow for better containment */
