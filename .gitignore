@@ -32,3 +32,4 @@ dist-npm
 .dev.vars
 
 channels.db*
+.wrangler
