@@ -2,7 +2,7 @@ import type { UserConfig, PluginOption } from "vite";
 import defaultMetadata from "./public/oauth/client-metadata.json" with {
 	type: "json",
 };
-import henryInkMetadata from "./henry-ink/public/oauth/client-metadata.json" with {
+import henryInkMetadata from "./henry-ink/public/oauth-client-metadata.json" with {
 	type: "json",
 };
 
