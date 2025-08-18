@@ -19,7 +19,8 @@ async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
 	try {
 		if (mode === 'md') {
 			// Original ji.na flow for markdown content
-			const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${targetUrl}`);
+			const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
+			const response = await fetch(`${jinaUrl}/${targetUrl}`);
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -45,7 +46,7 @@ async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
 			contentStateSignal.value = { type: "success", content, title, mode };
 		} else if (mode === 'archive') {
 			// New archive service flow for full HTML content
-			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || '';
+			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
 			const response = await fetch(`${archiveUrl}/api/archive`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },

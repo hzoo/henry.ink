@@ -110,15 +110,18 @@ const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFac
 const fetchPageMetadata = async (originalUrl: string) => {
 	try {
 		// Use the same Jina worker that henry.ink uses to get metadata
-		const response = await fetch(`${import.meta.env.VITE_JINA_URL}/${originalUrl}`);
+		const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
+		const response = await fetch(`${jinaUrl}/${originalUrl}`);
 		const content = await response.text();
 		
-		// Extract title from markdown content (Jina already processes it)
+		// Extract title from markdown content using same pattern as henry-ink
 		let title = 'View on original site';
 		let description = 'Click to view the original article';
 		
-		// Look for title in the first line (usually formatted as # Title)
-		const titleMatch = content.match(/^#\s+(.+)$/m);
+		// Look for title using same pattern as henry-ink/services.ts
+		const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
+						 content.match(/^#\s+(.+)$/m) ||
+						 content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
 		if (titleMatch) {
 			title = titleMatch[1].trim();
 		}
