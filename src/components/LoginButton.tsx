@@ -119,7 +119,7 @@ export function LoginButton() {
 	}, [isDropdownOpen.value]);
 
 	const handleSignIn = () => {
-		startLoginProcess("");
+		startLoginProcess();
 	};
 
 	const handleLogout = () => {
