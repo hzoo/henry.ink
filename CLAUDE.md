@@ -29,22 +29,25 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 bun run dev          # Chrome extension development
 bun run dev:ff       # Firefox extension development
 bun run demo         # Web app demo version (annotation-demo site)
-bun run notes        # Note-taking variant (henry.ink)
+bun run ink          # Henry.ink development server
 
 # Building
 bun run build        # Build Chrome extension
 bun run build:ff     # Build Firefox extension
+bun run build:demo   # Build annotation demo
+bun run build:ink    # Build henry.ink
 bun run zip          # Package for Chrome Web Store
 bun run zip:ff       # Package for Firefox Add-ons
 
 # Code Quality
-bun run check        # TypeScript type checking
-bun run lint         # Biome linting and formatting
+bun run compile      # TypeScript type checking
+bun run lint         # Biome linting and formatting (if configured)
 
 # Deployment
 bun run deploy:demo      # Deploy demo to Cloudflare Pages
-bun run deploy:notes     # Deploy notes app
+bun run deploy:ink       # Deploy henry.ink to Cloudflare Pages
 bun run deploy:bsky_worker # Deploy Bluesky proxy worker
+bun run deploy:jina_worker # Deploy Jina proxy worker
 bun run release          # Release new version
 ```
 
@@ -105,6 +108,8 @@ The **henry.ink** website is a full-featured web application that provides annot
 - **OAuth 2.0** with Bluesky/AT Protocol
 - **Browser-based** using `@atcute/oauth-browser-client`
 - **Token persistence** in browser extension storage
+- **Enhanced handle resolution** for custom domains with session caching
+- **OAuth client metadata** served at `/oauth-client-metadata.json` (new convention)
 
 ## Key Directories
 
@@ -145,6 +150,108 @@ The **henry.ink** website is a full-featured web application that provides annot
 - **HTML-first processing** - markdown parsed before enhancement to preserve positions
 - **Location**: `/henry-ink/arena/` contains the enhancement system
 
+## Code Style Guidelines
+
+### Import Patterns
+- Use **absolute imports** with `@/` prefix over relative imports
+- Never use `import *` syntax - always be explicit with imports
+
+```typescript
+// ❌ BAD
+import { activeDocuments } from "../store/whiteboard";
+import * as utils from "./utils";
+
+// ✅ GOOD
+import { activeDocuments } from "@/src/store/whiteboard";
+import { specific, functions } from "@/src/utils";
+```
+
+### Component Patterns
+- Use **PascalCase** for component names
+- Hooks must be **inside components** (never at top level)
+- Prefer **Preact Signals** over useState for state management
+- Split large files into multiple components
+
+```typescript
+// ❌ BAD - hooks outside component
+const count = useSignal(0);
+useEffect(() => {}, []);
+function app() {} // wrong casing
+
+// ✅ GOOD
+function MyComponent() {
+  const count = useSignal(0);
+  useEffect(() => {}, []);
+}
+```
+
+### Preact Signals Usage
+- **Global state**: Use `signal()` at module level
+- **Component state**: Use `useSignal()` inside components
+- **Computed values**: Use `useComputed()` to optimize re-renders
+
+```typescript
+// Top-level signals for global state
+import { signal } from "@preact/signals";
+const globalCount = signal(0);
+
+// Component signals for local state
+import { useSignal, useComputed } from "@preact/signals";
+function Counter() {
+  const count = useSignal(0);
+  const double = useComputed(() => count.value * 2);
+  return <div>{count.value}</div>;
+}
+```
+
+### Effect Handling
+- Always use **AbortController** for event listeners
+- Properly specify dependencies
+- Include cleanup functions when needed
+
+```typescript
+function MyComponent() {
+  useEffect(() => {
+    const controller = new AbortController();
+    const handler = () => {};
+    window.addEventListener('resize', handler, { 
+      signal: controller.signal 
+    });
+    
+    return () => controller.abort();
+  }, []); // runs only on mount/unmount
+}
+```
+
+### Styling
+- **Tailwind CSS v4** configuration lives in CSS files (not config.js)
+- Use `@theme` directive for custom design tokens
+
+```css
+@import "tailwindcss";
+
+@theme {
+  --color-discord-dark: oklch(0.24 0.02 264.05);
+}
+```
+
+## OAuth Implementation Details
+
+### Handle Resolution Enhancement
+The project includes custom handle resolution for improved performance and decentralization:
+
+- **Direct HTTP resolution** for custom domains (checks `/.well-known/atproto-did`)
+- **Session-based caching** to avoid repeated lookups
+- **1-second timeout** for fast fallback to default resolver
+- **Automatic fallback** to Bluesky's resolver if direct resolution fails
+
+Location: `demo/lib/handle-resolver.ts`
+
+### OAuth Client Metadata
+- Client metadata now served at root level: `/oauth-client-metadata.json`
+- This follows the new atcute convention for cleaner authorization flows
+- Configuration managed via `inject-oauth-plugin.ts` for different build targets
+
 ## Testing and Quality
 
-Run `bun run check` for TypeScript validation and `bun run lint` for code formatting. The project uses Biome.js for consistent code style and quality enforcement.
+Run `bun run compile` for TypeScript validation. The project uses Biome.js for consistent code style and quality enforcement (when configured).
