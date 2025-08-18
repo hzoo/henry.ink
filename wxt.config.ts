@@ -32,6 +32,9 @@ export default defineConfig({
 				description: "Toggle the Bluesky Sidebar",
 			},
 		},
+		"icons": {
+    		"64": "/icon64.png"
+		},
 		browser_specific_settings: {
 			gecko: {
 				id: "{42f52678-fbed-4a73-88dd-b01f94d06cdb}",
