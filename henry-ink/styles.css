@@ -7,19 +7,30 @@
 /* Define dark mode variant for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Archive Mode - Minimal containment styles only */
-@layer archive-defaults {
-  /* Override Tailwind's reset for archive mode content */
-  .archive-mode,
+/* Restore browser defaults for archive content - override Tailwind Preflight */
+@layer base {
+  /* Restore browser defaults for archive content */
   .archive-mode * {
-    /* Restore user agent stylesheet defaults */
-    all: revert;
+    margin: revert;
+    padding: revert;
+    box-sizing: revert;
+    border: revert;
   }
   
-  /* Container layout - only essential containment */
-  .archive-mode {
-    display: block;
-    position: relative;
+  /* Restore semantic element styling */
+  .archive-mode h1, .archive-mode h2, .archive-mode h3,
+  .archive-mode h4, .archive-mode h5, .archive-mode h6 {
+    font-size: revert;
+    font-weight: revert;
+  }
+  
+  .archive-mode ol, .archive-mode ul {
+    list-style: revert;
+  }
+  
+  .archive-mode img, .archive-mode svg, .archive-mode video {
+    display: revert;
+    vertical-align: revert;
   }
 }
 
