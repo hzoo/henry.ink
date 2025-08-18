@@ -12,6 +12,7 @@ import {
 } from "@atcute/oauth-browser-client";
 import { useEffect } from "preact/hooks";
 import { sleep } from "@/src/lib/utils/sleep";
+import { resolveFromIdentityEnhanced } from "./handle-resolver";
 
 const isBrowserExtension =
 	typeof browser !== "undefined" && !!browser.runtime?.id;
@@ -216,7 +217,7 @@ export const startLoginProcess = async (handleOrDid?: string) => {
 		if (handleOrDid && handleOrDid.trim()) {
 			// Traditional flow with handle/DID provided
 			console.log(`Starting login process for: ${handleOrDid}`);
-			const { identity, metadata } = await resolveFromIdentity(handleOrDid);
+			const { identity, metadata } = await resolveFromIdentityEnhanced(handleOrDid);
 			console.log("Resolved Identity (DID):", identity);
 			
 			authUrl = await createAuthorizationUrl({
