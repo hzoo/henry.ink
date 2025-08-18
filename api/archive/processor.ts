@@ -296,8 +296,8 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Load the page and let JavaScript execute
     const gotoStart = Date.now();
     await page.goto(url, {
-      waitUntil: "networkidle",
-      timeout: 30000,
+      waitUntil: "load",
+      timeout: 8000,
     });
     const pageLoadTime = Date.now() - gotoStart;
     
