@@ -2,6 +2,7 @@ import { useLocation } from "preact-iso";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useRef, useEffect } from "preact/hooks";
+import { signal, useSignalEffect } from "@preact/signals";
 
 import { contentStateSignal, contentModeSignal } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
@@ -13,6 +14,116 @@ import { ArchiveModeWrapper } from "@/henry-ink/components/ArchiveModeWrapper";
 import { currentUrl } from "@/src/lib/messaging";
 import { injectArchiveCSS, cleanupArchiveCSS } from "@/henry-ink/utils/cssInjection";
 import "@/henry-ink/styles/archive-mode.css";
+
+// Example carousel component
+const examples = [
+	{ 
+		title: "An app can be a home-cooked meal", 
+		domain: "robinsloan.com", 
+		url: "/robinsloan.com/notes/home-cooked-app" 
+	},
+	{ 
+		title: "Spatial Software", 
+		domain: "darkblueheaven.com", 
+		url: "/darkblueheaven.com/spatialsoftware/" 
+	},
+	{ 
+		title: "Reality has a surprising amount of detail", 
+		domain: "johnsalvatier.org", 
+		url: "/johnsalvatier.org/blog/2017/reality-has-a-surprising-amount-of-detail" 
+	},
+	{ 
+		title: "Mechanical Watch", 
+		domain: "ciechanow.ski", 
+		url: "/ciechanow.ski/mechanical-watch/" 
+	},
+	{ 
+		title: "How I cut GTA Online loading times by 70%", 
+		domain: "nee.lv", 
+		url: "/nee.lv/2021/02/28/How-I-cut-GTA-Online-loading-times-by-70/" 
+	},
+];
+
+const currentExampleIndex = signal(0);
+const isHovered = signal(false);
+const progress = signal(0);
+
+function ExampleCarousel() {
+	// Auto-rotate examples with progress animation
+	useSignalEffect(() => {
+		if (isHovered.value) return; // Don't rotate when hovered
+		
+		// Reset progress
+		progress.value = 0;
+		
+		// Progress animation (updates every 40ms for smooth animation)
+		const progressInterval = setInterval(() => {
+			if (isHovered.value) return;
+			progress.value += 1; // Increment by 1% every 40ms = 100% in 4 seconds
+			
+			if (progress.value >= 100) {
+				// Move to next example and reset progress
+				currentExampleIndex.value = (currentExampleIndex.value + 1) % examples.length;
+				progress.value = 0;
+			}
+		}, 40);
+		
+		return () => clearInterval(progressInterval);
+	});
+	
+	const currentExample = examples[currentExampleIndex.value];
+	
+	return (
+		<div 
+			className="text-center"
+			onMouseEnter={() => isHovered.value = true}
+			onMouseLeave={() => isHovered.value = false}
+		>
+			<a
+				href={currentExample.url}
+				className="relative inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 text-sm font-medium overflow-hidden"
+			>
+				<svg
+					className="w-4 h-4 mr-2"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+					/>
+				</svg>
+				<span 
+					key={currentExample.title}
+					className="transition-opacity duration-300"
+					style={{ opacity: 1 }}
+				>
+					Try: {currentExample.title}
+				</span>
+				
+				{/* Progress bar */}
+				<div 
+					className="absolute bottom-0 left-0 h-0.5 bg-white/30 transition-all duration-75 ease-linear"
+					style={{ width: `${progress.value}%` }}
+				/>
+			</a>
+			
+			{/* Domain transformation subtitle */}
+			<div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+				<span className="inline-flex items-center px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">
+					{currentExample.domain}
+				</span>
+				<span className="mx-2">→</span>
+				<span className="inline-flex items-center px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-mono">
+					henry.ink/{currentExample.domain}
+				</span>
+			</div>
+		</div>
+	);
+}
 
 export function MarkdownSite() {
 	const location = useLocation();
@@ -211,10 +322,10 @@ export function MarkdownSite() {
 							className="w-20 h-20 mx-auto mb-6 object-contain dark:filter dark:invert"
 						/>
 						<h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
-							Welcome to Henry's Note
+							Henry's Note
 						</h2>
 						<p className="text-lg mb-8 text-gray-700 dark:text-gray-300">
-							reader* mode with social annotations
+							A social annotation layer for the web
 						</p>
 
 						<div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
@@ -269,14 +380,16 @@ export function MarkdownSite() {
 									</div>
 									<div>
 										<p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-											Or paste any URL
+											Transform any* webpage
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-											Just append any URL to the end of
-											<span className="inline-flex items-center mx-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
-												henry.ink/
+											<span className="inline-flex items-center px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">
+												domain.com
 											</span>
-											to get a clean version
+											<span className="mx-2 text-gray-400">→</span>
+											<span className="inline-flex items-center px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-mono">
+												henry.ink/domain.com
+											</span>
 										</p>
 									</div>
 								</div>
@@ -290,34 +403,25 @@ export function MarkdownSite() {
 											See social discussions
 										</p>
 										<p className="text-sm text-gray-600 dark:text-gray-400">
-											View related Bluesky conversations in the sidebar
+											View related Bluesky discussions and Arena connections
 										</p>
 									</div>
 								</div>
 							</div>
 
 							<div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-								<a
-									href="/https://overreacted.io/static-as-a-server/"
-									className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-								>
-									<svg
-										className="w-4 h-4 mr-2"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-										/>
-									</svg>
-									Example: Static as a Server
-								</a>
+								<ExampleCarousel />
 							</div>
 						</div>
+						
+						<a 
+							href="https://henryzoo.com" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 mt-6 block text-center transition-colors"
+						>
+							by henry
+						</a>
 					</div>
 				</div>
 			)}

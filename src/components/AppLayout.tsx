@@ -3,12 +3,11 @@ import type { ComponentChildren } from "preact";
 import { signal } from "@preact/signals";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoginButton } from "@/src/components/LoginButton";
-import { quotedSelection } from "@/src/lib/messaging";
+import { quotedSelection, currentUrl } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManagerV2 from "@/entrypoints/popup.content/SelectionPopupManagerV2";
 import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
 import { arenaQueryKeys } from "@/src/lib/arena-api";
-import { currentUrl } from "@/src/lib/messaging";
 
 // UI state signals
 const sidebarWidth = signal(384);
@@ -48,6 +47,9 @@ const handleMouseDown = (e: MouseEvent) => {
 export function AppLayout({ children, sidebar }: AppLayoutProps) {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
 	const queryClient = useQueryClient();
+	
+	// Hide header on main page (when no URL is set)
+	const showHeader = currentUrl.value && currentUrl.value.trim() !== '';
 
 	// Load saved sidebar width from localStorage
 	useEffect(() => {
@@ -67,22 +69,24 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 				ref={mockContainerRef}
 				class="flex-1 flex flex-col overflow-auto min-w-0"
 			>
-				{/* Header */}
-				<header class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-					<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
-						<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-							<a
-								href="https://henry.ink"
-								class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-							>
-								Henry's Note
-							</a>
-						</h1>
-						<div class="flex-shrink-0">
-							<LoginButton />
+				{/* Header - only show when viewing articles */}
+				{showHeader && (
+					<header class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+						<div class="max-w-4xl mx-auto flex justify-between items-center w-full">
+							<h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+								<a
+									href="https://henry.ink"
+									class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+								>
+									Henry's Note
+								</a>
+							</h1>
+							<div class="flex-shrink-0">
+								<LoginButton />
+							</div>
 						</div>
-					</div>
-				</header>
+					</header>
+				)}
 
 				{/* Main Content */}
 				<div class="flex-1 flex flex-col overflow-auto">
