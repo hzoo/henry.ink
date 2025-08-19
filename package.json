@@ -2,7 +2,7 @@
   "name": "extension-annotation-sidebar",
   "description": "see annotations on your current page",
   "private": true,
-  "version": "0.0.10",
+  "version": "0.0.11",
   "workspaces": [
     "api"
   ],
