@@ -4,15 +4,39 @@ import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 
-async function fetchSimplifiedContent(targetUrl: string, mode: ContentMode) {
-	if (!targetUrl || !targetUrl.startsWith("http")) {
+// URL detection and normalization utilities
+function isUrl(input: string): boolean {
+	// Already has protocol
+	if (input.startsWith('http://') || input.startsWith('https://')) {
+		return true;
+	}
+	
+	// Contains a dot and looks domain-like
+	// Basic check: has dot, no spaces, reasonable domain pattern
+	return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(\/.*)?$/.test(input.trim());
+}
+
+function normalizeUrl(input: string): string | null {
+	if (isUrl(input)) {
+		return input.startsWith('http') ? input : `https://${input}`;
+	}
+	// Not a URL - could be search query for future /h/ functionality
+	return null;
+}
+
+async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
+	const normalizedUrl = normalizeUrl(inputUrl);
+	
+	if (!normalizedUrl) {
 		contentStateSignal.value = {
 			type: "error",
-			message: "Invalid URL provided for fetching.",
+			message: "Invalid URL provided for fetching. Please enter a valid domain (e.g., example.com).",
 			mode,
 		};
 		return;
 	}
+	
+	const targetUrl = normalizedUrl;
 
 	contentStateSignal.value = { type: "loading", mode };
 
@@ -105,9 +129,18 @@ export function useUrlPathSyncer() {
 		const currentPath = location.path;
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
-			if (potentialUrl.startsWith("http")) {
-				if (currentUrl.value !== potentialUrl) {
-					currentUrl.value = potentialUrl;
+			const normalizedUrl = normalizeUrl(potentialUrl);
+			
+			if (normalizedUrl) {
+				// It's a valid URL, normalize and set it
+				if (currentUrl.value !== normalizedUrl) {
+					currentUrl.value = normalizedUrl;
+				}
+			} else {
+				// Not a URL - could be search query, clear currentUrl for now
+				// In the future, this could handle /h/ search paths
+				if (currentUrl.value) {
+					currentUrl.value = "";
 				}
 			}
 		} else if (currentPath === "/") {
@@ -125,7 +158,7 @@ export function useContentFetcher() {
 		const url = currentUrl.value;
 		const mode = contentModeSignal.value;
 		
-		if (url?.startsWith("http")) {
+		if (url && isUrl(url)) {
 			fetchSimplifiedContent(url, mode);
 		} else {
 			// If targetUrl is cleared or invalid, reset to idle
