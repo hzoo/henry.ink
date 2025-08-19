@@ -17,11 +17,11 @@ import "@/henry-ink/styles/archive-mode.css";
 
 // Example carousel component
 const examples = [
-	{ 
-		title: "An app can be a home-cooked meal", 
-		domain: "robinsloan.com", 
-		url: "/robinsloan.com/notes/home-cooked-app" 
-	},
+	// { 
+	// 	title: "An app can be a home-cooked meal", 
+	// 	domain: "robinsloan.com", 
+	// 	url: "/robinsloan.com/notes/home-cooked-app" 
+	// },
 	{ 
 		title: "Spatial Software", 
 		domain: "darkblueheaven.com", 
