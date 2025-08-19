@@ -47,12 +47,26 @@ export async function createArchiveRoute(req: Request) {
   try {
     const { url, linkRewriteBaseUrl } = await req.json();
     
-    // Validate URL format and require HTTPS
+    // Validate URL format and check origin for HTTPS
     const parsedUrl = new URL(url);
-    if (parsedUrl.protocol !== 'https:') {
-      const origin = req.headers.get('Origin') || '';
-      const corsHeaders = getCorsHeaders(origin);
-      return Response.json({ error: "Only HTTPS URLs allowed" }, { 
+    
+    // For HTTPS URLs, ensure same origin
+    if (parsedUrl.protocol === 'https:') {
+      const requestOrigin = req.headers.get('Origin') || '';
+      if (requestOrigin && parsedUrl.origin !== requestOrigin) {
+        const corsHeaders = getCorsHeaders(requestOrigin);
+        return Response.json({ error: "HTTPS URLs must be from the same origin" }, { 
+          status: 403,
+          headers: corsHeaders
+        });
+      }
+    }
+    
+    // Allow both HTTP and HTTPS protocols
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      const requestOrigin = req.headers.get('Origin') || '';
+      const corsHeaders = getCorsHeaders(requestOrigin);
+      return Response.json({ error: "Only HTTP and HTTPS URLs are allowed" }, { 
         status: 403,
         headers: corsHeaders
       });
