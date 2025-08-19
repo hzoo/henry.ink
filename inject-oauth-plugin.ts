@@ -20,8 +20,8 @@ type OAuthConfig = {
 const TARGET_CONFIGS = {
 	"annotation-demo": defaultMetadata,
 	"henry.ink": henryInkMetadata,
-	"extension-chrome": defaultMetadata,
-	"extension-firefox": defaultMetadata,
+	"extension-chrome": henryInkMetadata,
+	"extension-firefox": henryInkMetadata,
 } as const;
 
 type BuildTarget = keyof typeof TARGET_CONFIGS;

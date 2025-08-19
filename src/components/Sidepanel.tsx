@@ -105,10 +105,10 @@ browser.runtime.onMessage.addListener(
 (async () => {
 	try {
 		await setupTabListener();
-		await appPersister.restoreQueries(queryClient);
-		// console.log("Persisted queries restored.");
+		// Queries are restored lazily via persister.persisterFn, no need for explicit restore
+		// await appPersister.restoreQueries(queryClient);
 	} catch (error) {
-		console.error("Error during initial setup or restore:", error);
+		console.error("Error during initial setup:", error);
 	}
 	render(<App />, document.getElementById("app")!);
 })();

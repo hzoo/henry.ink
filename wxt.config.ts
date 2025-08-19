@@ -21,6 +21,8 @@ export default defineConfig({
 			...(env.browser === "chrome" ? ["sidePanel"] : []),
 			"identity",
 			"contextMenus",
+			// Add host permissions for Firefox MV2 (in permissions array)
+			...(env.browser === "firefox" ? ["<all_urls>"] : []),
 		],
 		action: {}, // Required for sidepanel to open on action click
 		commands: {
