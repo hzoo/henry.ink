@@ -1,6 +1,7 @@
 import { chromium, type Browser, devices } from "playwright";
 import { JSDOM, VirtualConsole } from "jsdom";
 import { transform } from "lightningcss";
+import { isTrustedCDN } from "./trusted-cdns";
 
 // Reuse a single browser instance for efficiency
 let sharedBrowserPromise: Promise<Browser> | null = null;
@@ -32,11 +33,11 @@ function stripJavaScript(html: string): string {
 
   // Remove all <script> tags
   const scripts = document.querySelectorAll('script');
-  scripts.forEach(script => script.remove());
+  scripts.forEach((script: Element) => script.remove());
 
   // Remove all event handlers (onclick, onload, etc.)
   const allElements = document.querySelectorAll('*');
-  allElements.forEach(element => {
+  allElements.forEach((element: Element) => {
     // Remove all on* attributes
     const attributes = element.attributes;
     const attributesToRemove: string[] = [];
@@ -63,7 +64,7 @@ function stripJavaScript(html: string): string {
 
   // Remove any remaining script-related attributes
   const scriptAttributes = ['data-script', 'data-js', 'data-on'];
-  allElements.forEach(element => {
+  allElements.forEach((element: Element) => {
     scriptAttributes.forEach(attr => {
       if (element.hasAttribute(attr)) {
         element.removeAttribute(attr);
@@ -74,58 +75,59 @@ function stripJavaScript(html: string): string {
   return dom.serialize();
 }
 
-// Function to rewrite asset URLs (fonts via proxy, Google Fonts direct)
+// Function to rewrite asset URLs (fonts via proxy, Google Fonts direct, background images via proxy)
 function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
-  // Find all font URLs in @font-face rules and CSS imports
-  const fontUrlRegex = /url\((["']?)([^)]+)\1\)/g;
+  // Find all URLs in CSS (fonts, background images, etc.)
+  const urlRegex = /url\((["']?)([^)]+)\1\)/g;
   
   let processedCSS = css;
-  const fontUrls: string[] = [];
-  const proxiedFonts: string[] = [];
+  const processedUrls: string[] = [];
   
   let match;
-  while ((match = fontUrlRegex.exec(css)) !== null) {
-    const fontUrl = match[2];
+  while ((match = urlRegex.exec(css)) !== null) {
+    const originalUrl = match[2];
+    const quote = match[1];
     
     // Skip data URIs that are already inlined
-    if (fontUrl.startsWith('data:')) continue;
+    if (originalUrl.startsWith('data:')) continue;
     
     // Convert relative URLs to absolute
     try {
-      const absoluteUrl = new URL(fontUrl, baseUrl).href;
-      if (!fontUrls.includes(absoluteUrl)) {
-        fontUrls.push(absoluteUrl);
+      const absoluteUrl = new URL(originalUrl, baseUrl).href;
+      if (!processedUrls.includes(absoluteUrl)) {
+        processedUrls.push(absoluteUrl);
         
-        // Check if this is actually a font file (not an image or other asset)
+        // Determine asset type
         const isFontFile = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i.test(absoluteUrl);
-        const isGoogleFont = absoluteUrl.includes('fonts.googleapis.com') || absoluteUrl.includes('fonts.gstatic.com');
+        const isImageFile = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i.test(absoluteUrl);
+        const isTrustedCDNUrl = isTrustedCDN(absoluteUrl);
         
-        if (isGoogleFont) {
-          // Keep Google Fonts URLs as-is (no proxying needed)
-          continue;
-        } else if (isFontFile) {
-          // Only proxy actual font files
-          const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-          
-          // Replace the original URL with the proxy URL
-          const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
-          processedCSS = processedCSS.replace(urlPattern, `url("${proxiedUrl}")`);
-          
-          proxiedFonts.push(absoluteUrl);
+        let replacementUrl: string;
+        
+        if (isTrustedCDNUrl) {
+          // Keep trusted CDN URLs as-is (no proxying needed)
+          replacementUrl = absoluteUrl;
+        } else if (isFontFile || isImageFile) {
+          // Proxy font and image files for security
+          replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
         } else {
-          // For non-font assets (SVG, PNG, etc.), just convert to absolute URL
-          const urlPattern = new RegExp(`url\\((["']?)${fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
-          processedCSS = processedCSS.replace(urlPattern, `url("${absoluteUrl}")`);
+          // For other assets, convert to absolute URL but don't proxy
+          replacementUrl = absoluteUrl;
         }
+        
+        // Replace the original URL with the processed URL
+        const urlPattern = new RegExp(`url\\((["']?)${originalUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
+        processedCSS = processedCSS.replace(urlPattern, `url(${quote}${replacementUrl}${quote})`);
       }
     } catch (error) {
-      console.log(`❌ Invalid font URL: ${fontUrl}`);
+      console.log(`❌ Invalid URL in CSS: ${originalUrl}`);
     }
   }
   
-  
   return processedCSS;
 }
+
+
 
 
 // Function to validate and minify CSS using Lightning CSS (with conservative targets for JSDOM compatibility)
@@ -310,7 +312,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       const allStyleElements = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'));
       
       // Process all CSS elements in parallel
-      const cssPromises = allStyleElements.map(async (element, index) => {
+      const cssPromises = allStyleElements.map(async (element: Element, index: number) => {
         try {
           if (element.tagName.toLowerCase() === 'link') {
             // External stylesheet
@@ -502,13 +504,13 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
         imageCount++;
         return proxiedUrl;
       } catch (error) {
-        console.log(`❌ Invalid image URL: ${url} - ${error.message}`);
+        console.log(`❌ Invalid image URL: ${url} - ${error instanceof Error ? error.message : String(error)}`);
         return url; // Return original on error
       }
     };
     
     // Process img[src] attributes
-    images.forEach((img, index) => {
+    images.forEach((img: Element, index: number) => {
       const src = img.getAttribute('src');
       // console.log(`🖼️ img[${index + 1}]: ${src}`);
       
@@ -519,7 +521,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     });
     
     // Process source[srcset] attributes
-    sources.forEach((source, index) => {
+    sources.forEach((source: Element, index: number) => {
       const srcset = source.getAttribute('srcset');
       // console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
       
@@ -527,7 +529,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
         // Parse srcset format: "url1 w1, url2 w2, ..."
         const processedSrcset = srcset
           .split(',')
-          .map(srcItem => {
+          .map((srcItem: string) => {
             const trimmed = srcItem.trim();
             const parts = trimmed.split(/\s+/);
             const url = parts[0];
@@ -543,11 +545,42 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       }
     });
 
+    // Process style attributes for background URLs (background-image, background, etc.)
+    const elementsWithStyle = document.querySelectorAll('[style*="background"]');
+    elementsWithStyle.forEach((element: Element, index: number) => {
+      const style = element.getAttribute('style');
+      if (style) {
+        // console.log(`🎨 Processing style[${index + 1}]: ${style}`);
+        
+        // Match all background properties that contain url(...) patterns
+        // This handles: background-image, background, and shorthand properties
+        let updatedStyle = style.replace(
+          /(background(?:-image)?\s*:\s*)([^;]*url\([^)]+\)[^;]*)/gi,
+          (match: string, property: string, value: string) => {
+            // Process all url(...) patterns within this background property
+            const processedValue = value.replace(
+              /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,
+              (urlMatch: string, quote: string, url: string) => {
+                const processedUrl = processImageUrl(url, element, 'style');
+                return `url(${quote}${processedUrl}${quote})`;
+              }
+            );
+            return property + processedValue;
+          }
+        );
+        
+        if (updatedStyle !== style) {
+          element.setAttribute('style', updatedStyle);
+          // console.log(`🔄 Updated style: ${updatedStyle}`);
+        }
+      }
+    });
+
     // Convert relative link URLs to henry.ink routes
     if (linkRewriteBaseUrl) {
       const links = document.querySelectorAll('a[href]');
       let linkCount = 0;
-      links.forEach(link => {
+      links.forEach((link: Element) => {
         const href = link.getAttribute('href');
         if (href && 
             !href.startsWith('http') && 
@@ -573,7 +606,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     
     // Remove all style tags and CSS links from the HTML since we'll return CSS separately
     const styleTags = document.querySelectorAll('style');
-    styleTags.forEach(tag => tag.remove());
+    styleTags.forEach((tag: Element) => tag.remove());
     
     const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
     cssLinks.forEach(link => link.remove());

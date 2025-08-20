@@ -30,7 +30,7 @@ const examples = [
 	{ 
 		title: "Reality has a surprising amount of detail", 
 		domain: "johnsalvatier.org", 
-		url: "/johnsalvatier.org/blog/2017/reality-has-a-surprising-amount-of-detail" 
+		url: "http://johnsalvatier.org/blog/2017/reality-has-a-surprising-amount-of-detail" 
 	},
 	{ 
 		title: "Mechanical Watch", 
