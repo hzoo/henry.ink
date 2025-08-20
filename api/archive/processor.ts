@@ -12,9 +12,9 @@ async function getSharedBrowser(): Promise<Browser> {
   return sharedBrowserPromise;
 }
 
-// Simple in-memory cache for archived pages (1 hour TTL)
+// Simple in-memory cache for archived pages (15 minute TTL)
 const archiveCache = new Map<string, { result: ArchiveResult; timestamp: number }>();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 // Clean up old cache entries periodically
 setInterval(() => {
