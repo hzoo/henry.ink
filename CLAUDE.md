@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is **Bluesky Sidebar** - a browser extension (Chrome & Firefox) with multiple demo websites that shows Bluesky discussions about the current webpage. The extension provides annotation capabilities and social interactions directly in the browser sidebar.
+This is **henry.ink** - a social annotation layer for the web. What if every webpage had marginalia for notes? Originally developed as a browser extension for the Community Archive hackathon, it has evolved into a web-first platform at henry.ink that works without any installation. The project maintains both the web application and the original browser extension (Chrome & Firefox) for integrated browsing experiences.
 
 ## Conceptual Overview
 
@@ -26,10 +26,10 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 
 ```bash
 # Development
+bun run ink          # Henry.ink development server (primary)
 bun run dev          # Chrome extension development
 bun run dev:ff       # Firefox extension development
 bun run demo         # Web app demo version (annotation-demo site)
-bun run ink          # Henry.ink development server
 
 # Building
 bun run build        # Build Chrome extension
@@ -54,16 +54,16 @@ bun run release          # Release new version
 ## Architecture
 
 ### Multi-Platform Structure
-- **Extension**: Main browser extension with entry points in `/entrypoints/`
+- **henry.ink**: Primary web application at `/henry-ink/` - renders any URL with integrated social discussions
+- **Browser Extension**: Original extension platform with entry points in `/entrypoints/`
 - **Demo Sites**:
   - `demo/` - Annotation demo website
-  - `henry-ink/` - henry.ink (renders URL with comments)
   - `archive-service/` - Secure web page archiving service
-- **Shared Components**: `/src/components/` used across extension and demo sites
+- **Shared Components**: `/src/components/` used across all platforms
 
-### Henry's Note (henry-ink/) - Full Web Application
+### henry.ink Web Application
 
-The **henry.ink** website is a full-featured web application that provides annotation capabilities for any URL without requiring a browser extension. It implements the "reverse Hypothesis" approach by recreating webpage content in a controlled environment with integrated social discussions.
+The **henry.ink** website is the primary platform - a full-featured web application that provides annotation capabilities for any URL without requiring downloads or installation. It implements the "reverse Hypothesis" approach by recreating webpage content in a controlled environment with integrated social discussions.
 
 #### Core Features
 - **Universal URL Support**: Renders any webpage by appending URL to `henry.ink/[url]`
@@ -97,8 +97,9 @@ The **henry.ink** website is a full-featured web application that provides annot
 - **Server state**: TanStack Query with browser storage persistence
 - **Settings**: Centralized in `/src/lib/settings.ts`
 
-### Extension Architecture
-- **Entry Points**: `/entrypoints/` contains background, sidepanel, content scripts
+### Browser Extension Architecture (Original Platform)
+The browser extension provides integrated annotation capabilities directly within the browser:
+- **Entry Points**: `/extension/entrypoints/` contains background, sidepanel, content scripts
 - **Side Panel API**: Primary UI in Chrome sidebar
 - **Content Scripts**: Text selection and page interaction
 - **Background Script**: Cross-tab communication and API calls
@@ -113,12 +114,12 @@ The **henry.ink** website is a full-featured web application that provides annot
 
 ## Key Directories
 
-- `/entrypoints/` - Extension entry points (background, sidepanel, content)
-- `/src/components/` - Shared Preact components used across extension and demos
+- `/henry-ink/` - Primary web application (henry.ink platform)
+- `/src/components/` - Shared Preact components used across all platforms
 - `/src/hooks/` - Custom hooks (useLike, useRepost, etc.)
 - `/src/lib/` - Core utilities, API clients, and state management
+- `/extension/` - Browser extension (see extension/README.md for details)
 - `/demo/` - Annotation demo website
-- `/henry-ink/` - henry.ink URL rendering with comments
 - `/archive-service/` - Secure web page archiving service
 - `/public/` - Static assets and extension manifest
 
