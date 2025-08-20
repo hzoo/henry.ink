@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		"composite": true,
 		"skipLibCheck": true,
 		"target": "ES2022",
 		"lib": ["ES2023"],
@@ -8,5 +7,5 @@
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["wxt.config.ts", "demo/vite.config.ts", "inject-oauth-plugin.ts"]
+	"include": ["wxt.config.ts", "demo/vite.config.ts", "scripts/inject-oauth-plugin.ts"]
 }

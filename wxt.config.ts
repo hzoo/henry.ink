@@ -3,10 +3,11 @@ import tailwindcss from "@tailwindcss/vite";
 import preact from "@preact/preset-vite";
 import svgr from "vite-plugin-svgr";
 import { version } from "./package.json";
-import { injectOauthEnvForExtension } from "./inject-oauth-plugin";
+import { injectOauthEnvForExtension } from "./scripts/inject-oauth-plugin";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
+	entrypointsDir: "extension/entrypoints",
 	manifest: (env) => ({
 		name: "Bluesky Sidebar",
 		description: "See what people are saying about the site you're on",

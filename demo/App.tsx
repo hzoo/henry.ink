@@ -6,7 +6,7 @@ import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
-import SelectionPopupManagerV2 from "@/entrypoints/popup.content/SelectionPopupManagerV2";
+import SelectionPopupManagerV2 from "@/extension/entrypoints/popup.content/SelectionPopupManagerV2";
 import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
 import { arenaQueryKeys } from "@/src/lib/arena-api";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";

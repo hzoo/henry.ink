@@ -7,7 +7,7 @@ import {
 	injectOauthEnv,
 	SERVER_HOST,
 	SERVER_PORT,
-} from "../inject-oauth-plugin";
+} from "../scripts/inject-oauth-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig({

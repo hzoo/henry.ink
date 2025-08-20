@@ -200,30 +200,31 @@ export class ArenaClient {
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
 
-      } catch (error) {
-        consecutiveErrors++;
-        console.error(`❌ Page ${page} failed (${consecutiveErrors} consecutive errors):`, error);
-        
-        if (consecutiveErrors >= 5) {
-          console.error(`💥 Too many errors, stopping at ${allChannels.length} channels`);
-          break;
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          consecutiveErrors++;
+          console.error(`❌ Page ${page} failed (${consecutiveErrors} consecutive errors):`, error);
+          
+          if (consecutiveErrors >= 5) {
+            console.error(`💥 Too many errors, stopping at ${allChannels.length} channels`);
+            break;
+          }
+          // Special handling for 500 errors (likely rate limiting)
+          const errorMessage = error.message || '';
+          const is500Error = errorMessage.includes('500');
+          
+          let backoffDelay;
+          if (is500Error) { 
+            // For 500 errors, wait 1 minute to reset rate limit
+            backoffDelay = 60000;
+            console.log(`🚦 Rate limit hit, waiting 60 seconds to reset...`);
+          } else {
+            // Normal exponential backoff for other errors
+            backoffDelay = Math.min(delayMs * Math.pow(2, consecutiveErrors), 30000);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
         }
-
-        // Special handling for 500 errors (likely rate limiting)
-        const errorMessage = error?.message || '';
-        const is500Error = errorMessage.includes('500');
-        
-        let backoffDelay;
-        if (is500Error) {
-          // For 500 errors, wait 1 minute to reset rate limit
-          backoffDelay = 60000;
-          console.log(`🚦 Rate limit hit, waiting 60 seconds to reset...`);
-        } else {
-          // Normal exponential backoff for other errors
-          backoffDelay = Math.min(delayMs * Math.pow(2, consecutiveErrors), 30000);
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
     }
 
