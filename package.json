@@ -51,6 +51,7 @@
     "@preact/preset-vite": "^2.10.2",
     "@types/bun": "^1.2.19",
     "@types/chrome": "^0.1.1",
+    "@types/jsdom": "^21.1.7",
     "typescript": "^5.9.2",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-svgr": "^4.3.0",
