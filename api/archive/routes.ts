@@ -1,4 +1,5 @@
 import { createArchive } from "./processor";
+import { isTrustedCDNDomain } from "./trusted-cdns";
 
 // Simple in-memory store for tracking extracted domains
 const extractedDomains = new Map<string, number>(); // domain -> timestamp
@@ -47,20 +48,8 @@ export async function createArchiveRoute(req: Request) {
   try {
     const { url, linkRewriteBaseUrl } = await req.json();
     
-    // Validate URL format and check origin for HTTPS
+    // Validate URL format
     const parsedUrl = new URL(url);
-    
-    // For HTTPS URLs, ensure same origin
-    if (parsedUrl.protocol === 'https:') {
-      const requestOrigin = req.headers.get('Origin') || '';
-      if (requestOrigin && parsedUrl.origin !== requestOrigin) {
-        const corsHeaders = getCorsHeaders(requestOrigin);
-        return Response.json({ error: "HTTPS URLs must be from the same origin" }, { 
-          status: 403,
-          headers: corsHeaders
-        });
-      }
-    }
     
     // Allow both HTTP and HTTPS protocols
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
@@ -86,7 +75,7 @@ export async function createArchiveRoute(req: Request) {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:;",
+        'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:; style-src-elem 'self' 'unsafe-inline'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none';",
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY'
       }
@@ -132,11 +121,7 @@ export async function assetProxyRoute(req: Request) {
     const FIFTEEN_MINUTES = 15 * 60 * 1000;
     
     // Also allow trusted CDNs
-    const trustedCDNs = [
-      'fonts.gstatic.com', 'fonts.googleapis.com', 'use.typekit.net', 
-      'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com'
-    ];
-    const isTrustedCDN = trustedCDNs.some(cdn => assetDomain.endsWith(cdn));
+    const isTrustedCDN = isTrustedCDNDomain(assetDomain);
     
     if (!isTrustedCDN && (!extractTime || (Date.now() - extractTime) > FIFTEEN_MINUTES)) {
       return Response.json({ error: "Asset domain not recently extracted" }, { 
@@ -152,7 +137,7 @@ export async function assetProxyRoute(req: Request) {
     // Fetch the asset file
     const response = await fetch(assetUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
         'Accept': acceptHeader,
         'Accept-Encoding': 'gzip, deflate, br',
       },
