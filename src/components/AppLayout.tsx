@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { LoginButton } from "@/src/components/LoginButton";
 import { quotedSelection, currentUrl } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
-import SelectionPopupManagerV2 from "@/entrypoints/popup.content/SelectionPopupManagerV2";
+import SelectionPopupManagerV2 from "@/extension/entrypoints/popup.content/SelectionPopupManagerV2";
 import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
 import { arenaQueryKeys } from "@/src/lib/arena-api";
 

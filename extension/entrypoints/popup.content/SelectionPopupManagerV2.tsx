@@ -1,9 +1,9 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { batch } from "@preact/signals-core";
 import { useEffect, useRef } from "preact/hooks";
-import SelectionPopup from "@/entrypoints/popup.content/SelectionPopup";
+import MultiButtonSelectionPopup, { type PopupAction } from "./MultiButtonSelectionPopup";
 
-const POPUP_ESTIMATED_WIDTH = 75;
+const POPUP_ESTIMATED_WIDTH = 150; // Wider for two buttons
 const HORIZONTAL_PADDING = 10;
 const POPUP_VERTICAL_OFFSET = 15;
 const POPUP_ESTIMATED_HEIGHT = 38;
@@ -83,19 +83,17 @@ const calculatePopupPosition = (
 	return { top: finalTop, left: finalLeft };
 };
 
-interface SelectionPopupManagerProps {
+interface SelectionPopupManagerV2Props {
 	canShowPopup: () => Promise<boolean> | boolean;
-	popupTitle?: string;
-	sendSelection: () => void;
+	actions: PopupAction[];
 	targetContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
-const SelectionPopupManager = ({
+const SelectionPopupManagerV2 = ({
 	canShowPopup,
-	popupTitle = "Quote",
-	sendSelection,
+	actions,
 	targetContainerRef,
-}: SelectionPopupManagerProps) => {
+}: SelectionPopupManagerV2Props) => {
 	const isVisible = useSignal(false);
 	const position = useSignal({ top: 0, left: 0 });
 	const popupRef = useRef<HTMLDivElement>(null);
@@ -165,10 +163,10 @@ const SelectionPopupManager = ({
 	return (
 		<div ref={popupRef}>
 			{isVisible.value && (
-				<SelectionPopup position={position} title={popupTitle} sendSelection={sendSelection} />
+				<MultiButtonSelectionPopup position={position} actions={actions} />
 			)}
 		</div>
 	);
 };
 
-export default SelectionPopupManager;
+export default SelectionPopupManagerV2;

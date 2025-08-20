@@ -4,8 +4,5 @@
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
-  },
-  "references": [
-    { "path": "./tsconfig.node.json" }
-  ]
+  }
 }

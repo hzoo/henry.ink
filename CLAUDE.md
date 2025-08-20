@@ -250,7 +250,7 @@ Location: `demo/lib/handle-resolver.ts`
 ### OAuth Client Metadata
 - Client metadata now served at root level: `/oauth-client-metadata.json`
 - This follows the new atcute convention for cleaner authorization flows
-- Configuration managed via `inject-oauth-plugin.ts` for different build targets
+- Configuration managed via `scripts/inject-oauth-plugin.ts` for different build targets
 
 ## Testing and Quality
 
