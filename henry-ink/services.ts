@@ -71,13 +71,8 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		} else if (mode === 'archive') {
 			// New archive service flow for full HTML content
 			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
-			const response = await fetch(`${archiveUrl}/api/archive`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ 
-					url: targetUrl,
-					linkRewriteBaseUrl: window.location.origin 
-				}),
+			const response = await fetch(`${archiveUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
+				method: 'GET',
 			});
 
 			if (!response.ok) {

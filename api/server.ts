@@ -50,7 +50,7 @@ const server = serve({
     try {
       // Archive service routes
       if (path === '/api/archive') {
-        if (req.method === 'POST') {
+        if (req.method === 'GET') {
           return createArchiveRoute(req);
         }
       } else if (path === '/api/asset-proxy') {
@@ -114,7 +114,7 @@ const server = serve({
 console.log(`🚀 Unified API server running on http://localhost:${PORT}`);
 console.log('\n📦 Available services:');
 console.log('  Archive Service:');
-console.log('    POST /api/archive          - Create secure archive of a web page');
+console.log('    GET  /api/archive          - Create secure archive of a web page');
 console.log('    GET  /api/asset-proxy      - Proxy assets (fonts, images) with security validation');
 console.log('  Arena Service:');
 console.log('    POST /api/arena/enhance    - Enhance content with Arena channel links');

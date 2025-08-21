@@ -23,7 +23,7 @@ function getCorsHeaders(origin: string = ''): Record<string, string> {
   
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -46,7 +46,16 @@ export async function createArchiveRoute(req: Request) {
   const corsHeaders = getCorsHeaders(origin);
   
   try {
-    const { url, linkRewriteBaseUrl } = await req.json();
+    // Parse URL from query params for GET request
+    const requestUrl = new URL(req.url);
+    const url = requestUrl.searchParams.get('url');
+    
+    if (!url) {
+      return Response.json({ error: "Missing url parameter" }, { 
+        status: 400,
+        headers: corsHeaders
+      });
+    }
     
     // Validate URL format
     const parsedUrl = new URL(url);
@@ -66,9 +75,13 @@ export async function createArchiveRoute(req: Request) {
     extractedDomains.set(domain, Date.now());
     
     // Build asset proxy base URL from request origin
-    const requestUrl = new URL(req.url);
-    const host = req.headers.get('Host') || requestUrl.host;
-    const assetProxyBaseUrl = host.includes('henry.ink') ? `https://${host}` : `${requestUrl.protocol}//${requestUrl.host}`;
+    const origin = req.headers.get('Origin');
+    const assetProxyBaseUrl = requestUrl.hostname === 'api.henry.ink' 
+      ? 'https://api.henry.ink' 
+      : `${requestUrl.protocol}//${requestUrl.host}`;
+    
+    // Auto-detect link rewrite base URL - only rewrite links if on henry.ink production
+    const linkRewriteBaseUrl = origin === 'https://henry.ink' ? 'https://henry.ink' : undefined;
     
     const archive = await createArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl);
     return Response.json(archive, {
