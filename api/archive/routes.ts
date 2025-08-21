@@ -89,6 +89,7 @@ export async function createArchiveRoute(req: Request) {
         ...corsHeaders,
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=86400',
+        'Cloudflare-CDN-Cache-Control': 'max-age=86400, stale-if-error=604800',
         'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:; style-src-elem 'self' 'unsafe-inline'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none';",
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY'
