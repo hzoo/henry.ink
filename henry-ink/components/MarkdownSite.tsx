@@ -125,15 +125,31 @@ function ExampleCarousel() {
 	);
 }
 
+// Signal to control delayed loading state
+const showLoadingSignal = signal(false);
+
 export function MarkdownSite() {
 	const location = useLocation();
 	const contentState = contentStateSignal.value;
 	const contentMode = contentModeSignal.value;
 	const contentRef = useRef<HTMLDivElement>(null);
+	const showLoading = showLoadingSignal.value;
 
 	// Use the custom hooks for URL syncing and content fetching
 	useUrlPathSyncer();
 	useContentFetcher();
+
+	// Handle delayed loading state (only show after 300ms)
+	useSignalEffect(() => {
+		if (contentStateSignal.value.type === 'loading') {
+			const timer = setTimeout(() => {
+				showLoadingSignal.value = true;
+			}, 300);
+			return () => clearTimeout(timer);
+		} else {
+			showLoadingSignal.value = false;
+		}
+	});
 
 	// Handle CSS injection for archive mode
 	useEffect(() => {
@@ -151,7 +167,7 @@ export function MarkdownSite() {
 
 	return (
 		<div className="flex-1 h-full flex flex-col min-w-0">
-			{contentState.type === "loading" && (
+			{contentState.type === "loading" && showLoading && (
 				<div className="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
 						<svg

@@ -48,10 +48,8 @@
       button.textContent = '...';
       
       try {
-        const response = await fetch('/api/archive', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
+        const response = await fetch(`/api/archive?${new URLSearchParams({ url })}`, {
+          method: 'GET',
         });
 
         if (!response.ok) {
