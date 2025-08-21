@@ -97,18 +97,25 @@ function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: 
       if (!processedUrls.includes(absoluteUrl)) {
         processedUrls.push(absoluteUrl);
         
-        // Determine asset type
+        // Determine asset type and source
         const isFontFile = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i.test(absoluteUrl);
         const isImageFile = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i.test(absoluteUrl);
         const isTrustedCDNUrl = isTrustedCDN(absoluteUrl);
+        
+        // Check for premium font services that won't work when proxied
+        const isPremiumFont = /\b(use\.typekit\.net|p\.typekit\.net)\b/i.test(absoluteUrl);
+        
         
         let replacementUrl: string;
         
         if (isTrustedCDNUrl) {
           // Keep trusted CDN URLs as-is (no proxying needed)
           replacementUrl = absoluteUrl;
+        } else if (isPremiumFont) {
+          // Skip premium fonts that won't work when proxied - let them fail fast
+          replacementUrl = absoluteUrl;
         } else if (isFontFile || isImageFile) {
-          // Proxy font and image files for security
+          // Proxy all other fonts and images to avoid CORS issues
           replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
         } else {
           // For other assets, convert to absolute URL but don't proxy
@@ -139,8 +146,18 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
     return null;
   }
   
+  // Skip validation for extremely large CSS (>2MB) to prevent crashes
+  const MAX_CSS_SIZE = 2 * 1024 * 1024; // 2MB
+  if (css.length > MAX_CSS_SIZE) {
+    console.log(`⚠️ CSS too large (${Math.round(css.length / 1024 / 1024)}MB), skipping validation`);
+    return css; // Return original CSS without processing
+  }
+  
   try {
-    const result = transform({
+    // Add timeout to CSS processing to prevent hangs
+    const CSS_TIMEOUT = 5000; // 5 seconds
+    const processCSS = async () => {
+      return transform({
       code: Buffer.from(css),
       minify: false, // Disable minification to avoid breaking complex selectors
       targets: {
@@ -240,17 +257,26 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
         }
       }
     });
+    };
+
+    // Race CSS processing against timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('CSS processing timeout')), CSS_TIMEOUT);
+    });
+
+    const result = await Promise.race([processCSS(), timeoutPromise]);
     
     // console.log(`✅ CSS validation succeeded, output length: ${result.code.toString().length}`);
     return result.code.toString();
     
   } catch (error) {
-    console.log(`❌ CSS validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    const isTimeout = error instanceof Error && error.message === 'CSS processing timeout';
+    console.log(`❌ CSS validation ${isTimeout ? 'timed out' : 'failed'}: ${error instanceof Error ? error.message : String(error)}`);
     // console.log(`📝 First 500 chars of failed CSS:`, css.substring(0, 500));
     
     // Instead of returning null, return the original CSS
-    // This ensures we don't lose styles due to overly strict validation
-    // console.log(`🔄 Returning original CSS due to validation failure`);
+    // This ensures we don't lose styles due to timeouts or validation failures
+    // console.log(`🔄 Returning original CSS due to ${isTimeout ? 'timeout' : 'validation failure'}`);
     return css;
   }
 }
@@ -296,12 +322,10 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
 
   try {
     // Load the page and let JavaScript execute
-    const gotoStart = Date.now();
     await page.goto(url, {
       waitUntil: "load",
-      timeout: 8000,
+      timeout: 5000,
     });
-    const pageLoadTime = Date.now() - gotoStart;
     
     // Get the full rendered HTML after JavaScript execution
     const fullHTMLContent = await page.content();
@@ -475,7 +499,6 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Convert image URLs to use asset proxy (both img[src] and source[srcset])
     const images = document.querySelectorAll('img[src]');
     const sources = document.querySelectorAll('source[srcset]');
-    let imageCount = 0;
     
     // console.log(`🖼️ Found ${images.length} img elements and ${sources.length} source elements to process`);
     
@@ -498,10 +521,17 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
           return absoluteUrl;
         }
         
+        // Skip processing very large images (check URL for size hints)
+        const urlLower = absoluteUrl.toLowerCase();
+        // Simple heuristic: if URL suggests very large image, skip proxying
+        if (urlLower.includes('4k') || urlLower.includes('8k') || urlLower.includes('fullsize') || urlLower.includes('original')) {
+          console.log(`⚠️ Potentially large image detected, using direct URL: ${absoluteUrl}`);
+          return absoluteUrl;
+        }
+        
         // Use asset proxy for external images
         const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
         // console.log(`✅ Proxied external image: ${url} → ${proxiedUrl}`);
-        imageCount++;
         return proxiedUrl;
       } catch (error) {
         console.log(`❌ Invalid image URL: ${url} - ${error instanceof Error ? error.message : String(error)}`);
@@ -579,7 +609,6 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Convert relative link URLs to henry.ink routes
     if (linkRewriteBaseUrl) {
       const links = document.querySelectorAll('a[href]');
-      let linkCount = 0;
       links.forEach((link: Element) => {
         const href = link.getAttribute('href');
         if (href && 
@@ -593,7 +622,6 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
             const absoluteUrl = new URL(href, baseUrl).href;
             const henryInkUrl = `${linkRewriteBaseUrl}/${absoluteUrl}`;
             link.setAttribute('href', henryInkUrl);
-            linkCount++;
           } catch (error) {
             console.log(`❌ Invalid link URL: ${href}`);
           }

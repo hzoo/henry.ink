@@ -107,6 +107,7 @@ export async function createArchiveRoute(req: Request) {
 export async function assetProxyRoute(req: Request) {
   const origin = req.headers.get('Origin') || '';
   const corsHeaders = getCorsHeaders(origin);
+  const startTime = Date.now();
   
   try {
     const url = new URL(req.url);
@@ -149,57 +150,86 @@ export async function assetProxyRoute(req: Request) {
     const assetType = detectAssetType(assetUrl);
     const acceptHeader = getAcceptHeaderForAssetType(assetType);
 
-    // Fetch the asset file
-    const response = await fetch(assetUrl, {
-      headers: {
-        'User-Agent': 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
-        'Accept': acceptHeader,
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
-    });
+    // Fetch the asset file with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+    
+    try {
+      const response = await fetch(assetUrl, {
+        headers: {
+          'User-Agent': 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+          'Accept': acceptHeader,
+          'Accept-Encoding': 'gzip, deflate, br',
+        },
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        console.error(`Asset fetch failed: ${response.status} ${response.statusText}`);
+        return Response.json({ 
+          error: `Failed to fetch asset: ${response.status} ${response.statusText}` 
+        }, { 
+          status: response.status,
+          headers: corsHeaders
+        });
+      }
 
-    if (!response.ok) {
-      console.error(`Asset fetch failed: ${response.status} ${response.statusText}`);
+      // Validate content type based on asset type
+      const contentType = response.headers.get('content-type') || '';
+      if (!isValidAssetType(assetUrl, contentType, assetType)) {
+        console.error(`Invalid asset content type: ${contentType} for URL: ${assetUrl}`);
+        return Response.json({ error: `Not a valid ${assetType} file` }, { 
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+
+      // Check file size based on asset type
+      const contentLength = response.headers.get('content-length');
+      const maxSize = getMaxSizeForAssetType(assetType);
+      if (contentLength && parseInt(contentLength) > maxSize) {
+        return Response.json({ error: `${assetType} file too large` }, { 
+          status: 413,
+          headers: corsHeaders
+        });
+      }
+
+      // Get the asset data
+      const assetBuffer = await response.arrayBuffer();
+
+      // Return the asset with proper headers
+      return new Response(assetBuffer, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': contentType || getDefaultContentType(assetType),
+          'Cache-Control': 'public, max-age=31536000',
+          'X-Content-Type-Options': 'nosniff'
+        },
+      });
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      const duration = Date.now() - startTime;
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error(`❌ Asset timeout: ${assetUrl} | ${duration}ms`);
+        return Response.json({ 
+          error: 'Asset fetch timeout - try original URL' 
+        }, { 
+          status: 408,
+          headers: corsHeaders
+        });
+      }
+      
+      console.error(`❌ Asset error: ${assetUrl} | ${duration}ms`, fetchError);
       return Response.json({ 
-        error: `Failed to fetch asset: ${response.status} ${response.statusText}` 
+        error: 'Asset fetch failed' 
       }, { 
-        status: response.status,
+        status: 500,
         headers: corsHeaders
       });
     }
-
-    // Validate content type based on asset type
-    const contentType = response.headers.get('content-type') || '';
-    if (!isValidAssetType(assetUrl, contentType, assetType)) {
-      console.error(`Invalid asset content type: ${contentType} for URL: ${assetUrl}`);
-      return Response.json({ error: `Not a valid ${assetType} file` }, { 
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    // Check file size based on asset type
-    const contentLength = response.headers.get('content-length');
-    const maxSize = getMaxSizeForAssetType(assetType);
-    if (contentLength && parseInt(contentLength) > maxSize) {
-      return Response.json({ error: `${assetType} file too large` }, { 
-        status: 413,
-        headers: corsHeaders
-      });
-    }
-
-    // Get the asset data
-    const assetBuffer = await response.arrayBuffer();
-
-    // Return the asset with proper headers
-    return new Response(assetBuffer, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': contentType || getDefaultContentType(assetType),
-        'Cache-Control': 'public, max-age=31536000',
-        'X-Content-Type-Options': 'nosniff'
-      },
-    });
 
   } catch (error) {
     console.error("Asset proxy error:", error);
