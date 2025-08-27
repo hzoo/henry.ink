@@ -48,6 +48,7 @@
     "preact-iso": "^2.10.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250826.0",
     "@preact/preset-vite": "^2.10.2",
     "@types/bun": "^1.2.21",
     "@types/chrome": "^0.1.1",

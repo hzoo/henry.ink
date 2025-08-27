@@ -2,7 +2,7 @@ import { signal, computed, type Signal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { Thread } from "@/src/lib/threadUtils";
 
-interface TreeNode {
+export interface TreeNode {
 	uri: string;
 	parentUri: string | null;
 	childUris: string[];

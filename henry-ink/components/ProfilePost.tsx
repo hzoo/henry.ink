@@ -3,6 +3,7 @@ import { PostText } from "@/src/components/post/PostText";
 import { PostEmbed } from "@/src/components/post/PostEmbed";
 import { CompactPostActions } from "@/src/components/post/CompactPostActions";
 import { QuoteIndicator } from "@/src/components/highlights/QuoteIndicator";
+import { Icon } from "@/src/components/Icon";
 import { getAuthorUrl, getPost, getPostId } from "@/src/lib/utils/postUrls";
 import { getTimeAgo } from "@/src/lib/utils/time";
 import { isRecord } from "@/src/lib/postActions";
@@ -92,9 +93,13 @@ export function ProfilePost({
 										href={getPost(rootPost.uri)}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="hover:underline"
+										className="hover:underline flex items-center gap-1"
 									>
-										Replying to {rootPost.author?.handle || 'a post'}
+										<Icon
+											name="arrowUturnLeft"
+											className="h-3 w-3 inline-block"
+										/>
+										Reply
 									</a>
 								</div>
 							)}
