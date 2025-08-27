@@ -3,7 +3,7 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
 import "../styles.css";
 import SelectionPopupManagerV2 from "./SelectionPopupManagerV2";
-import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
+import { searchAndSaveArenaChannels, showArenaToast } from "../../../src/lib/arena/arenaSearch";
 
 const pingMessage = {
 	type: "PING_SIDEPANEL",

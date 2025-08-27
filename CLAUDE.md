@@ -27,17 +27,22 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 ```bash
 # Development
 bun run ink          # Henry.ink development server (primary)
-bun run dev          # Chrome extension development
-bun run dev:ff       # Firefox extension development
+bun run dev          # AT Protocol extension development (Chrome)
 bun run demo         # Web app demo version (annotation-demo site)
 
 # Building
-bun run build        # Build Chrome extension
-bun run build:ff     # Build Firefox extension
+bun run build        # Build AT Protocol extension
 bun run build:demo   # Build annotation demo
 bun run build:ink    # Build henry.ink
-bun run zip          # Package for Chrome Web Store
-bun run zip:ff       # Package for Firefox Add-ons
+
+# Extension Development (in extension/ directory)
+cd extension
+bun dev              # Chrome extension development
+bun dev:ff           # Firefox extension development
+bun build            # Build Chrome extension
+bun build:ff         # Build Firefox extension
+bun zip              # Package for Chrome Web Store
+bun zip:ff           # Package for Firefox Add-ons
 
 # Code Quality
 bun run compile      # TypeScript type checking
@@ -55,7 +60,7 @@ bun run release          # Release new version
 
 ### Multi-Platform Structure
 - **henry.ink**: Primary web application at `/henry-ink/` - renders any URL with integrated social discussions
-- **Browser Extension**: Original extension platform with entry points in `/entrypoints/`
+- **AT Protocol Extension**: Browser extension workspace at `/extension/` - integrated browsing with AT Protocol data
 - **Demo Sites**:
   - `demo/` - Annotation demo website
   - `archive-service/` - Secure web page archiving service
@@ -97,13 +102,14 @@ The **henry.ink** website is the primary platform - a full-featured web applicat
 - **Server state**: TanStack Query with browser storage persistence
 - **Settings**: Centralized in `/src/lib/settings.ts`
 
-### Browser Extension Architecture (Original Platform)
-The browser extension provides integrated annotation capabilities directly within the browser:
-- **Entry Points**: `/extension/entrypoints/` contains background, sidepanel, content scripts
+### AT Protocol Extension Architecture
+The browser extension workspace (`/extension/`) provides integrated annotation capabilities:
+- **Workspace Structure**: Self-contained package with own dependencies and build system
+- **Entry Points**: `extension/entrypoints/` contains background, sidepanel, content scripts
 - **Side Panel API**: Primary UI in Chrome sidebar
 - **Content Scripts**: Text selection and page interaction
 - **Background Script**: Cross-tab communication and API calls
-- **Context Menus**: Right-click actions for text annotation
+- **Isolated TypeScript**: Separate tsconfig with proper @atcute ambient declarations
 
 ### Authentication Flow
 - **OAuth 2.0** with Bluesky/AT Protocol
@@ -118,10 +124,10 @@ The browser extension provides integrated annotation capabilities directly withi
 - `/src/components/` - Shared Preact components used across all platforms
 - `/src/hooks/` - Custom hooks (useLike, useRepost, etc.)
 - `/src/lib/` - Core utilities, API clients, and state management
-- `/extension/` - Browser extension (see extension/README.md for details)
+- `/extension/` - AT Protocol extension workspace (isolated package)
 - `/demo/` - Annotation demo website
 - `/archive-service/` - Secure web page archiving service
-- `/public/` - Static assets and extension manifest
+- `/public/` - Static assets
 
 ## Development Patterns
 

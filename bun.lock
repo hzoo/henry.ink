@@ -26,12 +26,10 @@
         "@cloudflare/workers-types": "^4.20250826.0",
         "@preact/preset-vite": "^2.10.2",
         "@types/bun": "^1.2.21",
-        "@types/chrome": "^0.1.1",
         "@types/jsdom": "^21.1.7",
         "typescript": "^5.9.2",
         "vite-plugin-dts": "^4.5.4",
         "vite-plugin-svgr": "^4.5.0",
-        "wxt": "^0.20.7",
       },
     },
     "api": {
@@ -46,6 +44,34 @@
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^5.8.3",
+      },
+    },
+    "extension": {
+      "name": "atproto-extension",
+      "version": "0.0.11",
+      "dependencies": {
+        "@atcute/atproto": "^3.1.2",
+        "@atcute/bluesky": "^3.2.1",
+        "@atcute/bluesky-richtext-segmenter": "^2.0.3",
+        "@atcute/client": "^4.0.3",
+        "@atcute/lexicons": "^1.1.1",
+        "@atcute/oauth-browser-client": "^1.0.26",
+        "@preact/signals": "^2.3.1",
+        "@tailwindcss/typography": "^0.5.16",
+        "@tailwindcss/vite": "^4.1.11",
+        "@tanstack/react-query": "^5.85.5",
+        "@tanstack/react-query-persist-client": "^5.85.5",
+        "dompurify": "^3.2.6",
+        "idb": "^8.0.3",
+        "marked": "^16.2.1",
+        "preact": "^10.27.0",
+      },
+      "devDependencies": {
+        "@preact/preset-vite": "^2.10.2",
+        "@types/chrome": "^0.1.1",
+        "typescript": "^5.9.2",
+        "vite-plugin-svgr": "^4.5.0",
+        "wxt": "^0.20.7",
       },
     },
   },
@@ -443,6 +469,8 @@
     "atomic-sleep": ["atomic-sleep@1.0.0", "", {}, "sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ=="],
 
     "atomically": ["atomically@2.0.3", "", { "dependencies": { "stubborn-fs": "^1.2.5", "when-exit": "^2.1.1" } }, "sha512-kU6FmrwZ3Lx7/7y3hPS5QnbJfaohcIul5fGqf7ok+4KklIEk9tJ0C2IQPdacSbVUWv6zVHXEBWoWd6NrVMT7Cw=="],
+
+    "atproto-extension": ["atproto-extension@workspace:extension"],
 
     "babel-plugin-transform-hook-names": ["babel-plugin-transform-hook-names@1.0.2", "", { "peerDependencies": { "@babel/core": "^7.12.10" } }, "sha512-5gafyjyyBTTdX/tQQ0hRgu4AhNHG/hqWi0ZZmg2xvs2FgRkJXzDNKBZCyoYqgFkovfDrgM8OoKg8karoUvWeCw=="],
 
