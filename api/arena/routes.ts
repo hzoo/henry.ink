@@ -1,7 +1,21 @@
 import { ChannelStorage } from './channel-storage';
 import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
-import type { ArenaChannel } from './arena-client';
+import type { ArenaChannel, ArenaSearchResponse } from './arena-api-types';
+import type { ArenaBlock } from '../../src/lib/arena-types';
+
+// API Response Types (exported for frontend use)
+export interface ArenaChannelBlocksResponse {
+  blocks: ArenaBlock[];
+  error?: string;
+  message?: string;
+}
+
+export interface ArenaSearchAPIResponse {
+  success: boolean;
+  channelCount: number;
+  query: string;
+}
 
 // Arena API tokens
 const APP_TOKEN = process.env.ARENA_APP_TOKEN;
@@ -73,21 +87,7 @@ interface EnhanceRequest {
   options?: EnhancementOptions;
 }
 
-interface ArenaAPIResponse {
-  id: number;
-  slug: string;
-  title: string;
-  updated_at: string;
-  created_at: string;
-  length?: number;
-  status?: string;
-  user?: { 
-    slug: string;
-    username?: string;
-    full_name?: string;
-  };
-  owner_slug?: string;
-}
+// Remove duplicate - use ArenaSearchChannel from arena-api-types.ts instead
 
 // Helper function to get CORS headers
 function getCorsHeaders(origin: string = ''): Record<string, string> {
@@ -242,7 +242,7 @@ export async function arenaSearchRoute(req: Request) {
       throw new Error(`Arena API error: ${response.status}`);
     }
     
-    const data = await response.json() as { channels: ArenaAPIResponse[] };
+    const data = await response.json() as ArenaSearchResponse;
     const channels = data.channels || [];
     
     if (channels.length > 0) {
@@ -250,7 +250,7 @@ export async function arenaSearchRoute(req: Request) {
       const filteredChannels = channels.filter(ch => ch.length && ch.length > 1);
       
       // Normalize channels for database storage
-      const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch: ArenaAPIResponse) => ({
+      const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch) => ({
         id: ch.id,
         slug: ch.slug,
         title: ch.title,

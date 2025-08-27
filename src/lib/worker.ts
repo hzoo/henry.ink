@@ -3,6 +3,9 @@
 import { Client, CredentialManager } from "@atcute/client";
 import type { AtpSessionData } from "@atcute/client";
 
+// @ts-expect-error - `caches.default` is missing in @cloudflare/workers-types
+const cache = caches.default as Cache;
+
 export interface Env {
 	BLUESKY_IDENTIFIER: string;
 	BLUESKY_APP_PASSWORD: string;
@@ -67,8 +70,7 @@ export default {
 			);
 
 			// Check if the response is already in the cache
-			// @ts-ignore Property 'default' does not exist on type 'CacheStorage'.
-			const cachedResponse = await caches.default.match(cacheKey);
+			const cachedResponse = await cache.match(cacheKey);
 			if (cachedResponse) {
 				// console.log("Cache hit:", url);
 				// Add CORS headers to the cached response before returning
@@ -192,14 +194,16 @@ export default {
 			}
 
 			const response = new Response(JSON.stringify(data), {
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Cache-Control": "public, max-age=600"
+				},
 				status: 200,
 			});
 
 			// Cache the successful response
-			// @ts-ignore Property 'default' does not exist on type 'CacheStorage'.
 			ctx.waitUntil(
-				caches.default.put(cacheKey, response.clone(), { expirationTtl: 600 }),
+				cache.put(cacheKey, response.clone()),
 			);
 
 			// Add CORS headers to the response before returning

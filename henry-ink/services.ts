@@ -3,6 +3,7 @@ import { useLocation } from "preact-iso";
 import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
+import type { ArchiveResponse } from "@/api/archive/routes";
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -82,7 +83,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 				);
 			}
 
-			const archive = await response.json();
+			const archive = await response.json() as ArchiveResponse;
 			
 			// Extract text content from HTML for Arena matching
 			let textContent = '';

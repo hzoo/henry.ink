@@ -4,7 +4,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import type { ArenaChannel } from "./arena-client.ts";
+import type { ArenaChannel } from "./arena-api-types";
 
 export interface StoredChannel {
   id: number;

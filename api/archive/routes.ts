@@ -1,6 +1,15 @@
 import { createArchive } from "./processor";
 import { isTrustedCDNDomain } from "./trusted-cdns";
 
+// API Response Types (exported for frontend use)
+export interface ArchiveResponse {
+	html: string;
+	css?: string;
+	title?: string;
+	htmlAttrs?: Record<string, string>;
+	bodyAttrs?: Record<string, string>;
+}
+
 // Simple in-memory store for tracking extracted domains
 const extractedDomains = new Map<string, number>(); // domain -> timestamp
 

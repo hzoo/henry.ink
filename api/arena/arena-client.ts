@@ -3,23 +3,19 @@
  * Fetches channels with filtering and pagination
  */
 
+import type { 
+  ArenaChannel, 
+  GraphQLRawChannel,
+  GraphQLSearchResponse, 
+  GraphQLChannelResponse, 
+  RESTChannelResponse,
+  RESTContent
+} from './arena-api-types';
+import type { ArenaBlock } from '../../src/lib/arena-types';
+
 // Arena API tokens
 const APP_TOKEN = process.env.ARENA_APP_TOKEN;
 const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
-
-export interface ArenaChannel {
-  id: number;
-  slug: string;
-  title: string;
-  updated_at: string;
-  created_at: string;
-  counts: {
-    contents: number;
-  };
-  author_name?: string;
-  author_slug?: string;
-  visibility_name: string;
-}
 
 export interface FetchChannelsOptions {
   per?: number;
@@ -59,6 +55,10 @@ const CHANNELS_QUERY = `
         created_at
         counts {
           contents
+        }
+        user {
+          slug
+          name
         }
         visibility_name
       }
@@ -129,7 +129,7 @@ export class ArenaClient {
       throw new Error(`Arena API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as GraphQLSearchResponse;
     
     if (data.errors) {
       throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
@@ -138,8 +138,8 @@ export class ArenaClient {
     const allChannels = data.data?.ssearch || [];
     
     
-    // Filter channels with minimum content count
-    const filteredChannels = allChannels.filter((ch: ArenaChannel) => 
+    // Filter channels with minimum content count  
+    const filteredChannels = allChannels.filter((ch: GraphQLRawChannel) => 
       ch.counts.contents >= minContents
     );
 
@@ -148,8 +148,23 @@ export class ArenaClient {
       onProgress(page * per, undefined);
     }
 
+    // Transform to our normalized format
+    const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch: GraphQLRawChannel) => ({
+      id: ch.id,
+      slug: ch.slug,
+      title: ch.title,
+      updated_at: ch.updated_at,
+      created_at: ch.created_at,
+      counts: {
+        contents: ch.counts.contents || 0
+      },
+      author_name: ch.user?.name || ch.user?.slug || 'unknown',
+      author_slug: ch.user?.slug,
+      visibility_name: ch.visibility_name || 'PUBLIC'
+    }));
+
     return {
-      channels: filteredChannels,
+      channels: normalizedChannels,
       hasMore: allChannels.length > 0, // If we got any results, assume there might be more
       totalFetched: page * per
     };
@@ -262,14 +277,14 @@ export class ArenaClient {
         throw new Error(`Arena REST API error: ${response.status}`);
       }
 
-      const channelData = await response.json();
+      const channelData = await response.json() as RESTChannelResponse;
       
       if (!channelData || !channelData.contents) {
         return null;
       }
 
       // Transform REST API response to our expected format
-      const blocks = channelData.contents.map((content: any) => {
+      const blocks = channelData.contents.map((content: RESTContent) => {
         const baseBlock = {
           id: content.id,
           title: content.title || content.generated_title || 'Untitled',
@@ -288,8 +303,9 @@ export class ArenaClient {
                 grid_cell_resized_image: {
                   src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
                   src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
-                  width: content.image.square?.width || content.image.original?.width || 300,
-                  height: content.image.square?.height || content.image.original?.height || 300
+                  // Fixed dimensions for consistent UI layout - Arena images are resized on-demand
+                  width: 300,
+                  height: 300
                 }
               } : undefined
             };
@@ -307,14 +323,15 @@ export class ArenaClient {
               __typename: 'Link',
               image_url: content.image?.original?.url, // CloudFront URL for fast loading
               source: {
-                url: content.source?.url || content.url
+                url: content.source?.url
               },
               resized_image: content.image ? {
                 grid_cell_resized_image: {
                   src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
                   src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
-                  width: content.image.square?.width || content.image.original?.width || 300,
-                  height: content.image.square?.height || content.image.original?.height || 300
+                  // Fixed dimensions for consistent UI layout - Arena images are resized on-demand
+                  width: 300,
+                  height: 300
                 }
               } : undefined
             };
@@ -326,15 +343,16 @@ export class ArenaClient {
               __typename: 'Embed',
               image_url: content.image?.original?.url, // CloudFront URL for fast loading
               source: {
-                url: content.source?.url || content.url,
-                provider_name: content.source?.provider_name
+                url: content.source?.url,
+                provider_name: content.source?.provider?.name
               },
               resized_image: content.image ? {
                 grid_cell_resized_image: {
                   src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
                   src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
-                  width: content.image.square?.width || content.image.original?.width || 300,
-                  height: content.image.square?.height || content.image.original?.height || 300
+                  // Fixed dimensions for consistent UI layout - Arena images are resized on-demand
+                  width: 300,
+                  height: 300
                 }
               } : undefined
             };
@@ -351,8 +369,9 @@ export class ArenaClient {
                 grid_cell_resized_image: {
                   src_1x: content.image.thumb?.url || content.image.square?.url || content.image.display?.url,
                   src_2x: content.image.display?.url || content.image.large?.url || content.image.square?.url,
-                  width: content.image.square?.width || content.image.original?.width || 300,
-                  height: content.image.square?.height || content.image.original?.height || 300
+                  // Fixed dimensions for consistent UI layout - Arena images are resized on-demand
+                  width: 300,
+                  height: 300
                 }
               } : undefined
             };
@@ -376,7 +395,7 @@ export class ArenaClient {
         },
         length: channelData.length || channelData.contents?.length || 0,
         updated_at: channelData.updated_at,
-        blocks
+        blocks: blocks as ArenaBlock[]
       };
     } catch (error) {
       console.error(`Error fetching blocks for channel ${slug}:`, error);
@@ -385,12 +404,12 @@ export class ArenaClient {
   }
 
   /**
-   * Fetch single channel by slug for on-demand enrichment
+   * Fetch single channel by ID for on-demand enrichment
    */
-  async fetchChannelBySlug(slug: string): Promise<ArenaChannel | null> {
+  async fetchChannelById(id: number): Promise<ArenaChannel | null> {
     const CHANNEL_QUERY = `
-      query Channel($slug: String!) {
-        channel(slug: $slug) {
+      query Channel($id: ID!) {
+        channel(id: $id) {
           id
           slug
           title
@@ -401,6 +420,7 @@ export class ArenaClient {
           }
           user {
             slug
+            name
           }
           visibility_name
         }
@@ -424,7 +444,7 @@ export class ArenaClient {
         headers,
         body: JSON.stringify({
           query: CHANNEL_QUERY,
-          variables: { slug }
+          variables: { id }
         })
       });
 
@@ -432,10 +452,29 @@ export class ArenaClient {
         throw new Error(`Arena API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data?.channel || null;
+      const data = await response.json() as GraphQLChannelResponse;
+      
+      const rawChannel = data.data?.channel;
+      if (!rawChannel) return null;
+      
+      // Normalize raw GraphQL response to ArenaChannel format
+      const normalizedChannel: ArenaChannel = {
+        id: rawChannel.id,
+        slug: rawChannel.slug,
+        title: rawChannel.title,
+        updated_at: rawChannel.updated_at,
+        created_at: rawChannel.created_at,
+        counts: {
+          contents: rawChannel.counts.contents || 0
+        },
+        author_name: rawChannel.user?.name || rawChannel.user?.slug || 'unknown',
+        author_slug: rawChannel.user?.slug,
+        visibility_name: rawChannel.visibility_name || 'PUBLIC'
+      };
+      
+      return normalizedChannel;
     } catch (error) {
-      console.error(`Error fetching channel ${slug}:`, error);
+      console.error(`Error fetching channel ${id}:`, error);
       return null;
     }
   }
