@@ -30,7 +30,7 @@ export async function setupTabListener() {
 		}
 
 		browser.tabs.onActivated.addListener(
-			async (activeInfo: Browser.tabs.TabActiveInfo) => {
+			async (activeInfo: { windowId: number; tabId: number }) => {
 				if (activeInfo.windowId === extensionWindowId) {
 					activeTabId = activeInfo.tabId;
 					const tab = await browser.tabs.get(activeInfo.tabId);
@@ -46,7 +46,7 @@ export async function setupTabListener() {
 		);
 
 		browser.tabs.onUpdated.addListener(
-			(tabId: number, changeInfo: Browser.tabs.TabChangeInfo) => {
+			(tabId: number, changeInfo: { url: string }) => {
 				if (tabId === activeTabId && changeInfo.url) {
 					currentUrl.value = changeInfo.url;
 				}

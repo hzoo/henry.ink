@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 export interface Env {
 	JINA_CACHE: KVNamespace;
 	JINA_API_KEY: string;
@@ -20,7 +22,7 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		// Handle CORS preflight
 		if (request.method === "OPTIONS") {
-			return corsResponse(null, {
+			return corsResponse("", {
 				status: 204,
 				headers: { "Access-Control-Max-Age": "86400" },
 			});

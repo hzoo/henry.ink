@@ -73,7 +73,7 @@ export function clearHighlights(container?: HTMLElement) {
  * Update highlight visual state based on active highlight
  */
 export function updateHighlightStates() {
-	const highlights = document.querySelectorAll('.quote-highlight');
+	const highlights = document.querySelectorAll<HTMLElement>('.quote-highlight');
 	const activeId = activeHighlight.value;
 	
 	highlights.forEach(highlight => {

@@ -110,7 +110,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
 			type: "error",
-			message: e.message || "An unexpected error occurred while fetching content.",
+			message: e instanceof Error ? e.message : "An unexpected error occurred while fetching content.",
 			mode,
 		};
 	}

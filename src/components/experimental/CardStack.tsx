@@ -8,7 +8,7 @@ import { Icon } from "@/src/components/Icon";
 import type { DisplayableItem } from "@/src/components/post/FullPost";
 import { getTimeAgo } from "@/src/lib/utils/time";
 import { formatCount } from "@/src/lib/utils/count";
-import type { ThreadNavigator } from "@/src/lib/threadNavigation";
+import type { ThreadNavigator, TreeNode } from "@/src/lib/threadNavigation";
 
 /* helper for full timestamp in main card */
 const formatFullDate = (iso: string) =>
@@ -112,7 +112,7 @@ export function CardStack({ navigator, displayItems }: CardStackProps) {
 			if (!node) return [];
 
 			const path: string[] = [];
-			let current = node;
+			let current: TreeNode | null = node;
 
 			// Build path from cursor back to root
 			while (current) {
