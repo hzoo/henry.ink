@@ -213,7 +213,7 @@ export class ArenaClient {
           const errorMessage = error.message || '';
           const is500Error = errorMessage.includes('500');
           
-          let backoffDelay;
+          let backoffDelay = 0;
           if (is500Error) { 
             // For 500 errors, wait 1 minute to reset rate limit
             backoffDelay = 60000;

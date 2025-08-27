@@ -1,11 +1,12 @@
 import { useEffect } from "preact/hooks";
+import type { RefObject } from "preact";
 import { useSignalEffect } from "@preact/signals-react/runtime";
 import { extractedQuotes, activeHighlight, type QuoteHighlight } from "@/src/lib/highlights/signals";
 import { findQuoteInContent } from "@/src/lib/highlights/matchContent";
 import { applyHighlight, clearHighlights, updateHighlightStates } from "@/src/lib/highlights/applyHighlights";
 
 interface HighlightControllerProps {
-	contentRef: React.RefObject<HTMLElement>;
+	contentRef: RefObject<HTMLElement>;
 }
 
 /**
