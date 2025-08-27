@@ -3,6 +3,8 @@
  * Sends search requests to backend which handles Arena API and database
  */
 
+import type { ArenaSearchAPIResponse } from "@/api/arena/routes";
+
 export interface ArenaSearchResult {
   success: boolean;
   channelCount: number;
@@ -38,7 +40,7 @@ export async function searchAndSaveArenaChannels(searchText: string): Promise<Ar
       throw new Error(`Server error: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as ArenaSearchAPIResponse;
     
     console.log(`✅ Found ${data.channelCount} channels for "${searchText}"`);
     

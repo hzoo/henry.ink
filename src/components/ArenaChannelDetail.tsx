@@ -1,7 +1,8 @@
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { arenaQueryKeys, formatRelativeTime } from "@/src/lib/arena-api";
 import { navigateToChannelList } from "@/src/lib/arena-navigation";
-import type { ArenaMatch } from "@/src/lib/arena-types";
+import type { ArenaMatch, ArenaBlock } from "@/src/lib/arena-types";
+import type { ArenaChannelBlocksResponse } from "@/api/arena/routes";
 import { ArenaBlockItem } from "./ArenaChannelItem";
 import { useEffect, useRef } from "preact/hooks";
 
@@ -22,11 +23,11 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<ArenaChannelBlocksResponse, Error>({
     queryKey: arenaQueryKeys.blocks(channel.slug),
     initialPageParam: 1,
     initialData: initialData ? {
-      pages: [initialData],
+      pages: [initialData as ArenaChannelBlocksResponse],
       pageParams: [1]
     } : undefined,
     persister: undefined, // Disable persistence for infinite queries
@@ -49,7 +50,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
         throw new Error(`Arena service returned ${response.status}`);
       }
 
-      const result = await response.json();
+      const result = await response.json() as ArenaChannelBlocksResponse;
       
       if (!result || typeof result !== 'object') {
         return { blocks: [] };
@@ -69,14 +70,14 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
       if (!lastPage?.blocks || lastPage.blocks.length < 24) {
         return undefined;
       }
-      return lastPageParam + 1;
+      return (lastPageParam as number) + 1;
     },
     staleTime: 10 * 60 * 1000, // override global infinity
     gcTime: 10 * 60 * 1000,
     retry: 1,
   });
 
-  const blocks = data?.pages?.flatMap(page => page?.blocks || []) || [];
+  const blocks = data?.pages?.flatMap((page: ArenaChannelBlocksResponse) => page?.blocks || []) || [];
 
   useEffect(() => {
     if (!loadMoreRef.current || !hasNextPage) return;
@@ -173,7 +174,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {blocks.map((block) => (
+            {blocks.map((block: ArenaBlock) => (
               <div key={block.id} className="w-full">
                 <ArenaBlockItem block={block} />
               </div>

@@ -5,6 +5,14 @@ export interface Env {
 	JINA_API_KEY: string;
 }
 
+// Jina API response interface
+interface JinaResponse {
+	data?: {
+		content?: string;
+	};
+	content?: string;
+}
+
 // Helper to create responses with CORS headers
 const corsResponse = (body: string, options: ResponseInit = {}) => {
 	return new Response(body, {
@@ -89,7 +97,7 @@ export default {
 				);
 			}
 
-			const responseData = await jinaResponse.json();
+			const responseData = await jinaResponse.json() as JinaResponse;
 			
 			// Handle both old and new response formats
 			const content = responseData.data?.content || responseData.content;

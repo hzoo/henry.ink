@@ -1,0 +1,8 @@
+---
+description: browser extension config docs
+globs: wxt.config.ts, *.tsx
+alwaysApply: false
+---
+wxt framework, browser extension docs
+- https://wxt.dev/knowledge/docs.txt
+- https://wxt.dev/knowledge/api-reference.txt
