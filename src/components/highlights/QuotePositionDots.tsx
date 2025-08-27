@@ -1,9 +1,10 @@
 import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
 import { useEffect } from "preact/hooks";
+import type { RefObject } from "preact";
 import { extractedQuotes } from "@/src/lib/highlights/signals";
 
 interface QuotePositionDotsProps {
-	contentRef: React.RefObject<HTMLElement>;
+	contentRef: RefObject<HTMLElement>;
 }
 
 interface QuoteDot {

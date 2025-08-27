@@ -1,9 +1,10 @@
 import { useSignalEffect } from "@preact/signals-react/runtime";
+import type { RefObject } from "preact";
 import { arenaNavigationRequest } from "@/src/lib/messaging";
 import { findQuoteInContent } from "@/src/lib/highlights/matchContent";
 
 interface ArenaNavigationControllerProps {
-	contentRef: React.RefObject<HTMLElement>;
+	contentRef: RefObject<HTMLElement>;
 	enabled?: boolean;
 }
 

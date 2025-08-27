@@ -1,6 +1,7 @@
 import { useSignal } from "@preact/signals-react/runtime";
 import { batch } from "@preact/signals-core";
 import { useEffect, useRef } from "preact/hooks";
+import type { RefObject } from "preact";
 import MultiButtonSelectionPopup, { type PopupAction } from "./MultiButtonSelectionPopup";
 
 const POPUP_ESTIMATED_WIDTH = 150; // Wider for two buttons
@@ -86,7 +87,7 @@ const calculatePopupPosition = (
 interface SelectionPopupManagerV2Props {
 	canShowPopup: () => Promise<boolean> | boolean;
 	actions: PopupAction[];
-	targetContainerRef?: React.RefObject<HTMLDivElement>;
+	targetContainerRef?: RefObject<HTMLDivElement>;
 }
 
 const SelectionPopupManagerV2 = ({

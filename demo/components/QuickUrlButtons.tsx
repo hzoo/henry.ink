@@ -1,5 +1,5 @@
 import { useLocation } from "preact-iso";
-import { contentStateSignal } from "@/henry-ink/signals";
+import { contentStateSignal, contentModeSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 
 interface SampleUrl {
@@ -42,7 +42,7 @@ export function QuickUrlButtons() {
 	const loadUrl = (url: string) => {
 		currentUrl.value = url;
 		location.route(`/${url}`);
-		contentStateSignal.value = { type: "loading" };
+		contentStateSignal.value = { type: "loading", mode: contentModeSignal.value };
 	};
 
 	return (

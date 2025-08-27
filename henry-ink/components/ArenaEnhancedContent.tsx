@@ -1,5 +1,6 @@
 import { computed } from "@preact/signals";
 import { useQuery } from "@tanstack/react-query";
+import type { RefObject } from "preact";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
@@ -9,7 +10,7 @@ import { useEffect } from "preact/hooks";
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
-  contentRef: React.RefObject<HTMLDivElement>;
+  contentRef: RefObject<HTMLDivElement>;
   mode: 'md' | 'archive';
 }
 
