@@ -14,38 +14,23 @@ export const contentStateSignal = signal<ContentState>({ type: 'idle' });
 
 // Content mode signal with localStorage persistence
 const getInitialContentMode = (): ContentMode => {
-  if (typeof window === 'undefined') return 'md';
+  if (typeof window === 'undefined') return 'archive';
   
   try {
-    const params = new URLSearchParams(window.location.search);
-    const modeParam = params.get('mode');
-    if (modeParam === 'archive' || modeParam === 'md') {
-      return modeParam as ContentMode;
-    }
-    
     const stored = localStorage.getItem('content-mode');
-    return (stored === 'archive' || stored === 'md') ? stored as ContentMode : 'md';
+    return (stored === 'archive' || stored === 'md') ? stored as ContentMode : 'archive';
   } catch {
-    return 'md';
+    return 'archive';
   }
 };
 
 export const contentModeSignal = signal<ContentMode>(getInitialContentMode());
 
-// Save to localStorage and update URL when mode changes
+// Save to localStorage when mode changes
 if (typeof window !== 'undefined') {
   contentModeSignal.subscribe((value) => {
     try {
       localStorage.setItem('content-mode', value);
-      
-      // Update URL parameter without reloading
-      const url = new URL(window.location.href);
-      if (value === 'md') {
-        url.searchParams.delete('mode');
-      } else {
-        url.searchParams.set('mode', value);
-      }
-      window.history.replaceState({}, '', url.toString());
     } catch (error) {
       console.warn('Failed to update content mode:', error);
     }
