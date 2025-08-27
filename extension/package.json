@@ -1,0 +1,40 @@
+{
+  "name": "atproto-extension",
+  "description": "Browser extension to see what people are saying about the site you're on",
+  "private": true,
+  "version": "0.0.11",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:ff": "wxt -b firefox",
+    "build": "wxt build",
+    "build:ff": "wxt build -b firefox", 
+    "zip": "wxt zip",
+    "zip:ff": "wxt zip -b firefox",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@atcute/atproto": "^3.1.2",
+    "@atcute/bluesky": "^3.2.1",
+    "@atcute/bluesky-richtext-segmenter": "^2.0.3",
+    "@atcute/client": "^4.0.3",
+    "@atcute/lexicons": "^1.1.1",
+    "@atcute/oauth-browser-client": "^1.0.26",
+    "@preact/signals": "^2.3.1",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/vite": "^4.1.11",
+    "@tanstack/react-query": "^5.85.5",
+    "@tanstack/react-query-persist-client": "^5.85.5",
+    "dompurify": "^3.2.6",
+    "idb": "^8.0.3",
+    "marked": "^16.2.1",
+    "preact": "^10.27.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.2",
+    "@types/chrome": "^0.1.1",
+    "typescript": "^5.9.2",
+    "vite-plugin-svgr": "^4.5.0",
+    "wxt": "^0.20.7"
+  }
+}

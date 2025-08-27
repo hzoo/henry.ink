@@ -2,9 +2,10 @@ import { render } from "preact";
 import { Sidebar } from "@/src/components/Sidebar";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
-import "@/src/lib/styles.css";
 import { queryClient, appPersister } from "@/src/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+
+import "@/src/lib/styles.css";
 
 let activeTabId: number | undefined;
 let extensionWindowId: number | undefined;

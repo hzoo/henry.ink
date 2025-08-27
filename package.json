@@ -4,7 +4,8 @@
   "private": true,
   "version": "0.0.11",
   "workspaces": [
-    "api"
+    "api",
+    "extension"
   ],
   "type": "module",
   "scripts": {
@@ -12,14 +13,10 @@
     "ink": "vite --config henry-ink/vite.config.ts",
     "build:demo": "vite build --config demo/vite.config.ts",
     "build:ink": "vite build --config henry-ink/vite.config.ts",
-    "dev": "wxt",
-    "dev:ff": "wxt -b firefox",
-    "build": "wxt build",
-    "build:ff": "wxt build -b firefox",
-    "zip": "wxt zip",
-    "zip:ff": "wxt zip -b firefox",
+    "dev": "bun --filter atproto-extension dev",
+    "build": "bun --filter atproto-extension build",
     "compile": "tsc --noEmit",
-    "postinstall": "wxt prepare",
+    "postinstall": "bun --filter atproto-extension postinstall",
     "release": "bun scripts/release.ts",
     "deploy:demo": "bun run build:demo && CLOUDFLARE_ACCOUNT_ID=899db3f6d2659dfb20376c7e752c862d bunx wrangler pages deploy demo/dist --project-name=annotation-sidebar-demo --branch=main",
     "deploy:ink": "bun run build:ink && CLOUDFLARE_ACCOUNT_ID=4eb8c64e85c6cc2bcb31e3df36da1959 bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
@@ -51,11 +48,9 @@
     "@cloudflare/workers-types": "^4.20250826.0",
     "@preact/preset-vite": "^2.10.2",
     "@types/bun": "^1.2.21",
-    "@types/chrome": "^0.1.1",
     "@types/jsdom": "^21.1.7",
     "typescript": "^5.9.2",
     "vite-plugin-dts": "^4.5.4",
-    "vite-plugin-svgr": "^4.5.0",
-    "wxt": "^0.20.7"
+    "vite-plugin-svgr": "^4.5.0"
   }
 }
