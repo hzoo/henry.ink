@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "ink.henry.feed.trail",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A curated collection or trail of content",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "maxGraphemes": 300,
+            "maxLength": 3000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}
