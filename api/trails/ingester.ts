@@ -9,22 +9,23 @@ import type { TrailRecordData, MarkRecordData } from "./types";
 import { isTrailRecord, isMarkRecord } from "./types";
 
 interface FirehoseEvent {
+  did: string;
+  time_us?: number;
   kind: string;
   commit: {
     operation: 'create' | 'update' | 'delete';
     collection: string;
     rkey: string;
-    repo: string;
     record?: TrailRecordData | MarkRecordData;
     cid?: string;
   };
-  did?: string;
 }
 
 export class TrailsIngester {
   private subscription: JetstreamSubscription;
   private storage: TrailStorage;
   private isRunning = false;
+  private profileCache = new Set<string>(); // Track DIDs we've already fetched
 
   constructor(storage: TrailStorage) {
     this.storage = storage;
@@ -32,6 +33,46 @@ export class TrailsIngester {
       url: "wss://jetstream2.us-east.bsky.network",
       wantedCollections: ["ink.henry.feed.trail", "ink.henry.feed.mark"],
     });
+  }
+
+  /**
+   * Fetch and cache profile information for a DID
+   */
+  private async ensureProfileCached(did: string): Promise<void> {
+    // Skip if we've already processed this DID recently
+    if (this.profileCache.has(did)) {
+      return;
+    }
+
+    try {
+      // Check if profile exists in storage first
+      const existingProfile = this.storage.getProfile(did);
+      if (existingProfile) {
+        this.profileCache.add(did);
+        return;
+      }
+
+      // Fetch profile from AT Protocol (simplified - would need actual AT client)
+      // For now, just store basic info from DID
+      const basicProfile = {
+        did,
+        handle: did.includes(':') ? did.split(':')[2]?.slice(-8) + '...' : did,
+        displayName: undefined,
+        avatar: undefined,
+      };
+
+      await this.storage.storeProfile(basicProfile);
+      this.profileCache.add(did);
+      
+      // TODO: In a full implementation, you'd fetch from AT Protocol:
+      // const profile = await atClient.getProfile({ actor: did });
+      // await this.storage.storeProfile(profile);
+      
+    } catch (error) {
+      console.warn(`Failed to cache profile for ${did}:`, error);
+      // Add to cache anyway to avoid repeated failures
+      this.profileCache.add(did);
+    }
   }
 
   async start() {
@@ -62,13 +103,16 @@ export class TrailsIngester {
   private async handleCommitEvent(event: FirehoseEvent) {
     const commit = event.commit;
     
+    // Only process our collections
     if (commit.collection === "ink.henry.feed.trail") {
+      console.log(`🔍 Trail event: operation=${commit.operation}, did=${event.did.slice(-8)}...`);
       if (commit.operation === "create" || commit.operation === "update") {
         await this.handleTrailRecord(event);
       } else if (commit.operation === "delete") {
         await this.handleTrailDelete(event);
       }
     } else if (commit.collection === "ink.henry.feed.mark") {
+      console.log(`📌 Mark event: operation=${commit.operation}, did=${event.did.slice(-8)}...`);
       if (commit.operation === "create" || commit.operation === "update") {
         await this.handleMarkRecord(event);
       } else if (commit.operation === "delete") {
@@ -104,8 +148,11 @@ export class TrailsIngester {
         }
       }
 
-      const did = event.did || commit.repo;
+      const did = event.did;
       const uri = `at://${did}/ink.henry.feed.trail/${commit.rkey}`;
+
+      // Ensure profile is cached
+      await this.ensureProfileCached(did);
 
       await this.storage.storeTrail({
         uri,
@@ -126,8 +173,10 @@ export class TrailsIngester {
       const commit = event.commit;
       const record = commit.record;
 
+      console.log(`📝 Mark record received:`, JSON.stringify(record, null, 2));
+
       if (!isMarkRecord(record)) {
-        console.warn("Invalid mark record structure");
+        console.warn("Invalid mark record structure:", record);
         return;
       }
 
@@ -181,10 +230,13 @@ export class TrailsIngester {
         }
       }
 
-      const did = event.did || commit.repo;
+      const did = event.did;
       const uri = `at://${did}/ink.henry.feed.mark/${commit.rkey}`;
 
-      await this.storage.storeMark({
+      // Ensure profile is cached
+      await this.ensureProfileCached(did);
+
+      const markData = {
         uri,
         trail_uri: record.trail,
         subject_type: subjectType,
@@ -196,7 +248,11 @@ export class TrailsIngester {
         note: record.note || undefined,
         author_did: did,
         created_at: record.createdAt,
-      });
+      };
+      
+      console.log(`💾 Storing mark:`, markData);
+      
+      await this.storage.storeMark(markData);
 
       const subjectDisplay = subjectType === 'strongRef' 
         ? `AT:${subjectUri?.split('/').pop()}` 
@@ -211,7 +267,7 @@ export class TrailsIngester {
   private async handleTrailDelete(event: FirehoseEvent) {
     try {
       const commit = event.commit;
-      const did = event.did || commit.repo;
+      const did = event.did;
       const uri = `at://${did}/ink.henry.feed.trail/${commit.rkey}`;
 
       this.storage.deleteTrail(uri);
@@ -224,7 +280,7 @@ export class TrailsIngester {
   private async handleMarkDelete(event: FirehoseEvent) {
     try {
       const commit = event.commit;
-      const did = event.did || commit.repo;
+      const did = event.did;
       const uri = `at://${did}/ink.henry.feed.mark/${commit.rkey}`;
 
       this.storage.deleteMark(uri);

@@ -1,6 +1,7 @@
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { TID } from "@atcute/tid";
+import { now as tidNow } from "@atcute/tid";
+import { normalizeToAtUri, isAtUri } from "@/src/lib/atproto-helpers";
 import type { StoredMark } from "@/api/trails/trail-storage";
 
 interface MarkFormProps {
@@ -27,11 +28,46 @@ export function MarkForm({
   const [externalUrl, setExternalUrl] = useState(initialData?.url || '');
   const [externalTitle, setExternalTitle] = useState(initialData?.title || '');
   const [externalDescription, setExternalDescription] = useState(initialData?.description || '');
-  const [strongRefUri, setStrongRefUri] = useState('');
-  const [strongRefCid, setStrongRefCid] = useState('');
+  const [atProtocolUrl, setAtProtocolUrl] = useState(''); // User-friendly input
+  const [strongRefUri, setStrongRefUri] = useState(''); // Resolved AT-URI
+  const [strongRefCid, setStrongRefCid] = useState(''); // Auto-fetched CID
+  const [isResolvingAtUri, setIsResolvingAtUri] = useState(false);
   const [note, setNote] = useState(initialData?.note || '');
   
   const queryClient = useQueryClient();
+
+  // Auto-resolve AT-URI and CID when user enters URL
+  useEffect(() => {
+    const resolveAtUri = async () => {
+      if (!atProtocolUrl.trim() || !session?.rpc) {
+        setStrongRefUri('');
+        setStrongRefCid('');
+        return;
+      }
+
+      setIsResolvingAtUri(true);
+      try {
+        const result = await normalizeToAtUri(atProtocolUrl.trim(), session.rpc);
+        if (result) {
+          setStrongRefUri(result.atUri);
+          setStrongRefCid(result.cid);
+        } else {
+          setStrongRefUri('');
+          setStrongRefCid('');
+        }
+      } catch (error) {
+        console.warn('Failed to resolve AT-URI:', error);
+        setStrongRefUri('');
+        setStrongRefCid('');
+      } finally {
+        setIsResolvingAtUri(false);
+      }
+    };
+
+    // Debounce the resolution
+    const timeoutId = setTimeout(resolveAtUri, 500);
+    return () => clearTimeout(timeoutId);
+  }, [atProtocolUrl, session]);
 
   const createMarkMutation = useMutation({
     mutationFn: async (data: {
@@ -47,7 +83,7 @@ export function MarkForm({
         throw new Error('No session available');
       }
 
-      const rkey = TID.now().toString();
+      const rkey = tidNow().toString();
       let subject: any;
       
       if (data.subject_type === 'strongRef') {
@@ -73,17 +109,19 @@ export function MarkForm({
       };
 
       const { ok, data: result } = await session.rpc.post('com.atproto.repo.createRecord', {
-        repo: session.did,
-        collection: 'ink.henry.feed.mark',
-        rkey,
-        record: markRecord,
+        input: {
+          repo: session.session.info.sub,
+          collection: 'ink.henry.feed.mark',
+          rkey,
+          record: markRecord,
+        }
       });
 
       if (!ok) {
         throw new Error(`Error creating mark: ${result.error}`);
       }
 
-      const uri = `at://${session.did}/ink.henry.feed.mark/${rkey}`;
+      const uri = `at://${session.session.info.sub}/ink.henry.feed.mark/${rkey}`;
       return {
         id: Date.now(), // placeholder for UI
         uri,
@@ -95,7 +133,7 @@ export function MarkForm({
         external_title: data.external_title,
         external_description: data.external_description,
         note: data.note,
-        author_did: session.did,
+        author_did: session.session.info.sub,
         created_at: markRecord.createdAt,
         indexed_at: new Date().toISOString(),
       } as StoredMark;
@@ -112,6 +150,7 @@ export function MarkForm({
       setExternalUrl('');
       setExternalTitle('');
       setExternalDescription('');
+      setAtProtocolUrl('');
       setStrongRefUri('');
       setStrongRefCid('');
       setNote('');
@@ -149,7 +188,7 @@ export function MarkForm({
 
   const canSubmit = subjectType === 'external' 
     ? externalUrl.trim()
-    : strongRefUri.trim() && strongRefCid.trim();
+    : strongRefUri.trim() && strongRefCid.trim() && !isResolvingAtUri;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -263,38 +302,39 @@ export function MarkForm({
             </>
           ) : (
             <>
-              {/* Strong ref URI */}
+              {/* AT Protocol URL/URI */}
               <div>
-                <label htmlFor="strongref-uri" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  AT-URI *
+                <label htmlFor="atprotocol-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Bluesky URL or AT-URI *
                 </label>
                 <input
-                  id="strongref-uri"
+                  id="atprotocol-url"
                   type="text"
-                  value={strongRefUri}
-                  onChange={(e) => setStrongRefUri((e.target as HTMLInputElement).value)}
-                  placeholder="at://did:plc:abc123/app.bsky.feed.post/3abc123def"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                  value={atProtocolUrl}
+                  onChange={(e) => setAtProtocolUrl((e.target as HTMLInputElement).value)}
+                  placeholder="https://bsky.app/profile/henryzoo.com/post/3lx27hzibas2c"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={isSubmitting}
                   required
                 />
-              </div>
-
-              {/* Strong ref CID */}
-              <div>
-                <label htmlFor="strongref-cid" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  CID *
-                </label>
-                <input
-                  id="strongref-cid"
-                  type="text"
-                  value={strongRefCid}
-                  onChange={(e) => setStrongRefCid((e.target as HTMLInputElement).value)}
-                  placeholder="bafyreiabc123def..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                  disabled={isSubmitting}
-                  required
-                />
+                {isResolvingAtUri && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                    Resolving AT-URI...
+                  </div>
+                )}
+                {strongRefUri && !isResolvingAtUri && (
+                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm">
+                    <div className="text-green-700 dark:text-green-300">
+                      ✓ Resolved: <span className="font-mono text-xs">{strongRefUri}</span>
+                    </div>
+                  </div>
+                )}
+                {atProtocolUrl && !strongRefUri && !isResolvingAtUri && (
+                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-600 dark:text-red-400">
+                    ⚠ Could not resolve URL. Please check the URL format.
+                  </div>
+                )}
               </div>
             </>
           )}

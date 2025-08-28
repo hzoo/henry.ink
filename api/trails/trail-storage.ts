@@ -243,25 +243,6 @@ export class TrailStorage {
     return this.db.prepare(query).all(limit, offset) as TrailView[];
   }
 
-  /**
-   * Search trails by name or description
-   */
-  searchTrails(query: string, limit = 20): TrailView[] {
-    const searchQuery = `
-      SELECT 
-        t.*,
-        COUNT(m.id) as mark_count,
-        MAX(m.created_at) as latest_mark_at
-      FROM trails t
-      LEFT JOIN marks m ON t.uri = m.trail_uri
-      WHERE t.name LIKE ? OR t.description LIKE ?
-      GROUP BY t.id
-      ORDER BY mark_count DESC, t.created_at DESC
-      LIMIT ?
-    `;
-    const searchTerm = `%${query}%`;
-    return this.db.prepare(searchQuery).all(searchTerm, searchTerm, limit) as TrailView[];
-  }
 
   /**
    * Get trail statistics
