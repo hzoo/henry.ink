@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { StoredTrail, StoredMark, TrailView } from "@/api/trails/trail-storage";
+import { fetchPostFromAtUri } from "@/src/lib/atproto-post-fetcher";
+import { ProfilePost } from "@/henry-ink/components/ProfilePost";
+import { atCuteState } from "@/demo/lib/oauth";
 
 interface TrailItemProps {
   trail: TrailView;
@@ -13,6 +16,8 @@ interface MarkItemProps {
 }
 
 export function MarkItem({ mark, onClick }: MarkItemProps) {
+  const session = atCuteState.value;
+
   const handleClick = () => {
     onClick?.(mark);
   };
@@ -20,6 +25,48 @@ export function MarkItem({ mark, onClick }: MarkItemProps) {
   const isExternal = mark.subject_type === 'external';
   const isStrongRef = mark.subject_type === 'strongRef';
 
+  // Fetch post data for strongRef marks
+  const { data: postData, isLoading: isLoadingPost } = useQuery({
+    queryKey: ['post-data', mark.subject_uri],
+    queryFn: async () => {
+      if (!isStrongRef || !mark.subject_uri || !session) {
+        return null;
+      }
+      return await fetchPostFromAtUri(mark.subject_uri, session);
+    },
+    enabled: isStrongRef && !!mark.subject_uri && !!session,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+
+  // If it's a strongRef and we have post data, render the post
+  if (isStrongRef && postData) {
+    return (
+      <div className="mb-4 border rounded-lg overflow-hidden bg-white dark:bg-gray-800 max-w-xl">
+        {mark.note && (
+          <div className="px-3 py-2 bg-purple-50 dark:bg-purple-900/10 border-b border-purple-100 dark:border-purple-800/30">
+            <div className="text-sm text-purple-700 dark:text-purple-300">
+              › {mark.note}
+            </div>
+          </div>
+        )}
+        <ProfilePost post={postData} displayItems={["avatar", "displayName", "handle"]} />
+      </div>
+    );
+  }
+
+  // If it's a strongRef but loading, show loading state
+  if (isStrongRef && isLoadingPost) {
+    return (
+      <div className="cursor-pointer group p-2 bg-gray-50 dark:bg-gray-800/50 rounded border-l-4 border-purple-500">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+          <span className="text-xs text-gray-500 dark:text-gray-400">Loading post...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Default fallback (external links or failed strongRef)
   return (
     <div
       className="cursor-pointer group p-2 bg-gray-50 dark:bg-gray-800/50 rounded border-l-4 border-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
