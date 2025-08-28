@@ -7,7 +7,10 @@ import { isTrustedCDN } from "./trusted-cdns";
 let sharedBrowserPromise: Promise<Browser> | null = null;
 async function getSharedBrowser(): Promise<Browser> {
   if (!sharedBrowserPromise) {
-    sharedBrowserPromise = chromium.launch({ headless: true });
+    sharedBrowserPromise = chromium.launch({ 
+      headless: true,
+      channel: 'chrome'
+    });
   }
   return sharedBrowserPromise;
 }
