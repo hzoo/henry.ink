@@ -1,0 +1,60 @@
+{
+  "lexicon": 1,
+  "id": "ink.henry.feed.mark",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A mark within a trail - collecting any content",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["trail", "subject", "createdAt"],
+        "properties": {
+          "trail": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Reference to the parent trail"
+          },
+          "subject": {
+            "type": "union",
+            "refs": ["com.atproto.repo.strongRef", "#external"],
+            "description": "The content being marked"
+          },
+          "note": {
+            "type": "string",
+            "maxGraphemes": 300,
+            "maxLength": 3000,
+            "description": "Annotation about the subject"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "external": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "thumb": {
+          "type": "blob",
+          "accept": ["image/png", "image/jpeg"],
+          "maxSize": 1000000
+        }
+      }
+    }
+  }
+}
