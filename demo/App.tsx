@@ -22,6 +22,22 @@ export function App() {
 
 	return (
 		<div class="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-gray-900 text-gray-900 dark:text-gray-100 font-sans">
+			{/* Deprecation Banner */}
+			<div class="w-full bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
+				<div class="max-w-7xl mx-auto flex items-center gap-3 text-sm">
+					<Icon name="information" className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+					<div class="flex-1 text-amber-800 dark:text-amber-200">
+						<a 
+							href="https://henry.ink" 
+							target="_blank"
+							rel="noopener noreferrer"
+							class="font-semibold underline text-amber-900 dark:text-amber-100 hover:text-amber-700 dark:hover:text-amber-300"
+						>
+							henry.ink
+						</a> replaces this demo page! (the extensions will also still be updated).
+					</div>
+				</div>
+			</div>
 			{/* Cozy/Lofi Header */}
 			<header class="px-4 py-3 border-b border-slate-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm flex justify-between items-center">
 				<div>
