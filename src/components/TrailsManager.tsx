@@ -153,7 +153,7 @@ export function TrailsManager({
           <TrailList
             authorDid={authorFilter}
             searchQuery={searchQuery || undefined}
-            showMarkPreviews={true}
+            showMarkPreviews={false}
             onTrailClick={handleTrailClick}
           />
         )}
