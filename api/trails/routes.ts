@@ -260,48 +260,6 @@ export async function searchTrailsRoute(req: Request): Promise<Response> {
   }
 }
 
-/**
- * POST /api/profiles - Store/cache profile information
- */
-export async function storeProfileRoute(req: Request): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
-  
-  try {
-    const profile = await req.json() as Profile;
-
-    if (!profile.did || !profile.handle) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: did, handle' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    await storage.storeProfile(profile);
-
-    return new Response(
-      JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  } catch (error) {
-    console.error('Error storing profile:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Failed to store profile',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-}
 
 /**
  * Clean up function for graceful shutdown

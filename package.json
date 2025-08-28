@@ -31,6 +31,7 @@
     "@atcute/client": "^4.0.3",
     "@atcute/lexicons": "^1.1.1",
     "@atcute/oauth-browser-client": "^1.0.26",
+    "@atcute/tid": "^1.0.2",
     "@preact/signals": "^2.3.1",
     "@preact/signals-react": "^3.3.0",
     "@tailwindcss/typography": "^0.5.16",

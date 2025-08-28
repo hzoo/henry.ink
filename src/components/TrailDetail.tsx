@@ -24,8 +24,9 @@ export function TrailDetail({ trailUri, onClose, onMarkClick }: TrailDetailProps
       }
       return response.json() as { trail: StoredTrail; marks: StoredMark[] };
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds - shorter cache for testing
     retry: 2,
+    refetchOnWindowFocus: true,
   });
 
   const trail = trailData?.trail;

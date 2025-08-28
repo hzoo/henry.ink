@@ -18,7 +18,6 @@ import {
   getTrailsByActorRoute,
   getTrailsContainingRoute,
   searchTrailsRoute,
-  storeProfileRoute,
   closeTrailStorage
 } from "./trails/routes";
 import { TrailsIngester } from "./trails/ingester";
@@ -55,7 +54,7 @@ const server = serve({
         return archiveOptionsRoute(req);
       } else if (path.startsWith('/api/arena')) {
         return arenaOptionsRoute(req);
-      } else if (path.startsWith('/api/trails') || path.startsWith('/api/marks') || path === '/api/stats' || path === '/api/profiles') {
+      } else if (path.startsWith('/api/trails') || path === '/api/stats') {
         return trailsOptionsRoute(req);
       }
       
@@ -120,10 +119,6 @@ const server = serve({
         if (req.method === 'GET') {
           return searchTrailsRoute(req);
         }
-      } else if (path === '/api/profiles') {
-        if (req.method === 'POST') {
-          return storeProfileRoute(req);
-        }
       }
       
       // Health check for unified API
@@ -177,16 +172,14 @@ console.log('  Arena Service:');
 console.log('    POST /api/arena/enhance    - Enhance content with Arena channel links');
 console.log('    POST /api/arena/search     - Search Arena channels');
 console.log('    POST /api/arena/channel-blocks - Fetch blocks for a channel');
-console.log('  Trails Service:');
+console.log('  Trails Service (Read-Only AppView):');
 console.log('    GET  /api/trails           - List trails (supports ?author_did, ?search, ?limit, ?offset)');
-console.log('    POST /api/trails           - Create a new trail');
 console.log('    GET  /api/trails/:uri      - Get specific trail with marks');
-console.log('    POST /api/marks            - Create a new mark');
 console.log('    GET  /api/trails/by-actor/:did - Get trails by specific actor');
 console.log('    GET  /api/trails/containing - Find trails containing a URI (?subject=uri)');
 console.log('    GET  /api/trails/search    - Search trails (?q=query)');
-console.log('    POST /api/profiles         - Store profile information');
 console.log('    GET  /api/stats            - Get trails system statistics');
+console.log('    Note: Create trails/marks via AT Protocol RPC (firehose ingests automatically)');
 console.log('  General:');
 console.log('    GET  /api/health           - Unified API health check');
 

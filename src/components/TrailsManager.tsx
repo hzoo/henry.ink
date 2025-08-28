@@ -6,7 +6,7 @@ import { MarkForm } from "@/src/components/MarkForm";
 import type { TrailView, StoredMark } from "@/api/trails/trail-storage";
 
 interface TrailsManagerProps {
-  session?: any; // AT Protocol session
+  session?: any; // AT Protocol state (full atCuteState)
   initialView?: 'list' | 'create';
   className?: string;
 }
@@ -18,7 +18,7 @@ export function TrailsManager({
   initialView = 'list',
   className = ''
 }: TrailsManagerProps) {
-  const currentUserDid = session?.did;
+  const currentUserDid = session?.session?.info?.sub;
   const [currentView, setCurrentView] = useState<View>(initialView === 'create' ? 'create-trail' : 'list');
   const [selectedTrail, setSelectedTrail] = useState<TrailView | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

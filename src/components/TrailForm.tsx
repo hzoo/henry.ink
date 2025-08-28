@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { TID } from "@atcute/tid";
+import { now as tidNow } from "@atcute/tid";
 import type { StoredTrail } from "@/api/trails/trail-storage";
 
 interface TrailFormProps {
@@ -29,7 +29,7 @@ export function TrailForm({
         throw new Error('No session available');
       }
 
-      const rkey = TID.now().toString();
+      const rkey = tidNow().toString();
       const trailRecord = {
         $type: 'ink.henry.feed.trail',
         name: data.name,
@@ -38,23 +38,25 @@ export function TrailForm({
       };
 
       const { ok, data: result } = await session.rpc.post('com.atproto.repo.createRecord', {
-        repo: session.did,
-        collection: 'ink.henry.feed.trail',
-        rkey,
-        record: trailRecord,
+        input: {
+          repo: session.session.info.sub,
+          collection: 'ink.henry.feed.trail',
+          rkey,
+          record: trailRecord,
+        }
       });
 
       if (!ok) {
         throw new Error(`Error creating trail: ${result.error}`);
       }
 
-      const uri = `at://${session.did}/ink.henry.feed.trail/${rkey}`;
+      const uri = `at://${session.session.info.sub}/ink.henry.feed.trail/${rkey}`;
       return {
         id: Date.now(), // placeholder for UI
         uri,
         name: trailRecord.name,
         description: trailRecord.description,
-        author_did: session.did,
+        author_did: session.session.info.sub,
         created_at: trailRecord.createdAt,
         indexed_at: new Date().toISOString(),
       } as StoredTrail;

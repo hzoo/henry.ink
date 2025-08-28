@@ -2,6 +2,7 @@ import { render } from "preact";
 import { ErrorBoundary, LocationProvider, Router, Route } from "preact-iso";
 import { App } from "@/henry-ink/App";
 import { ProfilePage } from "@/henry-ink/components/ProfilePage";
+import { TrailsPage } from "@/henry-ink/components/TrailsPage";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/src/lib/queryClient";
 
@@ -14,6 +15,7 @@ render(
 			<ErrorBoundary>
 				<Router>
 					<Route path="/profile/:username" component={ProfilePage} />
+					<Route path="/trails" component={TrailsPage} />
 					<Route path="/:params*" component={App} />
 					<Route path="/" component={App} />
 				</Router>
