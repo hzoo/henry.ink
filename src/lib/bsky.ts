@@ -11,6 +11,46 @@ const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
 });
 
+// Cache for DID to handle resolution
+const handleCache = new Map<string, string>();
+
+// Resolve DID to handle using Bluesky API
+export async function resolveDidToHandle(did: string): Promise<string> {
+    // Check cache first
+    if (handleCache.has(did)) {
+        return handleCache.get(did)!;
+    }
+
+    try {
+        // Use getProfile to get the handle from DID
+        const { ok: profileSuccess, data: profileData } = await rpc.get('app.bsky.actor.getProfile', {
+            params: { actor: did },
+        });
+
+        if (!profileSuccess) {
+            const fallback = '@bluesky-user';
+            handleCache.set(did, fallback);
+            return fallback;
+        }
+
+        if (profileData.handle) {
+            const handle = `@${profileData.handle}`;
+            handleCache.set(did, handle);
+            return handle;
+        }
+
+        // Fallback: use the DID shortened
+        const shortDid = did.replace('did:plc:', '@did:');
+        handleCache.set(did, shortDid);
+        return shortDid;
+    } catch (error) {
+        console.error(`❌ Failed to resolve DID ${did}:`, error);
+        const fallback = '@bluesky-user';
+        handleCache.set(did, fallback);
+        return fallback;
+    }
+}
+
 // Calculate engagement score for a post
 function getEngagementScore(post: {
 	likeCount?: number;

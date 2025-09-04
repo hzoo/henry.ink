@@ -26,6 +26,7 @@ export const profileTrailsCount = signal<number>(0);
 // Search and filtering
 export const searchQuery = signal('');
 export const sortBy = signal<'recent' | 'marks' | 'updated'>('recent');
+export const authorFilter = signal<string | null>(null);
 
 // Trail detail view
 export const selectedTrailUri = signal<string | null>(null);
@@ -52,12 +53,12 @@ export const filteredTrails = computed(() => {
   return trails.sort((a, b) => {
     switch (sortBy.value) {
       case 'marks':
-        return (b.mark_count || 0) - (a.mark_count || 0);
+        return (b.markCount || 0) - (a.markCount || 0);
       case 'updated':
-        return new Date(b.indexed_at).getTime() - new Date(a.indexed_at).getTime();
+        return new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime();
       case 'recent':
       default:
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
   });
 });
@@ -66,7 +67,7 @@ export const filteredTrails = computed(() => {
 export const profileTrails = computed(() => {
   if (!currentUserDid.value) return [];
   return trailsData.value.filter(trail => 
-    trail.author_did === currentUserDid.value
+    trail.creator.did === currentUserDid.value
   );
 });
 

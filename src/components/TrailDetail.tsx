@@ -14,9 +14,10 @@ interface TrailDetailProps {
   trailUri: string;
   onMarkClick?: (mark: any) => void;
   session?: any; // AT Protocol session - for real-time trail updates
+  username?: string; // Username from route parameter for creator display
 }
 
-export function TrailDetail({ trailUri, onMarkClick, session }: TrailDetailProps) {
+export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailDetailProps) {
   const currentPage = useSignal(0);
   const allMarks = useSignal<any[]>([]);
   const hasMoreMarks = useSignal(true);
@@ -150,7 +151,11 @@ export function TrailDetail({ trailUri, onMarkClick, session }: TrailDetailProps
         creatorProfile={trail?.creator ? {
           avatar: trail.creator.avatar,
           displayName: trail.creator.displayName,
-          handle: trail.creator.handle
+          handle: username || trail.creator.handle // Use username from route if available
+        } : username ? {
+          avatar: undefined,
+          displayName: undefined,
+          handle: username
         } : undefined}
       />
 

@@ -135,6 +135,7 @@ export function ProfilePage() {
 					<TrailDetail 
 						trailUri={trailUri.value}
 						session={atCuteState.value}
+						username={username}
 					/>
 				</div>
 			</div>

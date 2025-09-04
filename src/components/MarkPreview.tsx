@@ -161,9 +161,9 @@ export function TrailCard({ trail, markCount, creatorProfile }: TrailCardProps) 
             </svg>
             <span className="font-medium">{markCount}</span> marks
           </div>
-          <span>Created {formatRelativeTime(trail?.created_at || '')}</span>
-          {trail?.indexed_at !== trail?.created_at && (
-            <span>Updated {formatRelativeTime(trail?.indexed_at || '')}</span>
+          <span>Created {formatRelativeTime(trail?.createdAt || '')}</span>
+          {trail?.indexedAt !== trail?.createdAt && (
+            <span>Updated {formatRelativeTime(trail?.indexedAt || '')}</span>
           )}
         </div>
       </div>

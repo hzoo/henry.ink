@@ -53,6 +53,7 @@ export interface TrailView {
 	markCount: number;
 	indexedAt: string;
 	createdAt: string;
+	latestMarkAt?: string;
 	viewer?: {
 		hasMarked?: string; // URI if viewer has marked this trail
 	};

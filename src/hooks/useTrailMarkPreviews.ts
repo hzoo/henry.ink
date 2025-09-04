@@ -22,7 +22,7 @@ export function useTrailMarkPreviews(trailUri: string | null, limit = 5) {
         throw new Error(`Failed to fetch mark previews: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as { marks: StoredMark[] };
       return data.marks || []; // Extract marks array from the response
     },
     enabled: !!trailUri,

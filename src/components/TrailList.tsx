@@ -39,9 +39,11 @@ export function TrailList({
       try {
         let fetchedTrails: TrailView[];
         
-        if (usePDS.value && session?.rpc) {
+        if (usePDS.value && session?.rpc && session?.session?.info?.sub) {
           // Fetch directly from PDS for current user's trails
-          fetchedTrails = await fetchUserTrails(session);
+          const authorDid = session.session.info.sub;
+          const username = session.session.info.handle || authorDid;
+          fetchedTrails = await fetchUserTrails(authorDid, username, session, true);
         } else {
           // Fallback to API
           const params: any = {
@@ -155,7 +157,7 @@ export function TrailList({
           <div>
             {trails.value.map((trail: TrailView) => (
               <TrailItem
-                key={trail.id}
+                key={trail.uri}
                 trail={trail}
                 showMarks={showMarkPreviews}
                 onClick={onTrailClick}
