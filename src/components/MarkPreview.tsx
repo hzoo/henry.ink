@@ -112,45 +112,49 @@ interface TrailCardProps {
 export function TrailCard({ trail, markCount, creatorProfile }: TrailCardProps) {
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6 bg-white dark:bg-gray-800 mb-6 sm:mb-8">
-      {/* Trail Header */}
+      {/* Arena-style Trail Header */}
       <div className="mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          {trail?.name}
-        </h1>
+        {/* Creator / Trail Name */}
+        <div className="flex items-center gap-3 mb-3">
+          {creatorProfile && (
+            <>
+              {creatorProfile.avatar ? (
+                <img
+                  src={creatorProfile.avatar}
+                  alt={creatorProfile.displayName || creatorProfile.handle}
+                  className="w-6 h-6 rounded-full object-cover bg-gray-100 dark:bg-gray-700"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+            </>
+          )}
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {creatorProfile ? (
+              <>
+                <a 
+                  href={`/profile/${creatorProfile.handle}`}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                >
+                  {creatorProfile.displayName || creatorProfile.handle}
+                </a>
+                <span className="text-gray-400 dark:text-gray-500 mx-2">/</span>
+                <span>{trail?.name}</span>
+              </>
+            ) : (
+              trail?.name
+            )}
+          </h1>
+        </div>
+
         {trail?.description && (
-          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-3">
             {trail.description}
           </p>
-        )}
-      </div>
-
-      {/* Creator Info & Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        {/* Creator */}
-        {creatorProfile && (
-          <div className="flex items-center gap-3">
-            {creatorProfile.avatar ? (
-              <img
-                src={creatorProfile.avatar}
-                alt={creatorProfile.displayName || creatorProfile.handle}
-                className="w-8 h-8 rounded-full object-cover bg-gray-100 dark:bg-gray-700"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {creatorProfile.displayName || creatorProfile.handle}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                @{creatorProfile.handle}
-              </div>
-            </div>
-          </div>
         )}
 
         {/* Stats & Dates */}

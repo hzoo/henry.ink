@@ -2,6 +2,7 @@ import { useEffect } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { MarkCard } from "@/src/components/MarkCard";
 import { TrailCard } from "@/src/components/MarkPreview";
+import { MarkDetailModal } from "@/src/components/MarkDetailModal";
 import { 
   currentTrailData,
   trailsLoading,
@@ -23,6 +24,8 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
   const allMarks = useSignal<any[]>([]);
   const hasMoreMarks = useSignal(true);
   const loadingMore = useSignal(false);
+  const modalOpen = useSignal(false);
+  const modalMarkIndex = useSignal(0);
 
   // Fetch trail detail when component mounts or trailUri changes
   useEffect(() => {
@@ -88,6 +91,27 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
       loadingMore.value = false;
       currentPage.value = currentPage.value - 1; // Revert page increment
     }
+  };
+
+  const handleMarkClick = (mark: any) => {
+    if (onMarkClick) {
+      onMarkClick(mark);
+    } else {
+      // Find the index of the clicked mark
+      const index = marks.findIndex(m => m.id === mark.id);
+      if (index >= 0) {
+        modalMarkIndex.value = index;
+        modalOpen.value = true;
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    modalOpen.value = false;
+  };
+
+  const handleModalIndexChange = (newIndex: number) => {
+    modalMarkIndex.value = newIndex;
   };
 
   if (trailsError.value) {
@@ -197,7 +221,7 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
               <MarkCard
                 key={mark.id}
                 mark={mark}
-                onClick={onMarkClick}
+                onClick={() => handleMarkClick(mark)}
               />
             ))}
           </div>
@@ -222,6 +246,16 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
             </div>
           )}
         </>
+      )}
+
+      {/* Mark Detail Modal */}
+      {modalOpen.value && marks.length > 0 && (
+        <MarkDetailModal
+          marks={marks}
+          currentIndex={modalMarkIndex.value}
+          onClose={handleCloseModal}
+          onIndexChange={handleModalIndexChange}
+        />
       )}
     </div>
   );
