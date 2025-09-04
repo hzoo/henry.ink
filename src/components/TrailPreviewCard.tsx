@@ -1,10 +1,11 @@
 import { useTrailMarkPreviews } from "@/src/hooks/useTrailMarkPreviews";
 import { MarkPreviewsList } from "@/src/components/MarkPreview";
 import { formatRelativeTime } from "@/src/lib/trails-signals";
+import type { TrailView } from "@/api/trails/types";
 
 interface TrailPreviewCardProps {
-  trail: any; // Using any for now since we have mixed types
-  onTrailClick: (trail: any) => void;
+  trail: TrailView;
+  onTrailClick: (trail: TrailView) => void;
 }
 
 export function TrailPreviewCard({ trail, onTrailClick }: TrailPreviewCardProps) {
@@ -33,14 +34,14 @@ export function TrailPreviewCard({ trail, onTrailClick }: TrailPreviewCardProps)
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
           </svg>
-          {trail.mark_count || 0} marks
+          {trail.markCount || 0} marks
         </div>
       </div>
 
       {/* Mark Previews Loading Skeleton */}
-      {isLoadingPreviews && (trail.mark_count > 0) && (
+      {isLoadingPreviews && (trail.markCount > 0) && (
         <div className="mb-3 space-y-2">
-          {[...Array(Math.min(3, trail.mark_count || 0))].map((_, i) => (
+          {[...Array(Math.min(3, trail.markCount || 0))].map((_, i) => (
             <div key={i} className="flex items-center space-x-3 animate-pulse">
               <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
               <div className="flex-1 space-y-1">
@@ -57,7 +58,7 @@ export function TrailPreviewCard({ trail, onTrailClick }: TrailPreviewCardProps)
         <div className="mb-3">
           <MarkPreviewsList 
             marks={markPreviews}
-            totalCount={trail.mark_count || 0}
+            totalCount={trail.markCount || 0}
             onViewAll={() => onTrailClick(trail)}
           />
         </div>
@@ -66,10 +67,10 @@ export function TrailPreviewCard({ trail, onTrailClick }: TrailPreviewCardProps)
       {/* Trail Footer */}
       <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
         <div className="flex flex-col sm:flex-row sm:items-center">
-          <span>Created {formatRelativeTime(trail.created_at)}</span>
-          {trail.indexed_at !== trail.created_at && (
+          <span>Created {formatRelativeTime(trail.createdAt)}</span>
+          {trail.indexedAt !== trail.createdAt && (
             <span className="sm:ml-3">
-              Updated {formatRelativeTime(trail.indexed_at)}
+              Updated {formatRelativeTime(trail.indexedAt)}
             </span>
           )}
         </div>

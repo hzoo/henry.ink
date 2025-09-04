@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import type {
 	StoredTrail,
 	StoredMark,
-	TrailView,
 } from "@/api/trails/trail-storage";
+import type { TrailView } from "@/api/trails/types";
 import { fetchPostFromAtUri } from "@/src/lib/atproto-post-fetcher";
 import { ProfilePost } from "@/henry-ink/components/ProfilePost";
 import { atCuteState } from "@/demo/lib/oauth";
@@ -153,7 +153,7 @@ export function TrailItem({
 				`/api/trails/${encodeURIComponent(trail.uri)}`,
 			);
 			if (!response.ok) throw new Error("Failed to fetch trail marks");
-			return response.json() as { trail: StoredTrail; marks: StoredMark[] };
+			return response.json() as unknown as { trail: StoredTrail; marks: StoredMark[] };
 		},
 		enabled: showMarks,
 		staleTime: 5 * 60 * 1000, // 5 minutes
@@ -211,16 +211,16 @@ export function TrailItem({
 				</div>
 
 				<div className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-					{trail.mark_count} marks
+					{trail.markCount} marks
 				</div>
 			</div>
 
 			{/* Metadata */}
 			<div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400 mb-2">
-				<span>Created {formatRelativeTime(trail.created_at)} ago</span>
-				{trail.latest_mark_at && (
+				<span>Created {formatRelativeTime(trail.createdAt)} ago</span>
+				{trail.latestMarkAt && (
 					<span>
-						Latest mark {formatRelativeTime(trail.latest_mark_at)} ago
+						Latest mark {formatRelativeTime(trail.latestMarkAt)} ago
 					</span>
 				)}
 			</div>

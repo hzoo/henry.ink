@@ -19,6 +19,39 @@ function getCorsHeaders(): Record<string, string> {
   };
 }
 
+/**
+ * Transform StoredTrailView to camelCase TrailView for API responses
+ */
+function transformTrailView(storedTrail: any): any {
+  // Extract handle from DID if available (for display purposes)
+  const did = storedTrail.author_did || '';
+  let displayHandle = storedTrail.author_handle || '';
+  
+  // If no handle is stored, create a friendly display from DID
+  if (!displayHandle && did) {
+    // Extract the last part of the DID as a fallback display
+    const didParts = did.split(':');
+    displayHandle = didParts[didParts.length - 1].substring(0, 8) + '...';
+  }
+
+  return {
+    uri: storedTrail.uri,
+    cid: storedTrail.cid || '',
+    name: storedTrail.name,
+    description: storedTrail.description,
+    creator: {
+      did: did,
+      handle: displayHandle,
+      displayName: storedTrail.author_display_name || undefined,
+      avatar: storedTrail.author_avatar || undefined,
+    },
+    markCount: storedTrail.mark_count || 0,
+    indexedAt: storedTrail.indexed_at,
+    createdAt: storedTrail.created_at,
+    latestMarkAt: storedTrail.latest_mark_at,
+  };
+}
+
 export async function trailsOptionsRoute(req: Request): Promise<Response> {
   return new Response(null, {
     status: 204,
@@ -50,7 +83,9 @@ export async function getTrailsRoute(req: Request): Promise<Response> {
       trails = storage.getRecentTrails(limit, offset);
     }
 
-    return new Response(JSON.stringify(trails), {
+    const transformedTrails = trails.map(transformTrailView);
+
+    return new Response(JSON.stringify(transformedTrails), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -163,8 +198,9 @@ export async function getTrailsByActorRoute(req: Request, actorDid: string): Pro
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
     const trails = storage.getTrailsByAuthor(actorDid, limit, offset);
+    const transformedTrails = trails.map(transformTrailView);
 
-    return new Response(JSON.stringify(trails), {
+    return new Response(JSON.stringify(transformedTrails), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -206,8 +242,9 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
     }
 
     const trails = storage.getTrailsContaining(subjectUri, limit, authorDid || undefined);
+    const transformedTrails = trails.map(transformTrailView);
 
-    return new Response(JSON.stringify(trails), {
+    return new Response(JSON.stringify(transformedTrails), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -248,8 +285,9 @@ export async function searchTrailsRoute(req: Request): Promise<Response> {
     }
 
     const trails = storage.searchTrails(query.trim(), limit);
+    const transformedTrails = trails.map(transformTrailView);
 
-    return new Response(JSON.stringify(trails), {
+    return new Response(JSON.stringify(transformedTrails), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

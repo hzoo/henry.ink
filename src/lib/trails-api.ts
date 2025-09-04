@@ -86,24 +86,21 @@ export const fetchUserTrails = async (
 
 			trails = data.records
 				.map(
-					(record: any) =>
-						({
-							id: Date.now() + Math.random(), // placeholder ID
-							uri: record.uri,
-							cid: record.cid,
-							name: record.value.name,
-							description: record.value.description,
-							creator: {
-								did: session.session.info.sub,
-								handle: username,
-								displayName: undefined,
-								avatar: undefined,
-							},
-							author_did: session.session.info.sub,
-							mark_count: 0, // PDS doesn't provide mark counts
-							indexed_at: new Date().toISOString(),
-							created_at: record.value.createdAt,
-						}) as TrailView,
+					(record: any): TrailView => ({
+						uri: record.uri,
+						cid: record.cid,
+						name: record.value.name,
+						description: record.value.description,
+						creator: {
+							did: session.session.info.sub,
+							handle: username,
+							displayName: undefined,
+							avatar: undefined,
+						},
+						markCount: 0, // PDS doesn't provide mark counts
+						indexedAt: new Date().toISOString(),
+						createdAt: record.value.createdAt,
+					}),
 				)
 				.sort((a: TrailView, b: TrailView) => a.name.localeCompare(b.name));
 		} else {
@@ -182,13 +179,19 @@ export const fetchTrailDetail = async (
 
 			trailData = {
 				trail: {
-					id: Date.now(), // placeholder
 					uri: trailUri,
+					cid: trailResponse.data.cid || '',
 					name: pdsTrail.name,
 					description: pdsTrail.description,
-					author_did: session.session.info.sub,
-					created_at: pdsTrail.createdAt,
-					indexed_at: new Date().toISOString(),
+					creator: {
+						did: session.session.info.sub,
+						handle: session.session.info.handle || '',
+						displayName: session.session.info.displayName,
+						avatar: session.session.info.avatar,
+					},
+					markCount: apiData.marks?.length || 0,
+					indexedAt: new Date().toISOString(),
+					createdAt: pdsTrail.createdAt,
 				},
 				marks: apiData.marks || [],
 			};
@@ -254,20 +257,25 @@ export const createTrail = async (
 
 		// Create optimistic trail view
 		const newTrail: TrailView = {
-			id: Date.now() + Math.random(), // placeholder ID
 			uri: data.uri,
+			cid: data.cid,
 			name: trailData.name,
 			description: trailData.description,
-			author_did: session.session.info.sub,
-			mark_count: 0,
-			indexed_at: new Date().toISOString(),
-			created_at: trailData.createdAt,
+			creator: {
+				did: session.session.info.sub,
+				handle: session.session.info.handle,
+				displayName: session.session.info.displayName,
+				avatar: session.session.info.avatar,
+			},
+			markCount: 0,
+			indexedAt: new Date().toISOString(),
+			createdAt: trailData.createdAt,
 		};
 
 		// Optimistic update
 		addTrail(newTrail);
 		setProfileTrailsCount(
-			currentTrailData.value ? currentTrailData.value.trail.mark_count + 1 : 1,
+			currentTrailData.value ? (currentTrailData.value.trail.markCount || 0) + 1 : 1,
 		);
 
 		return newTrail;
@@ -331,14 +339,19 @@ export const ensureInboxTrail = async (session: any): Promise<string> => {
 
 		// Create optimistic trail view for cache
 		const newTrail: TrailView = {
-			id: Date.now() + Math.random(),
 			uri: createResponse.data.uri,
+			cid: createResponse.data.cid,
 			name: trailData.name,
 			description: trailData.description,
-			author_did: session.session.info.sub,
-			mark_count: 0,
-			indexed_at: new Date().toISOString(),
-			created_at: trailData.createdAt,
+			creator: {
+				did: session.session.info.sub,
+				handle: session.session.info.handle,
+				displayName: session.session.info.displayName,
+				avatar: session.session.info.avatar,
+			},
+			markCount: 0,
+			indexedAt: new Date().toISOString(),
+			createdAt: trailData.createdAt,
 		};
 
 		// Optimistic update
@@ -409,7 +422,7 @@ export const updateTrailRecord = async (
 				updates.description !== undefined
 					? updates.description
 					: currentRecord.description,
-			indexed_at: new Date().toISOString(),
+			indexedAt: new Date().toISOString(),
 		});
 	} catch (error) {
 		const errorMessage =
@@ -449,7 +462,7 @@ export const deleteTrailRecord = async (
 		// Optimistic update
 		removeTrail(trailUri);
 		setProfileTrailsCount(
-			Math.max(0, (currentTrailData.value?.trail.mark_count || 1) - 1),
+			Math.max(0, (currentTrailData.value?.trail.markCount || 1) - 1),
 		);
 	} catch (error) {
 		const errorMessage =

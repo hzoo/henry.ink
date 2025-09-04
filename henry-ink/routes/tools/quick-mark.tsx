@@ -95,7 +95,7 @@ export default function QuickMark() {
 	// Check for existing marks when URL changes
 	const { data: existingTrails = [] } = useQuery({
 		queryKey: ["existing-marks", url.value, session?.session?.info?.sub],
-		queryFn: async (): Promise<Array<{uri: string; name: string}>> => {
+		queryFn: async (): Promise<Array<{uri: string; name: string; markCount: number}>> => {
 			if (!url.value.trim() || !session?.session?.info?.sub) return [];
 			
 			// Use the URL as-is for the search (external URLs will be stored as external_url)
@@ -103,8 +103,18 @@ export default function QuickMark() {
 			
 			// If it's an AT Protocol URL, also check the converted form
 			const detectedRecord = detectAtProtoRecord(url.value);
-			if (detectedRecord && detectedRecord.uri) {
-				searchUrl = detectedRecord.uri;
+			if (detectedRecord && session?.rpc) {
+				// Resolve handle to DID and create proper AT-URI
+				try {
+					const { resolveHandle } = await import("@/src/lib/atproto-helpers");
+					const did = await resolveHandle(detectedRecord.handle, session.rpc);
+					if (did) {
+						searchUrl = `at://${did}/${detectedRecord.collection}/${detectedRecord.rkey}`;
+					}
+				} catch (error) {
+					console.error("Handle resolution failed:", error);
+					// Fall back to original URL
+				}
 			}
 
 			const response = await fetch(
@@ -112,7 +122,7 @@ export default function QuickMark() {
 			);
 			
 			if (!response.ok) return [];
-			return await response.json() as Array<{uri: string; name: string}>;
+			return await response.json() as Array<{uri: string; name: string; markCount: number}>;
 		},
 		enabled: !!url.value.trim() && !!session?.session?.info?.sub,
 		staleTime: 60000, // Cache for 1 minute

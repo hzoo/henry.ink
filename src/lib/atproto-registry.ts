@@ -7,7 +7,6 @@ interface AtProtoPattern {
   collection: string;
   handle: string;
   rkey: string;
-  uri: string;
 }
 
 // Simple registry - easy to extend with PRs
@@ -48,15 +47,10 @@ export function detectAtProtoRecord(url: string): AtProtoPattern | null {
     for (const [pattern, collection] of Object.entries(patterns)) {
       const match = matchPattern(pattern, pathname);
       if (match) {
-        // For now, we can't resolve handle to DID without an API call
-        // So we'll return a placeholder URI. In a real app, you'd resolve the handle.
-        const uri = `at://${match.handle}.bsky.social/${collection}/${match.rkey}`;
-        
         return {
           collection,
           handle: match.handle,
           rkey: match.rkey,
-          uri,
         };
       }
     }
