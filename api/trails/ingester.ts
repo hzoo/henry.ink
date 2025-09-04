@@ -8,11 +8,13 @@ import { TrailStorage } from "./trail-storage";
 import type { TrailRecordData, MarkRecordData } from "./types";
 import { isTrailRecord, isMarkRecord } from "./types";
 
-interface FirehoseEvent {
+// Jetstream event types based on actual API structure
+interface JetstreamCommitEvent {
 	did: string;
-	time_us?: number;
-	kind: string;
+	time_us: number;
+	kind: "commit";
 	commit: {
+		rev: string;
 		operation: "create" | "update" | "delete";
 		collection: string;
 		rkey: string;
@@ -20,6 +22,32 @@ interface FirehoseEvent {
 		cid?: string;
 	};
 }
+
+interface JetstreamIdentityEvent {
+	did: string;
+	time_us: number;
+	kind: "identity";
+	identity: {
+		did: string;
+		handle: string;
+		seq: number;
+		time: string;
+	};
+}
+
+interface JetstreamAccountEvent {
+	did: string;
+	time_us: number;
+	kind: "account";
+	account: {
+		active: boolean;
+		did: string;
+		seq: number;
+		time: string;
+	};
+}
+
+type JetstreamEvent = JetstreamCommitEvent | JetstreamIdentityEvent | JetstreamAccountEvent;
 
 export class TrailsIngester {
 	private subscription: JetstreamSubscription;
@@ -84,16 +112,14 @@ export class TrailsIngester {
 		}
 
 		this.isRunning = true;
-		console.log(
-			"📡 Listening for ink.henry.annotate.trail and ink.henry.annotate.mark records",
-		);
+		console.log("📡 Starting Trails Ingester for ink.henry.annotate collections");
 
 		try {
 			for await (const event of this.subscription) {
 				if (!this.isRunning) break;
 
 				if (event.kind === "commit") {
-					await this.handleCommitEvent(event as FirehoseEvent);
+					await this.handleCommitEvent(event as JetstreamCommitEvent);
 				}
 			}
 		} catch (error) {
@@ -104,23 +130,17 @@ export class TrailsIngester {
 		}
 	}
 
-	private async handleCommitEvent(event: FirehoseEvent) {
+	private async handleCommitEvent(event: JetstreamCommitEvent) {
 		const commit = event.commit;
 
 		// Only process our collections
 		if (commit.collection === "ink.henry.annotate.trail") {
-			console.log(
-				`🔍 Trail event: operation=${commit.operation}, did=${event.did.slice(-8)}...`,
-			);
 			if (commit.operation === "create" || commit.operation === "update") {
 				await this.handleTrailRecord(event);
 			} else if (commit.operation === "delete") {
 				await this.handleTrailDelete(event);
 			}
 		} else if (commit.collection === "ink.henry.annotate.mark") {
-			console.log(
-				`📌 Mark event: operation=${commit.operation}, did=${event.did.slice(-8)}...`,
-			);
 			if (commit.operation === "create" || commit.operation === "update") {
 				await this.handleMarkRecord(event);
 			} else if (commit.operation === "delete") {
@@ -129,7 +149,7 @@ export class TrailsIngester {
 		}
 	}
 
-	private async handleTrailRecord(event: FirehoseEvent) {
+	private async handleTrailRecord(event: JetstreamCommitEvent) {
 		try {
 			const commit = event.commit;
 			const record = commit.record;
@@ -150,7 +170,7 @@ export class TrailsIngester {
 			if (record.description) {
 				// Count graphemes for proper emoji/unicode support
 				const graphemeCount = [
-					...new Intl.Segmenter({ granularity: "grapheme" }).segment(
+					...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
 						record.description,
 					),
 				].length;
@@ -166,26 +186,29 @@ export class TrailsIngester {
 			// Ensure profile is cached
 			await this.ensureProfileCached(did);
 
-			await this.storage.storeTrail({
-				uri,
-				name,
-				description: record.description || undefined,
-				author_did: did,
-				created_at: record.createdAt,
-			});
+			try {
+				await this.storage.storeTrail({
+					uri,
+					name,
+					description: record.description || undefined,
+					author_did: did,
+					created_at: record.createdAt,
+				});
 
-			console.log(`✅ Stored trail: "${name}" from ${did.slice(-8)}...`);
+				console.log(`✅ Stored trail: "${name}" from ${did.slice(-8)}...`);
+			} catch (dbError) {
+				console.error(`Failed to store trail "${name}":`, dbError);
+				throw dbError; // Re-throw to trigger outer catch
+			}
 		} catch (error) {
 			console.error("Failed to process trail record:", error);
 		}
 	}
 
-	private async handleMarkRecord(event: FirehoseEvent) {
+	private async handleMarkRecord(event: JetstreamCommitEvent) {
 		try {
 			const commit = event.commit;
 			const record = commit.record;
-
-			console.log(`📝 Mark record received:`, JSON.stringify(record, null, 2));
 
 			if (!isMarkRecord(record)) {
 				console.warn("Invalid mark record structure:", record);
@@ -237,7 +260,7 @@ export class TrailsIngester {
 			// Validate note length if present
 			if (record.note) {
 				const graphemeCount = [
-					...new Intl.Segmenter({ granularity: "grapheme" }).segment(
+					...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
 						record.note,
 					),
 				].length;
@@ -266,24 +289,27 @@ export class TrailsIngester {
 				created_at: record.createdAt,
 			};
 
-			console.log(`💾 Storing mark:`, markData);
+			try {
+				await this.storage.storeMark(markData);
 
-			await this.storage.storeMark(markData);
+				const subjectDisplay =
+					subjectType === "strongRef"
+						? `AT:${subjectUri?.split("/").pop()}`
+						: `URL:${new URL(externalUrl!).hostname}`;
 
-			const subjectDisplay =
-				subjectType === "strongRef"
-					? `AT:${subjectUri?.split("/").pop()}`
-					: `URL:${new URL(externalUrl!).hostname}`;
-
-			console.log(
-				`✅ Stored mark: ${subjectDisplay} to trail from ${did.slice(-8)}...`,
-			);
+				console.log(
+					`✅ Stored mark: ${subjectDisplay} to trail from ${did.slice(-8)}...`,
+				);
+			} catch (dbError) {
+				console.error(`Failed to store mark:`, dbError);
+				throw dbError; // Re-throw to trigger outer catch
+			}
 		} catch (error) {
 			console.error("Failed to process mark record:", error);
 		}
 	}
 
-	private async handleTrailDelete(event: FirehoseEvent) {
+	private async handleTrailDelete(event: JetstreamCommitEvent) {
 		try {
 			const commit = event.commit;
 			const did = event.did;
@@ -296,7 +322,7 @@ export class TrailsIngester {
 		}
 	}
 
-	private async handleMarkDelete(event: FirehoseEvent) {
+	private async handleMarkDelete(event: JetstreamCommitEvent) {
 		try {
 			const commit = event.commit;
 			const did = event.did;

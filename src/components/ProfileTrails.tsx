@@ -11,7 +11,7 @@ import {
   scrollToElement
 } from "@/src/lib/trails-signals";
 import { fetchUserTrails } from "@/src/lib/trails-api";
-import { TrailPreviewCard } from "@/src/components/TrailPreviewCard";
+import { TrailListItem } from "@/src/components/TrailListItem";
 
 export function ProfileTrails() {
   const session = atCuteState.value;
@@ -76,16 +76,16 @@ export function ProfileTrails() {
       </div>
 
       {trailsLoading.value ? (
-        // Loading state
-        <div className="space-y-3">
+        // Loading state for dense list
+        <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse">
-              <div className="flex items-start justify-between mb-2">
-                <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+            <div key={i} className="flex items-center justify-between py-2 px-3 animate-pulse">
+              <div className="flex-1">
+                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 mb-1"></div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
               </div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-4"></div>
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
             </div>
           ))}
         </div>
@@ -109,10 +109,10 @@ export function ProfileTrails() {
           </p>
         </div>
       ) : (
-        // Trails list with mark previews
-        <div className="space-y-4 sm:space-y-6">
+        // Arena-style dense trails list
+        <div className="space-y-1">
           {profileTrails.value.map((trail: any) => (
-            <TrailPreviewCard
+            <TrailListItem
               key={trail.uri}
               trail={trail}
               onTrailClick={handleTrailClick}

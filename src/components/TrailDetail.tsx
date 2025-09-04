@@ -189,7 +189,7 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
               <MarkCard
                 key={mark.id}
                 mark={mark}
-                onClick={(mark) => onMarkClick && onMarkClick(mark)}
+                onClick={onMarkClick}
               />
             ))}
           </div>
