@@ -4,7 +4,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import type { Profile, TrailView, MarkView, SubjectView } from "./types";
+import type { Profile } from "./types";
 
 export interface StoredTrail {
   id: number;
@@ -25,14 +25,13 @@ export interface StoredMark {
   subject_cid?: string;
   external_url?: string;
   external_title?: string;
-  external_description?: string;
   note?: string;
   author_did: string;
   created_at: string;
   indexed_at: string;
 }
 
-export interface TrailView extends StoredTrail {
+export interface StoredTrailView extends StoredTrail {
   mark_count: number;
   latest_mark_at?: string;
 }
@@ -76,7 +75,6 @@ export class TrailStorage {
         subject_cid TEXT,
         external_url TEXT,
         external_title TEXT,
-        external_description TEXT,
         note TEXT,
         author_did TEXT NOT NULL,
         created_at TEXT NOT NULL,
@@ -118,13 +116,13 @@ export class TrailStorage {
   /**
    * Store a trail record
    */
-  async storeTrail(trail: {
+  storeTrail(trail: {
     uri: string;
     name: string;
     description?: string;
     author_did: string;
     created_at: string;
-  }): Promise<void> {
+  }): void {
     const now = new Date().toISOString();
     
     const insert = this.db.prepare(`
@@ -146,7 +144,7 @@ export class TrailStorage {
   /**
    * Store a mark record
    */
-  async storeMark(mark: {
+  storeMark(mark: {
     uri: string;
     trail_uri: string;
     subject_type: 'strongRef' | 'external';
@@ -154,19 +152,18 @@ export class TrailStorage {
     subject_cid?: string;
     external_url?: string;
     external_title?: string;
-    external_description?: string;
     note?: string;
     author_did: string;
     created_at: string;
-  }): Promise<void> {
+  }): void {
     const now = new Date().toISOString();
     
     const insert = this.db.prepare(`
       INSERT OR REPLACE INTO marks (
         uri, trail_uri, subject_type, subject_uri, subject_cid,
-        external_url, external_title, external_description, note,
+        external_url, external_title, note,
         author_did, created_at, indexed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insert.run(
@@ -177,7 +174,6 @@ export class TrailStorage {
       mark.subject_cid || null,
       mark.external_url || null,
       mark.external_title || null,
-      mark.external_description || null,
       mark.note || null,
       mark.author_did,
       mark.created_at,
@@ -200,7 +196,7 @@ export class TrailStorage {
     const query = `
       SELECT * FROM marks 
       WHERE trail_uri = ?
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `;
     return this.db.prepare(query).all(trailUri, limit, offset) as StoredMark[];
@@ -209,7 +205,7 @@ export class TrailStorage {
   /**
    * Get trails by author
    */
-  getTrailsByAuthor(authorDid: string, limit = 20, offset = 0): TrailView[] {
+  getTrailsByAuthor(authorDid: string, limit = 20, offset = 0): StoredTrailView[] {
     const query = `
       SELECT 
         t.*,
@@ -222,13 +218,13 @@ export class TrailStorage {
       ORDER BY t.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    return this.db.prepare(query).all(authorDid, limit, offset) as TrailView[];
+    return this.db.prepare(query).all(authorDid, limit, offset) as StoredTrailView[];
   }
 
   /**
    * Get recent trails across all authors
    */
-  getRecentTrails(limit = 20, offset = 0): TrailView[] {
+  getRecentTrails(limit = 20, offset = 0): StoredTrailView[] {
     const query = `
       SELECT 
         t.*,
@@ -240,8 +236,9 @@ export class TrailStorage {
       ORDER BY t.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    return this.db.prepare(query).all(limit, offset) as TrailView[];
+    return this.db.prepare(query).all(limit, offset) as StoredTrailView[];
   }
+
 
 
   /**
@@ -292,7 +289,7 @@ export class TrailStorage {
   /**
    * Cache profile information
    */
-  async storeProfile(profile: Profile): Promise<void> {
+  storeProfile(profile: Profile): void {
     const now = new Date().toISOString();
     
     const insert = this.db.prepare(`
@@ -330,105 +327,54 @@ export class TrailStorage {
   /**
    * Get trails that contain a specific subject
    */
-  getTrailsContaining(subjectUri: string, limit = 20): TrailView[] {
-    const query = `
-      SELECT DISTINCT t.*, COUNT(m2.id) as mark_count
+  getTrailsContaining(subjectUri: string, limit = 20, authorDid?: string): StoredTrailView[] {
+    let query = `
+      SELECT t.*, 
+        COUNT(m.id) as mark_count,
+        MAX(m.created_at) as latest_mark_at
       FROM trails t
       JOIN marks m ON t.uri = m.trail_uri
-      LEFT JOIN marks m2 ON t.uri = m2.trail_uri
-      WHERE m.subject_uri = ? OR m.external_url = ?
+      WHERE (m.subject_uri = ? OR m.external_url = ?)
+    `;
+    
+    const params: (string | number)[] = [subjectUri, subjectUri];
+    
+    if (authorDid) {
+      query += ` AND t.author_did = ?`;
+      params.push(authorDid);
+    }
+    
+    query += `
       GROUP BY t.id
       ORDER BY t.created_at DESC
       LIMIT ?
     `;
+    params.push(limit);
     
-    const results = this.db.prepare(query).all(subjectUri, subjectUri, limit) as any[];
-    return results.map(this.mapToTrailView.bind(this));
+    const results = this.db.prepare(query).all(...params) as StoredTrailView[];
+    return results;
   }
 
   /**
    * Search trails by name or description
    */
-  searchTrails(query: string, limit = 20): TrailView[] {
+  searchTrails(query: string, limit = 20): StoredTrailView[] {
     const searchQuery = `
       SELECT 
         t.*,
         COUNT(m.id) as mark_count
       FROM trails t
       LEFT JOIN marks m ON t.uri = m.trail_uri
-      WHERE t.name LIKE ? OR (t.description IS NOT NULL AND t.description LIKE ?)
+      WHERE t.name LIKE ?
       GROUP BY t.id
       ORDER BY mark_count DESC, t.created_at DESC
       LIMIT ?
     `;
     const searchTerm = `%${query}%`;
-    const results = this.db.prepare(searchQuery).all(searchTerm, searchTerm, limit) as any[];
-    return results.map(this.mapToTrailView.bind(this));
+    const results = this.db.prepare(searchQuery).all(searchTerm, limit) as StoredTrailView[];
+    return results;
   }
 
-  /**
-   * Map database row to TrailView
-   */
-  private mapToTrailView(row: any): TrailView {
-    const creator = this.getProfile(row.author_did);
-    
-    return {
-      uri: row.uri,
-      cid: '', // Would need to be provided from firehose
-      name: row.name,
-      description: row.description || undefined,
-      creator: creator || {
-        did: row.author_did,
-        handle: row.author_did.slice(-8) + '...',
-      },
-      markCount: row.mark_count || 0,
-      indexedAt: row.indexed_at,
-      createdAt: row.created_at,
-    };
-  }
-
-  /**
-   * Map database row to MarkView
-   */
-  private mapToMarkView(row: any): MarkView {
-    const creator = this.getProfile(row.author_did);
-    const trail = this.getTrail(row.trail_uri);
-    
-    const subject: SubjectView = {
-      type: row.subject_type,
-    };
-
-    if (row.subject_type === 'strongRef') {
-      subject.uri = row.subject_uri;
-      subject.cid = row.subject_cid;
-    } else {
-      subject.url = row.external_url;
-      subject.title = row.external_title || undefined;
-      subject.description = row.external_description || undefined;
-    }
-
-    return {
-      uri: row.uri,
-      cid: '', // Would need to be provided from firehose
-      trail: trail ? this.mapToTrailView(trail) : {
-        uri: row.trail_uri,
-        cid: '',
-        name: 'Unknown Trail',
-        creator: { did: 'unknown', handle: 'unknown' },
-        markCount: 0,
-        indexedAt: '',
-        createdAt: '',
-      },
-      subject,
-      note: row.note || undefined,
-      creator: creator || {
-        did: row.author_did,
-        handle: row.author_did.slice(-8) + '...',
-      },
-      indexedAt: row.indexed_at,
-      createdAt: row.created_at,
-    };
-  }
 
   /**
    * Close database connection

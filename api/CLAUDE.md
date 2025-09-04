@@ -12,7 +12,7 @@ Creates secure archives of web pages by capturing the full HTML content and vali
 Enhances content with Arena channel links using pattern matching and provides search/discovery capabilities for Arena channels.
 
 ### Trails Service
-Read-only AppView for ink.henry.feed.trail and ink.henry.feed.mark records. Ingests data from AT Protocol firehose and provides fast aggregated queries. Record creation happens via AT Protocol RPC (not through this API).
+Read-only AppView for ink.henry.annotate.trail and ink.henry.annotate.mark records. Ingests data from AT Protocol firehose and provides fast aggregated queries. Record creation happens via AT Protocol RPC (not through this API).
 
 ## Development Commands
 

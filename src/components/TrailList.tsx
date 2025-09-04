@@ -1,64 +1,89 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "preact/hooks";
+import { useSignal, useComputed } from "@preact/signals";
 import { TrailItem } from "@/src/components/TrailItem";
-import type { TrailView } from "@/api/trails/trail-storage";
-import { useState } from "preact/hooks";
+import type { TrailView } from "@/api/trails/types";
+import { fetchAllTrails, fetchUserTrails } from "@/src/lib/trails-api";
 
 interface TrailListProps {
   authorDid?: string;
   searchQuery?: string;
   showMarkPreviews?: boolean;
   onTrailClick?: (trail: TrailView) => void;
+  session?: any; // AT Protocol session - when provided, fetches directly from PDS
 }
 
 export function TrailList({ 
   authorDid, 
   searchQuery, 
   showMarkPreviews = false, 
-  onTrailClick 
+  onTrailClick,
+  session
 }: TrailListProps) {
-  const [limit] = useState(20);
-  const [offset, setOffset] = useState(0);
+  const trails = useSignal<TrailView[]>([]);
+  const isLoading = useSignal(false);
+  const error = useSignal<string | null>(null);
+  const limit = useSignal(20);
+  const offset = useSignal(0);
 
-  // Build query params
-  const queryParams = new URLSearchParams();
-  if (authorDid) queryParams.set('author_did', authorDid);
-  if (searchQuery) queryParams.set('search', searchQuery);
-  queryParams.set('limit', limit.toString());
-  queryParams.set('offset', offset.toString());
+  // Determine if we should use PDS for current user's trails
+  const usePDS = useComputed(() => 
+    session?.rpc && authorDid === session.session?.info?.sub
+  );
 
-  // Fetch trails
-  const { 
-    data: trails = [], 
-    isLoading, 
-    error,
-    refetch 
-  } = useQuery({
-    queryKey: ['trails', authorDid, searchQuery, limit, offset],
-    queryFn: async () => {
-      const response = await fetch(`/api/trails?${queryParams.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch trails');
+  // Fetch trails when parameters change
+  useEffect(() => {
+    const fetchTrails = async () => {
+      isLoading.value = true;
+      error.value = null;
+      
+      try {
+        let fetchedTrails: TrailView[];
+        
+        if (usePDS.value && session?.rpc) {
+          // Fetch directly from PDS for current user's trails
+          fetchedTrails = await fetchUserTrails(session);
+        } else {
+          // Fallback to API
+          const params: any = {
+            limit: limit.value,
+            offset: offset.value
+          };
+          if (authorDid) params.author_did = authorDid;
+          if (searchQuery) params.search = searchQuery;
+          
+          fetchedTrails = await fetchAllTrails(params);
+        }
+        
+        // Handle pagination - append or replace based on offset
+        if (offset.value === 0) {
+          trails.value = fetchedTrails;
+        } else {
+          trails.value = [...trails.value, ...fetchedTrails];
+        }
+      } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Failed to fetch trails';
+        console.error('Failed to fetch trails in TrailList:', err);
+      } finally {
+        isLoading.value = false;
       }
-      return response.json() as TrailView[];
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2,
-  });
+    };
+
+    fetchTrails();
+  }, [authorDid, searchQuery, limit.value, offset.value, usePDS.value, session]);
 
   const handleLoadMore = () => {
-    setOffset(prev => prev + limit);
+    offset.value += limit.value;
   };
 
   const handleRefresh = () => {
-    setOffset(0);
-    refetch();
+    offset.value = 0; // This will trigger the useEffect to refetch
   };
 
-  if (error) {
+  if (error.value) {
     return (
       <div className="p-4 text-center">
         <div className="text-red-600 dark:text-red-400 text-sm mb-2">
-          {error instanceof Error ? error.message : 'Failed to load trails'}
+          {error.value}
         </div>
         <button
           onClick={handleRefresh}
@@ -81,7 +106,7 @@ export function TrailList({
              'All Trails'}
           </h2>
           
-          {!isLoading && (
+          {!isLoading.value && (
             <button
               onClick={handleRefresh}
               className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
@@ -97,7 +122,7 @@ export function TrailList({
 
       {/* Content */}
       <div className="flex-grow overflow-y-auto">
-        {isLoading && offset === 0 ? (
+        {isLoading.value && offset.value === 0 ? (
           // Initial loading
           <div className="flex items-center justify-center py-8">
             <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
@@ -105,7 +130,7 @@ export function TrailList({
               Loading trails...
             </span>
           </div>
-        ) : trails.length === 0 && !isLoading ? (
+        ) : trails.value.length === 0 && !isLoading.value ? (
           // Empty state
           <div className="flex flex-col items-center justify-center py-12 px-4">
             <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
@@ -128,7 +153,7 @@ export function TrailList({
         ) : (
           // Trails list
           <div>
-            {trails.map((trail) => (
+            {trails.value.map((trail: TrailView) => (
               <TrailItem
                 key={trail.id}
                 trail={trail}
@@ -138,9 +163,9 @@ export function TrailList({
             ))}
             
             {/* Load more button */}
-            {trails.length >= limit && (
+            {trails.value.length >= limit.value && (
               <div className="p-4 text-center border-t border-gray-200 dark:border-gray-700">
-                {isLoading ? (
+                {isLoading.value ? (
                   <div className="flex items-center justify-center">
                     <div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
                     <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">

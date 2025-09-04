@@ -3,7 +3,7 @@
  * Provides REST endpoints for the Are.na-like trail system
  */
 
-import { TrailStorage, type StoredTrail, type StoredMark, type TrailView } from './trail-storage';
+import { TrailStorage, type StoredTrail, type StoredMark, type StoredTrailView } from './trail-storage';
 import type { Profile } from './types';
 
 // Initialize storage
@@ -40,7 +40,7 @@ export async function getTrailsRoute(req: Request): Promise<Response> {
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    let trails: TrailView[];
+    let trails: StoredTrailView[];
 
     if (search) {
       trails = storage.searchTrails(search, limit);
@@ -92,9 +92,15 @@ export async function getTrailRoute(req: Request, uri: string): Promise<Response
     const offset = parseInt(url.searchParams.get('offset') || '0');
     
     const marks = storage.getTrailMarks(uri, limit, offset);
+    
+    // Get creator profile information
+    const creatorProfile = storage.getProfile(trail.author_did);
 
     return new Response(JSON.stringify({
-      trail,
+      trail: {
+        ...trail,
+        creator: creatorProfile
+      },
       marks
     }), {
       status: 200,
@@ -144,6 +150,7 @@ export async function getStatsRoute(req: Request): Promise<Response> {
   }
 }
 
+
 /**
  * GET /api/trails/by-actor - Get trails created by specific actor
  */
@@ -186,6 +193,7 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
     const url = new URL(req.url);
     const subjectUri = url.searchParams.get('subject');
     const limit = parseInt(url.searchParams.get('limit') || '20');
+    const authorDid = url.searchParams.get('author_did');
 
     if (!subjectUri) {
       return new Response(
@@ -197,7 +205,7 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
       );
     }
 
-    const trails = storage.getTrailsContaining(subjectUri, limit);
+    const trails = storage.getTrailsContaining(subjectUri, limit, authorDid || undefined);
 
     return new Response(JSON.stringify(trails), {
       status: 200,

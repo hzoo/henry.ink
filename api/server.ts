@@ -97,6 +97,19 @@ const server = serve({
         if (req.method === 'GET') {
           return getTrailsRoute(req);
         }
+      } else if (path === '/api/trails/containing') {
+        if (req.method === 'GET') {
+          return getTrailsContainingRoute(req);
+        }
+      } else if (path === '/api/trails/search') {
+        if (req.method === 'GET') {
+          return searchTrailsRoute(req);
+        }
+      } else if (path.startsWith('/api/trails/by-actor/')) {
+        const actorDid = decodeURIComponent(path.replace('/api/trails/by-actor/', ''));
+        if (req.method === 'GET') {
+          return getTrailsByActorRoute(req, actorDid);
+        }
       } else if (path.startsWith('/api/trails/')) {
         const trailUri = decodeURIComponent(path.replace('/api/trails/', ''));
         if (req.method === 'GET') {
@@ -105,19 +118,6 @@ const server = serve({
       } else if (path === '/api/stats') {
         if (req.method === 'GET') {
           return getStatsRoute(req);
-        }
-      } else if (path.startsWith('/api/trails/by-actor/')) {
-        const actorDid = decodeURIComponent(path.replace('/api/trails/by-actor/', ''));
-        if (req.method === 'GET') {
-          return getTrailsByActorRoute(req, actorDid);
-        }
-      } else if (path === '/api/trails/containing') {
-        if (req.method === 'GET') {
-          return getTrailsContainingRoute(req);
-        }
-      } else if (path === '/api/trails/search') {
-        if (req.method === 'GET') {
-          return searchTrailsRoute(req);
         }
       }
       
@@ -174,7 +174,7 @@ console.log('    POST /api/arena/search     - Search Arena channels');
 console.log('    POST /api/arena/channel-blocks - Fetch blocks for a channel');
 console.log('  Trails Service (Read-Only AppView):');
 console.log('    GET  /api/trails           - List trails (supports ?author_did, ?search, ?limit, ?offset)');
-console.log('    GET  /api/trails/:uri      - Get specific trail with marks');
+console.log('    GET  /api/trails/:uri      - Get specific trail with marks (?limit=5 for previews)');
 console.log('    GET  /api/trails/by-actor/:did - Get trails by specific actor');
 console.log('    GET  /api/trails/containing - Find trails containing a URI (?subject=uri)');
 console.log('    GET  /api/trails/search    - Search trails (?q=query)');
