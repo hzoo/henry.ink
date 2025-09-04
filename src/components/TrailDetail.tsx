@@ -6,7 +6,8 @@ import {
   currentTrailData,
   trailsLoading,
   trailsError,
-  clearTrailsError
+  clearTrailsError,
+  updatePageTitle
 } from "@/src/lib/trails-signals";
 import { fetchTrailDetail } from "@/src/lib/trails-api";
 
@@ -57,6 +58,13 @@ export function TrailDetail({ trailUri, onMarkClick, session, username }: TrailD
 
   const trail = currentTrailData.value?.trail;
   const marks = allMarks.value;
+
+  // Update page title when trail data loads
+  useEffect(() => {
+    if (trail?.name) {
+      updatePageTitle(`${trail.name} | henry.ink`);
+    }
+  }, [trail?.name]);
 
   const handleRetry = () => {
     clearTrailsError();

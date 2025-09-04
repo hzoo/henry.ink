@@ -37,11 +37,12 @@ export function ProfilePage() {
 		if (!username) return;
 		
 		if (isTrailsView) {
-			updatePageTitle(`@${username}'s Trails | henry.ink`);
+			updatePageTitle(`${username} | henry.ink`);
 		} else if (isSpecificTrail) {
-			updatePageTitle(`@${username}'s Trail | henry.ink`);
+			// Trail name will be updated by TrailDetail component when data loads
+			updatePageTitle(`${username} | henry.ink`);
 		} else {
-			updatePageTitle(`@${username} | Henry's Note`);
+			updatePageTitle(`${username} | henry.ink`);
 		}
 	}, [username, isTrailsView, isSpecificTrail]);
 
