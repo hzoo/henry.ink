@@ -31,7 +31,7 @@ export function TrailForm({
 
       const rkey = tidNow().toString();
       const trailRecord = {
-        $type: 'ink.henry.feed.trail',
+        $type: 'ink.henry.annotate.trail',
         name: data.name,
         description: data.description || undefined,
         createdAt: new Date().toISOString(),
@@ -40,7 +40,7 @@ export function TrailForm({
       const { ok, data: result } = await session.rpc.post('com.atproto.repo.createRecord', {
         input: {
           repo: session.session.info.sub,
-          collection: 'ink.henry.feed.trail',
+          collection: 'ink.henry.annotate.trail',
           rkey,
           record: trailRecord,
         }
@@ -50,7 +50,7 @@ export function TrailForm({
         throw new Error(`Error creating trail: ${result.error}`);
       }
 
-      const uri = `at://${session.session.info.sub}/ink.henry.feed.trail/${rkey}`;
+      const uri = `at://${session.session.info.sub}/ink.henry.annotate.trail/${rkey}`;
       return {
         id: Date.now(), // placeholder for UI
         uri,

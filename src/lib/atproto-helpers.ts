@@ -1,38 +1,37 @@
 /**
  * Helpers for AT Protocol URL/URI conversion and record fetching
  */
+import { detectAtProtoRecord } from './atproto-registry';
 
 /**
- * Convert a Bluesky URL to an AT-URI
+ * Convert any AT Protocol site URL to an AT-URI
  * Example: https://bsky.app/profile/henryzoo.com/post/3lx27hzibas2c
  * → at://did:plc:xxx/app.bsky.feed.post/3lx27hzibas2c
  */
-export function bskyUrlToAtUri(url: string, did?: string): string | null {
+export function atProtoUrlToAtUri(url: string, did?: string): string | null {
   try {
-    const urlObj = new URL(url);
-    
-    // Only handle bsky.app URLs
-    if (urlObj.hostname !== 'bsky.app') {
+    const detected = detectAtProtoRecord(url);
+    if (!detected) {
       return null;
     }
     
-    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    const { collection, handle, rkey } = detected;
     
-    // Expected format: /profile/{handle}/post/{rkey}
-    if (pathParts.length === 4 && pathParts[0] === 'profile' && pathParts[2] === 'post') {
-      const handle = pathParts[1];
-      const rkey = pathParts[3];
-      
-      // If DID is provided, use it; otherwise use handle directly
-      const repo = did || handle;
-      
-      return `at://${repo}/app.bsky.feed.post/${rkey}`;
-    }
+    // If DID is provided, use it; otherwise use handle directly
+    const repo = did || handle;
     
-    return null;
+    return `at://${repo}/${collection}/${rkey}`;
   } catch {
     return null;
   }
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use atProtoUrlToAtUri instead
+ */
+export function bskyUrlToAtUri(url: string, did?: string): string | null {
+  return atProtoUrlToAtUri(url, did);
 }
 
 /**
@@ -121,7 +120,7 @@ export async function getRecordCid(atUri: string, rpc: any): Promise<string | nu
 }
 
 /**
- * Convert any input (Bluesky URL or AT-URI) to a resolved AT-URI with DID
+ * Convert any input (AT Protocol URL or AT-URI) to a resolved AT-URI with DID
  */
 export async function normalizeToAtUri(input: string, rpc: any): Promise<{ atUri: string; cid: string } | null> {
   try {
@@ -130,8 +129,8 @@ export async function normalizeToAtUri(input: string, rpc: any): Promise<{ atUri
     if (isAtUri(input)) {
       atUri = input;
     } else {
-      // Try to convert Bluesky URL
-      const converted = bskyUrlToAtUri(input);
+      // Try to convert AT Protocol URL
+      const converted = atProtoUrlToAtUri(input);
       if (!converted) {
         return null;
       }
