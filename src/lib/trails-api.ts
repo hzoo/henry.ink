@@ -3,6 +3,9 @@
  * Integrates with signals for reactive updates and centralized caching
  */
 import { queryClient } from "@/src/lib/queryClient";
+
+// API base URL
+const apiUrl = import.meta.env.VITE_API_URL || '';
 import type { TrailView } from "@/api/trails/types";
 import {
 	setTrailsData,
@@ -37,7 +40,7 @@ export const fetchAllTrails = async (
 		if (params.offset) queryParams.set("offset", params.offset.toString());
 		if (params.author_did) queryParams.set("author_did", params.author_did);
 
-		const response = await fetch(`/api/trails?${queryParams.toString()}`);
+		const response = await fetch(`${apiUrl}/api/trails?${queryParams.toString()}`);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch trails: ${response.statusText}`);
 		}
@@ -110,7 +113,7 @@ export const fetchUserTrails = async (
 				limit: "50",
 			});
 
-			const response = await fetch(`/api/trails?${params.toString()}`);
+			const response = await fetch(`${apiUrl}/api/trails?${params.toString()}`);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch trails: ${response.statusText}`);
 			}
@@ -162,7 +165,7 @@ export const fetchTrailDetail = async (
 				}),
 				// Fetch marks from API
 				fetch(
-					`/api/trails/${encodeURIComponent(trailUri)}?limit=${markLimit}&offset=${markOffset}`,
+					`${apiUrl}/api/trails/${encodeURIComponent(trailUri)}?limit=${markLimit}&offset=${markOffset}`,
 				),
 			]);
 
@@ -198,7 +201,7 @@ export const fetchTrailDetail = async (
 		} else {
 			// Fallback to full API
 			const response = await fetch(
-				`/api/trails/${encodeURIComponent(trailUri)}?limit=${markLimit}&offset=${markOffset}`,
+				`${apiUrl}/api/trails/${encodeURIComponent(trailUri)}?limit=${markLimit}&offset=${markOffset}`,
 			);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch trail: ${response.statusText}`);
@@ -502,7 +505,7 @@ export const refreshTrailsData = async (params?: { author_did?: string }) => {
 
 export const fetchTrailsStats = async () => {
 	try {
-		const response = await fetch("/api/stats");
+		const response = await fetch(`${apiUrl}/api/stats`);
 		if (!response.ok) {
 			throw new Error("Failed to fetch stats");
 		}
