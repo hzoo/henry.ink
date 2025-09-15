@@ -17,6 +17,9 @@ const ATPROTO_SITES = {
     // '/profile/:handle/lists/:rkey': 'app.bsky.graph.list',
     // '/profile/:handle/feed/:rkey': 'app.bsky.feed.generator',
   },
+  'tangled.sh': {
+    '/@:handle/:rkey': 'sh.tangled.repo',
+  },
   // Future sites can be added here:
   // 'whtwnd.com': {
   //   '/:handle/entries/:rkey': 'com.whtwnd.blog.entry',

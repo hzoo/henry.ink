@@ -1,10 +1,11 @@
 import { useEffect } from "preact/hooks";
 import { useSignal } from "@preact/signals";
-import { useQuery } from "@tanstack/react-query";
 import type { StoredMark } from "@/api/trails/trail-storage";
-import { fetchPostFromAtUri } from "@/src/lib/atproto-post-fetcher";
-import { ProfilePost } from "@/henry-ink/components/ProfilePost";
-import { atCuteState } from "@/demo/lib/oauth";
+import { shouldUseAtProtoCard } from "@/src/components/AtProtoCard";
+import { getAtProtoRenderer } from "@/src/lib/atproto-renderers";
+import { BskyPostCardModal } from "@/src/components/cards/BskyPostCard";
+import { TangledRepoCardModal } from "@/src/components/cards/TangledRepoCard";
+import { ExternalLinkCardModal } from "@/src/components/cards/ExternalLinkCard";
 
 interface MarkDetailModalProps {
   marks: StoredMark[];
@@ -18,25 +19,11 @@ export function MarkDetailModal({ marks, currentIndex, onClose, onIndexChange }:
   
   if (!mark) return null;
 
-  const session = atCuteState.value;
   const isExternal = mark.subject_type === 'external';
   const isStrongRef = mark.subject_type === 'strongRef';
   const title = mark.external_title || mark.note || 'Untitled';
   const url = mark.external_url || mark.subject_uri;
-  const domain = isExternal && url ? new URL(url).hostname.replace('www.', '') : null;
-
-  // Fetch post data for strongRef marks
-  const { data: postData, isLoading: isLoadingPost } = useQuery({
-    queryKey: ['post-data', mark.subject_uri],
-    queryFn: async () => {
-      if (!isStrongRef || !mark.subject_uri || !session) {
-        return null;
-      }
-      return await fetchPostFromAtUri(mark.subject_uri, session);
-    },
-    enabled: isStrongRef && !!mark.subject_uri && !!session,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
-  });
+  const domain = isExternal && mark.external_url ? new URL(mark.external_url).hostname.replace('www.', '') : null;
 
   // Keyboard navigation
   useEffect(() => {
@@ -58,12 +45,6 @@ export function MarkDetailModal({ marks, currentIndex, onClose, onIndexChange }:
   const handleBackdropClick = (e: Event) => {
     if (e.target === e.currentTarget) {
       onClose();
-    }
-  };
-
-  const handleOpenUrl = () => {
-    if (url) {
-      window.open(url, '_blank');
     }
   };
 
@@ -112,67 +93,52 @@ export function MarkDetailModal({ marks, currentIndex, onClose, onIndexChange }:
           )}
 
           <div className="p-6 sm:p-8">
-            {/* Conditional content based on mark type */}
-            {isStrongRef && postData ? (
-              /* strongRef with post data - render ProfilePost */
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800/50">
-                <ProfilePost post={postData} displayItems={["avatar", "displayName", "handle"]} />
-              </div>
-            ) : isStrongRef && isLoadingPost ? (
-              /* strongRef loading state */
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-8 bg-gray-50 dark:bg-gray-800/50 text-center">
-                <div className="flex items-center justify-center gap-3">
-                  <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Loading post...</span>
-                </div>
-              </div>
-            ) : isExternal ? (
-              /* External link display */
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800/50">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                          External Link
-                        </span>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        {title}
-                      </h3>
-                      {domain && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                          {domain}
-                        </div>
-                      )}
-                      {url && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400 break-all font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded">
-                          {url}
-                        </div>
-                      )}
-                    </div>
-                    {url && (
-                      <button
-                        onClick={handleOpenUrl}
-                        className="ml-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors font-medium"
-                      >
-                        Open
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+            {/* Render appropriate card component based on mark type */}
+            {isStrongRef ? (
+              <BskyPostCardModal 
+                url={mark.subject_uri || ''}
+                mark={mark}
+                handle=""
+                rkey=""
+              />
+            ) : isExternal && mark.external_url ? (
+              shouldUseAtProtoCard(mark) ? (
+                // AT Protocol URL (like Tangled)
+                (() => {
+                  const renderer = getAtProtoRenderer(mark.external_url);
+                  if (renderer?.component === 'TangledRepoCard') {
+                    return (
+                      <TangledRepoCardModal 
+                        url={mark.external_url}
+                        mark={mark}
+                        handle={renderer.handle}
+                        rkey={renderer.rkey}
+                      />
+                    );
+                  }
+                  // Default fallback for unknown AT Proto renderers
+                  return (
+                    <ExternalLinkCardModal 
+                      url={mark.external_url}
+                      mark={mark}
+                    />
+                  );
+                })()
+              ) : (
+                // Regular external link
+                <ExternalLinkCardModal 
+                  url={mark.external_url}
+                  mark={mark}
+                />
+              )
             ) : (
-              /* Failed strongRef fallback */
+              /* Fallback for unknown mark types */
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800/50 text-center">
                 <div className="text-gray-500 dark:text-gray-400">
                   <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
-                  <div className="text-sm">Unable to load referenced post</div>
+                  <div className="text-sm">Unknown mark type</div>
                 </div>
               </div>
             )}
