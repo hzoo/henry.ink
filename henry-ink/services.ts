@@ -71,8 +71,8 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 			contentStateSignal.value = { type: "success", content, title, mode };
 		} else if (mode === 'archive') {
 			// New archive service flow for full HTML content
-			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
-			const response = await fetch(`${archiveUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
+			const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+			const response = await fetch(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
 				method: 'GET',
 			});
 
