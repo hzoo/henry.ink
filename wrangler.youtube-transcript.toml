@@ -1,0 +1,14 @@
+name = "youtube-transcript-worker"
+main = "src/lib/youtube-transcript-worker.ts"
+compatibility_date = "2024-09-02"
+
+[vars]
+NODE_ENV = "production"
+
+[[kv_namespaces]]
+binding = "YOUTUBE_TRANSCRIPT_CACHE"
+id = "youtube_transcript_cache_production"
+preview_id = "youtube_transcript_cache_preview"
+
+[build]
+command = ""

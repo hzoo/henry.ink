@@ -1,13 +1,21 @@
 import { signal } from "@preact/signals";
 
 // Content mode types
-export type ContentMode = 'md' | 'archive';
+export type ContentMode = 'md' | 'archive' | 'youtube';
+
+// YouTube transcript data
+export interface TranscriptItem {
+  text: string;
+  duration: number;
+  offset: number;
+  lang?: string;
+}
 
 // Content loading state
-export type ContentState = 
+export type ContentState =
   | { type: 'idle' }
   | { type: 'loading'; mode: ContentMode }
-  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any }
+  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; videoId?: string; transcript?: TranscriptItem[] }
   | { type: 'error'; message: string; mode: ContentMode };
 
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
@@ -15,10 +23,10 @@ export const contentStateSignal = signal<ContentState>({ type: 'idle' });
 // Content mode signal with localStorage persistence
 const getInitialContentMode = (): ContentMode => {
   if (typeof window === 'undefined') return 'archive';
-  
+
   try {
     const stored = localStorage.getItem('content-mode');
-    return (stored === 'archive' || stored === 'md') ? stored as ContentMode : 'archive';
+    return (stored === 'archive' || stored === 'md' || stored === 'youtube') ? stored as ContentMode : 'archive';
   } catch {
     return 'archive';
   }
