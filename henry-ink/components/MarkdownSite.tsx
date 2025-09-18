@@ -135,6 +135,7 @@ export function MarkdownSite() {
 	const contentMode = contentModeSignal.value;
 	const contentRef = useRef<HTMLDivElement>(null);
 	const showLoading = showLoadingSignal.value;
+	const embedContent = contentState.type === 'success' ? contentState.embed : undefined;
 
 	// Use the custom hooks for URL syncing and content fetching
 	useUrlPathSyncer();
@@ -221,8 +222,8 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
-					{/* Content mode tabs - only show for non-YouTube content */}
-					{contentMode !== 'youtube' && (
+					{/* Content mode tabs - only show for non-embed content */}
+					{contentMode !== 'embed' && (
 						<div className="max-w-4xl mx-auto mb-2 flex gap-1 items-center">
 							{/* Mode buttons */}
 							<button
@@ -301,12 +302,18 @@ export function MarkdownSite() {
 					
 					{/* Content - conditional width based on mode */}
 					<div className={contentMode === 'archive' ? '' : 'max-w-4xl mx-auto'}>
-						{contentMode === 'youtube' && contentState.videoId && contentState.transcript ? (
-							<YouTubePlayer
-								videoId={contentState.videoId}
-								title={contentState.title}
-								transcript={contentState.transcript}
-							/>
+						{contentMode === 'embed' && embedContent ? (
+							embedContent.provider === 'youtube' ? (
+								<YouTubePlayer
+									videoId={embedContent.videoId}
+									title={embedContent.title}
+									transcript={embedContent.transcript}
+								/>
+							) : (
+								<div className="rounded-xl border border-yellow-200 dark:border-yellow-900/40 bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm text-yellow-800 dark:text-yellow-200">
+									Unsupported embed provider: {embedContent.provider}
+								</div>
+							)
 						) : contentMode === 'archive' && contentState.html ? (
 							<ArchiveModeWrapper
 								htmlAttrs={contentState.htmlAttrs}

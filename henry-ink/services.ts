@@ -4,20 +4,8 @@ import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 import type { ArchiveResponse } from "@/api/archive/routes";
-import type { YoutubeWorkerResponse } from "@/src/lib/youtube-transcript-worker";
-
-// YouTube URL detection - supports various formats
-const RE_YOUTUBE =
-	/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/embed\/)([^"&?\/\s]{11})/i;
-
-function isYouTubeUrl(url: string): boolean {
-	return RE_YOUTUBE.test(url);
-}
-
-function extractYouTubeVideoId(url: string): string | null {
-	const match = url.match(RE_YOUTUBE);
-	return match ? match[1] : null;
-}
+import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
+import "@/henry-ink/embed/youtube";
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -53,80 +41,46 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 
 	const targetUrl = normalizedUrl;
 
-	// Handle YouTube URLs completely separately
-	if (isYouTubeUrl(targetUrl)) {
-		const youtubeMode: ContentMode = 'youtube';
+	// Handle third-party embeds (YouTube, Vimeo, etc.) separately
+	const embedProvider = resolveEmbedProvider(targetUrl);
+	if (embedProvider) {
+		const embedMode: ContentMode = 'embed';
 
-		if (mode !== 'youtube') {
-			if (contentModeSignal.value !== 'youtube') {
-				contentModeSignal.value = youtubeMode;
+		if (mode !== embedMode) {
+			if (contentModeSignal.value !== embedMode) {
+				contentModeSignal.value = embedMode;
 			}
-			contentStateSignal.value = { type: 'loading', mode: youtubeMode };
+			contentStateSignal.value = { type: 'loading', mode: embedMode };
 			return;
 		}
 
-		contentStateSignal.value = { type: 'loading', mode: youtubeMode };
+		contentStateSignal.value = { type: 'loading', mode: embedMode };
 
 		try {
-			// YouTube transcript fetching
-			const videoId = extractYouTubeVideoId(targetUrl);
-			if (!videoId) {
-				contentStateSignal.value = {
-					type: "error",
-					message: 'Invalid YouTube URL - could not extract video ID',
-					mode: youtubeMode,
-				};
-				return;
-			}
-
-			const youtubeWorkerUrl = import.meta.env.VITE_YOUTUBE_WORKER_URL || 'http://localhost:8789';
-			const response = await fetch(`${youtubeWorkerUrl}?${new URLSearchParams({ videoId, lang: 'en' })}`);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				contentStateSignal.value = {
-					type: "error",
-					message: `YouTube worker error: ${response.status} ${response.statusText}. ${errorText}`,
-					mode: youtubeMode,
-				};
-				return;
-			}
-
-			const youtubeData = await response.json() as YoutubeWorkerResponse;
-
-			if (youtubeData.error) {
-				contentStateSignal.value = {
-					type: "error",
-					message: youtubeData.error,
-					mode: youtubeMode,
-				};
-				return;
-			}
-
-			// Create text content from transcript for Arena enhancement
-			const textContent = youtubeData.transcript
-				.map(item => item.text)
-				.join(' ')
-				.replace(/\s+/g, ' ')
-				.trim();
+			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
+			const embed = await embedProvider.fetchContent(normalizedForProvider, {
+				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as typeof fetch,
+				env: {
+					youtubeWorkerUrl: import.meta.env.VITE_YOUTUBE_WORKER_URL,
+				},
+			});
 
 			contentStateSignal.value = {
-				type: "success",
-				content: textContent,
-				title: youtubeData.title || `YouTube Video ${videoId}`,
-				mode: youtubeMode,
-				videoId: youtubeData.videoId,
-				transcript: youtubeData.transcript,
+				type: 'success',
+				content: embed.textContent,
+				title: embed.title,
+				mode: embedMode,
+				embed,
 			};
 		} catch (e: unknown) {
-			console.error("YouTube fetch error:", e);
+			console.error("Embed fetch error:", e);
 			contentStateSignal.value = {
-				type: "error",
-				message: e instanceof Error ? e.message : "An unexpected error occurred while fetching YouTube content.",
-				mode: youtubeMode,
+				type: 'error',
+				message: e instanceof Error ? e.message : 'An unexpected error occurred while fetching embedded content.',
+				mode: embedMode,
 			};
 		}
-		return; // Exit early - don't continue to archive/md logic
+		return;
 	}
 
 	// Regular content fetching for non-YouTube URLs

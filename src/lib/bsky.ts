@@ -6,19 +6,7 @@ import type {
 	InferOutput,
 	ResourceUri,
 } from "@atcute/lexicons";
-
-// YouTube URL detection and video ID extraction
-const RE_YOUTUBE =
-	/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/embed\/)([^"&?\/\s]{11})/i;
-
-function isYouTubeUrl(url: string): boolean {
-	return RE_YOUTUBE.test(url);
-}
-
-function extractYouTubeVideoId(url: string): string | null {
-	const match = url.match(RE_YOUTUBE);
-	return match ? match[1] : null;
-}
+import { isYouTubeUrl, extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
 
 const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),

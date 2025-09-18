@@ -1,7 +1,7 @@
 import { signal } from "@preact/signals";
 
 // Content mode types
-export type ContentMode = 'md' | 'archive' | 'youtube';
+export type ContentMode = 'md' | 'archive' | 'embed';
 
 // YouTube transcript data
 export interface TranscriptItem {
@@ -11,11 +11,28 @@ export interface TranscriptItem {
   lang?: string;
 }
 
+export type EmbedProviderId = 'youtube';
+
+export interface EmbedBase {
+  provider: EmbedProviderId;
+  originalUrl: string;
+  title?: string;
+}
+
+export interface YouTubeEmbed extends EmbedBase {
+  provider: 'youtube';
+  videoId: string;
+  transcript: TranscriptItem[];
+  textContent: string;
+}
+
+export type EmbedContent = YouTubeEmbed;
+
 // Content loading state
 export type ContentState =
   | { type: 'idle' }
   | { type: 'loading'; mode: ContentMode }
-  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; videoId?: string; transcript?: TranscriptItem[] }
+  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
   | { type: 'error'; message: string; mode: ContentMode };
 
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
@@ -26,7 +43,8 @@ const getInitialContentMode = (): ContentMode => {
 
   try {
     const stored = localStorage.getItem('content-mode');
-    return (stored === 'archive' || stored === 'md' || stored === 'youtube') ? stored as ContentMode : 'archive';
+    if (stored === 'youtube') return 'embed';
+    return (stored === 'archive' || stored === 'md' || stored === 'embed') ? stored as ContentMode : 'archive';
   } catch {
     return 'archive';
   }

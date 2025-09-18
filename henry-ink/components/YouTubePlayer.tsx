@@ -9,7 +9,6 @@ interface YouTubePlayerProps {
 }
 
 const currentTime = signal(0);
-const isPlayerReady = signal(false);
 const ALLOWED_ORIGINS = new Set([
 	'https://www.youtube.com',
 	'https://www.youtube-nocookie.com',
@@ -197,10 +196,7 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 							className="w-full h-full"
 							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
 							allowFullScreen
-							onLoad={() => {
-								isPlayerReady.value = true;
-								initializePlayer();
-							}}
+							onLoad={initializePlayer}
 						/>
 				</div>
 
