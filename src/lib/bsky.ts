@@ -7,6 +7,19 @@ import type {
 	ResourceUri,
 } from "@atcute/lexicons";
 
+// YouTube URL detection and video ID extraction
+const RE_YOUTUBE =
+	/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/embed\/)([^"&?\/\s]{11})/i;
+
+function isYouTubeUrl(url: string): boolean {
+	return RE_YOUTUBE.test(url);
+}
+
+function extractYouTubeVideoId(url: string): string | null {
+	const match = url.match(RE_YOUTUBE);
+	return match ? match[1] : null;
+}
+
 const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
 });
@@ -120,7 +133,33 @@ export async function searchBskyPosts(
 			const data = (await res.json()) as InferOutput<
 				AppBskyFeedSearchPosts.mainSchema["output"]["schema"]
 			>;
-			return sortPosts(data.posts);
+
+			// Filter YouTube URLs to exact video matches
+			let posts = data.posts;
+			if (isYouTubeUrl(url)) {
+				const videoId = extractYouTubeVideoId(url);
+				if (videoId) {
+					posts = posts.filter(post => {
+						// Check post text
+						if (post.record?.text?.includes(videoId)) return true;
+
+						// Check embedded URLs
+						if (post.embed?.external?.uri?.includes(videoId)) return true;
+
+						// Check facet links
+						const facets = (post.record as any)?.facets || [];
+						for (const facet of facets) {
+							for (const feature of facet.features || []) {
+								if (feature.uri?.includes(videoId)) return true;
+							}
+						}
+
+						return false;
+					});
+				}
+			}
+
+			return sortPosts(posts);
 		}
 
 		// Direct RPC call if rpc is available (user is logged in)
@@ -140,7 +179,32 @@ export async function searchBskyPosts(
 			}
 		}
 
-		return sortPosts(data.posts);
+		// Filter YouTube URLs to exact video matches
+		let posts = data.posts;
+		if (isYouTubeUrl(url)) {
+			const videoId = extractYouTubeVideoId(url);
+			if (videoId) {
+				posts = posts.filter(post => {
+					// Check post text
+					if (post.record?.text?.includes(videoId)) return true;
+
+					// Check embedded URLs
+					if (post.embed?.external?.uri?.includes(videoId)) return true;
+
+					// Check facet links
+					const facets = (post.record as any)?.facets || [];
+					for (const facet of facets) {
+						for (const feature of facet.features || []) {
+							if (feature.uri?.includes(videoId)) return true;
+						}
+					}
+
+					return false;
+				});
+			}
+		}
+
+		return sortPosts(posts);
 	} catch (error: unknown) {
 		console.error("Caught bsky search error:", JSON.stringify(error, null, 2));
 

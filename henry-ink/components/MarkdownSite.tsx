@@ -11,6 +11,7 @@ import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots
 import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavigationController";
 import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
 import { ArchiveModeWrapper } from "@/henry-ink/components/ArchiveModeWrapper";
+import { YouTubePlayer } from "@/henry-ink/components/YouTubePlayer";
 import { currentUrl } from "@/src/lib/messaging";
 import { injectArchiveCSS, cleanupArchiveCSS } from "@/henry-ink/utils/cssInjection";
 import "@/henry-ink/styles/archive-mode.css";
@@ -220,38 +221,39 @@ export function MarkdownSite() {
 
 			{contentState.type === "success" && (
 				<>
-					{/* Content mode tabs - always constrained */}
-					<div className="max-w-4xl mx-auto mb-2 flex gap-1 items-center">
-						{/* Mode buttons */}
-						<button
-							onClick={() => contentModeSignal.value = 'md'}
-							className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
-								contentMode === 'md'
-									? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-							}`}
-							title="Markdown reader mode"
-						>
-							<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-								<path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-							</svg>
-							reader
-						</button>
+					{/* Content mode tabs - only show for non-YouTube content */}
+					{contentMode !== 'youtube' && (
+						<div className="max-w-4xl mx-auto mb-2 flex gap-1 items-center">
+							{/* Mode buttons */}
+							<button
+								onClick={() => contentModeSignal.value = 'md'}
+								className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+									contentMode === 'md'
+										? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+										: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+								}`}
+								title="Markdown reader mode"
+							>
+								<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+									<path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+								</svg>
+								reader
+							</button>
 
-						<button
-							onClick={() => contentModeSignal.value = 'archive'}
-							className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
-								contentMode === 'archive'
-									? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-							}`}
-							title="Archived page with original styling"
-						>
-							<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-								<path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-							</svg>
-							archive
-						</button>
+							<button
+								onClick={() => contentModeSignal.value = 'archive'}
+								className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+									contentMode === 'archive'
+										? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+										: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+								}`}
+								title="Archived page with original styling"
+							>
+								<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+									<path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+								</svg>
+								archive
+							</button>
 
 						{/* Separator */}
 						<div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
@@ -295,17 +297,23 @@ export function MarkdownSite() {
 							</svg>
 							original
 						</a>
-					</div>
+					</div>)}
 					
 					{/* Content - conditional width based on mode */}
 					<div className={contentMode === 'archive' ? '' : 'max-w-4xl mx-auto'}>
-						{contentMode === 'archive' && contentState.html ? (
+						{contentMode === 'youtube' && contentState.videoId && contentState.transcript ? (
+							<YouTubePlayer
+								videoId={contentState.videoId}
+								title={contentState.title}
+								transcript={contentState.transcript}
+							/>
+						) : contentMode === 'archive' && contentState.html ? (
 							<ArchiveModeWrapper
 								htmlAttrs={contentState.htmlAttrs}
 								bodyAttrs={contentState.bodyAttrs}
 							>
 								<div className="archive-mode">
-									<ArenaEnhancedContent 
+									<ArenaEnhancedContent
 										htmlContent={DOMPurify.sanitize(contentState.html, {
 											USE_PROFILES: { html: true },
 											ALLOWED_ATTR: ['id', 'class', 'style', 'href', 'src', 'alt', 'title', 'target', 'rel']
@@ -316,7 +324,7 @@ export function MarkdownSite() {
 								</div>
 							</ArchiveModeWrapper>
 						) : (
-							<ArenaEnhancedContent 
+							<ArenaEnhancedContent
 								htmlContent={DOMPurify.sanitize(marked.parse(contentState.content) as string)}
 								contentRef={contentRef}
 								mode="md"

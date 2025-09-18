@@ -4,6 +4,20 @@ import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 import type { ArchiveResponse } from "@/api/archive/routes";
+import type { YoutubeWorkerResponse } from "@/src/lib/youtube-transcript-worker";
+
+// YouTube URL detection - supports various formats
+const RE_YOUTUBE =
+	/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/embed\/)([^"&?\/\s]{11})/i;
+
+function isYouTubeUrl(url: string): boolean {
+	return RE_YOUTUBE.test(url);
+}
+
+function extractYouTubeVideoId(url: string): string | null {
+	const match = url.match(RE_YOUTUBE);
+	return match ? match[1] : null;
+}
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -11,7 +25,7 @@ function isUrl(input: string): boolean {
 	if (input.startsWith('http://') || input.startsWith('https://')) {
 		return true;
 	}
-	
+
 	// Contains a dot and looks domain-like
 	// Basic check: has dot, no spaces, reasonable domain pattern
 	return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(\/.*)?$/.test(input.trim());
@@ -27,7 +41,7 @@ function normalizeUrl(input: string): string | null {
 
 async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 	const normalizedUrl = normalizeUrl(inputUrl);
-	
+
 	if (!normalizedUrl) {
 		contentStateSignal.value = {
 			type: "error",
@@ -36,9 +50,86 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		};
 		return;
 	}
-	
+
 	const targetUrl = normalizedUrl;
 
+	// Handle YouTube URLs completely separately
+	if (isYouTubeUrl(targetUrl)) {
+		const youtubeMode: ContentMode = 'youtube';
+
+		if (mode !== 'youtube') {
+			if (contentModeSignal.value !== 'youtube') {
+				contentModeSignal.value = youtubeMode;
+			}
+			contentStateSignal.value = { type: 'loading', mode: youtubeMode };
+			return;
+		}
+
+		contentStateSignal.value = { type: 'loading', mode: youtubeMode };
+
+		try {
+			// YouTube transcript fetching
+			const videoId = extractYouTubeVideoId(targetUrl);
+			if (!videoId) {
+				contentStateSignal.value = {
+					type: "error",
+					message: 'Invalid YouTube URL - could not extract video ID',
+					mode: youtubeMode,
+				};
+				return;
+			}
+
+			const youtubeWorkerUrl = import.meta.env.VITE_YOUTUBE_WORKER_URL || 'http://localhost:8789';
+			const response = await fetch(`${youtubeWorkerUrl}?${new URLSearchParams({ videoId, lang: 'en' })}`);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				contentStateSignal.value = {
+					type: "error",
+					message: `YouTube worker error: ${response.status} ${response.statusText}. ${errorText}`,
+					mode: youtubeMode,
+				};
+				return;
+			}
+
+			const youtubeData = await response.json() as YoutubeWorkerResponse;
+
+			if (youtubeData.error) {
+				contentStateSignal.value = {
+					type: "error",
+					message: youtubeData.error,
+					mode: youtubeMode,
+				};
+				return;
+			}
+
+			// Create text content from transcript for Arena enhancement
+			const textContent = youtubeData.transcript
+				.map(item => item.text)
+				.join(' ')
+				.replace(/\s+/g, ' ')
+				.trim();
+
+			contentStateSignal.value = {
+				type: "success",
+				content: textContent,
+				title: youtubeData.title || `YouTube Video ${videoId}`,
+				mode: youtubeMode,
+				videoId: youtubeData.videoId,
+				transcript: youtubeData.transcript,
+			};
+		} catch (e: unknown) {
+			console.error("YouTube fetch error:", e);
+			contentStateSignal.value = {
+				type: "error",
+				message: e instanceof Error ? e.message : "An unexpected error occurred while fetching YouTube content.",
+				mode: youtubeMode,
+			};
+		}
+		return; // Exit early - don't continue to archive/md logic
+	}
+
+	// Regular content fetching for non-YouTube URLs
 	contentStateSignal.value = { type: "loading", mode };
 
 	try {
@@ -122,7 +213,7 @@ export function useUrlPathSyncer() {
 	const location = useLocation();
 
 	useEffect(() => {
-		const currentPath = location.path;
+		const currentPath = location.url; // Use full URL with query parameters
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
 			const normalizedUrl = normalizeUrl(potentialUrl);
@@ -145,7 +236,7 @@ export function useUrlPathSyncer() {
 				currentUrl.value = "";
 			}
 		}
-	}, [location.path]);
+	}, [location.url]);
 }
 
 // Effect to fetch content when currentUrl or mode changes
