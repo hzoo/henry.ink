@@ -3,7 +3,7 @@ import type { EmbedContent, EmbedProviderId } from "@/henry-ink/signals";
 export interface EmbedProviderContext {
   fetch: typeof fetch;
   env: {
-    youtubeWorkerUrl?: string;
+    transcriptUrl?: string;
   };
 }
 

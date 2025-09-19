@@ -22,6 +22,7 @@ import {
 } from "./trails/routes";
 import { TrailsIngester } from "./trails/ingester";
 import { TrailStorage } from "./trails/trail-storage";
+import { youtubeTranscriptOptionsRoute, youtubeTranscriptRoute } from "./youtube/routes";
 
 /**
  * Unified API server combining Arena, Archive, and Trails services
@@ -56,6 +57,8 @@ const server = serve({
         return arenaOptionsRoute(req);
       } else if (path.startsWith('/api/trails') || path === '/api/stats') {
         return trailsOptionsRoute(req);
+      } else if (path === '/api/youtube/transcript') {
+        return youtubeTranscriptOptionsRoute(req);
       }
       
       // Generic OPTIONS response
@@ -76,7 +79,14 @@ const server = serve({
           return assetProxyRoute(req);
         }
       }
-      
+
+      // YouTube transcript route
+      else if (path === '/api/youtube/transcript') {
+        if (req.method === 'GET') {
+          return youtubeTranscriptRoute(req);
+        }
+      }
+
       // Arena service routes  
       else if (path === '/api/arena/enhance') {
         if (req.method === 'POST') {
@@ -168,6 +178,8 @@ console.log('\n📦 Available services:');
 console.log('  Archive Service:');
 console.log('    GET  /api/archive          - Create secure archive of a web page');
 console.log('    GET  /api/asset-proxy      - Proxy assets (fonts, images) with security validation');
+console.log('  YouTube Service:');
+console.log('    GET  /api/youtube/transcript - Fetch transcripts via server-side YouTube retrieval');
 console.log('  Arena Service:');
 console.log('    POST /api/arena/enhance    - Enhance content with Arena channel links');
 console.log('    POST /api/arena/search     - Search Arena channels');

@@ -58,10 +58,14 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 
 		try {
 			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
+			const transcriptUrl =
+				import.meta.env.VITE_YOUTUBE_TRANSCRIPT_URL ||
+				import.meta.env.VITE_YOUTUBE_WORKER_URL ||
+				'http://localhost:3000/api/youtube/transcript';
 			const embed = await embedProvider.fetchContent(normalizedForProvider, {
 				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as typeof fetch,
 				env: {
-					youtubeWorkerUrl: import.meta.env.VITE_YOUTUBE_WORKER_URL,
+					transcriptUrl,
 				},
 			});
 

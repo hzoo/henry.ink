@@ -4,9 +4,10 @@ compatibility_date = "2024-09-02"
 
 [vars]
 NODE_ENV = "production"
+YOUTUBE_TRANSCRIPT_API_URL = "https://api.henry.ink/api/youtube/transcript"
 
 [[kv_namespaces]]
-binding = "youtube_transcript_cache"
+binding = "YOUTUBE_TRANSCRIPT_CACHE"
 id = "e3760955d3c84c9696c52a63352626c8"
 preview_id = "fad6ccfee93746f39953411de2082435"
 

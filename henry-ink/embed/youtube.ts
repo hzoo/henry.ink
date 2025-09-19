@@ -1,6 +1,6 @@
 import type { EmbedProvider } from "@/henry-ink/embed/providers";
 import { registerEmbedProvider } from "@/henry-ink/embed/providers";
-import type { YoutubeWorkerResponse } from "@/src/lib/youtube-transcript-worker";
+import type { YoutubeTranscriptResponse } from "@/src/lib/youtube-transcript-types";
 import type { YouTubeEmbed } from "@/henry-ink/signals";
 
 const RE_YOUTUBE =
@@ -24,15 +24,15 @@ export const youtubeEmbedProvider: EmbedProvider = {
       throw new Error('Invalid YouTube URL - could not extract video ID');
     }
 
-    const youtubeWorkerUrl = context.env.youtubeWorkerUrl || 'http://localhost:8789';
-    const response = await context.fetch(`${youtubeWorkerUrl}?${new URLSearchParams({ videoId, lang: 'en' })}`);
+    const transcriptEndpoint = context.env.transcriptUrl || 'http://localhost:3000/api/youtube/transcript';
+    const response = await context.fetch(`${transcriptEndpoint}?${new URLSearchParams({ videoId, lang: 'en' })}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`YouTube worker error: ${response.status} ${response.statusText}. ${errorText}`);
+      throw new Error(`YouTube transcript error: ${response.status} ${response.statusText}. ${errorText}`);
     }
 
-    const youtubeData = await response.json() as YoutubeWorkerResponse;
+    const youtubeData = await response.json() as YoutubeTranscriptResponse;
 
     if (youtubeData.error) {
       throw new Error(youtubeData.error);
