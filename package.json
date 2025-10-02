@@ -21,6 +21,8 @@
     "deploy:ink": "bun run build:ink && CLOUDFLARE_ACCOUNT_ID=4eb8c64e85c6cc2bcb31e3df36da1959 bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
     "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
     "deploy:jina_worker": "bunx wrangler deploy -c wrangler.jina-proxy.toml",
+    "deploy:youtube_worker": "bunx wrangler deploy -c wrangler.youtube-transcript.toml",
+    "deploy:workers": "bun run deploy:bsky_worker && bun run deploy:jina_worker && bun run deploy:youtube_worker",
     "api": "bun api/server.ts",
     "migrate:api": "bun scripts/migrate-api.ts"
   },
