@@ -46,12 +46,9 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 	if (embedProvider) {
 		const embedMode: ContentMode = 'embed';
 
-		if (mode !== embedMode) {
-			if (contentModeSignal.value !== embedMode) {
-				contentModeSignal.value = embedMode;
-			}
-			contentStateSignal.value = { type: 'loading', mode: embedMode };
-			return;
+		// Force embed mode for embed URLs
+		if (contentModeSignal.value !== embedMode) {
+			contentModeSignal.value = embedMode;
 		}
 
 		contentStateSignal.value = { type: 'loading', mode: embedMode };
@@ -87,7 +84,13 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		return;
 	}
 
-	// Regular content fetching for non-YouTube URLs
+	// Regular content fetching for non-embed URLs
+	// Reset mode to archive if currently in embed mode (user switched from YouTube to regular page)
+	if (mode === 'embed') {
+		contentModeSignal.value = 'archive';
+		return; // Will re-trigger with correct mode
+	}
+
 	contentStateSignal.value = { type: "loading", mode };
 
 	try {
