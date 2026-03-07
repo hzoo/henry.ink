@@ -1,5 +1,6 @@
 import { createArchive } from "./processor";
 import { isTrustedCDNDomain } from "./trusted-cdns";
+import { getCorsHeaders, optionsResponse } from "../cors";
 
 // API Response Types (exported for frontend use)
 export interface ArchiveResponse {
@@ -10,87 +11,70 @@ export interface ArchiveResponse {
 	bodyAttrs?: Record<string, string>;
 }
 
-// Simple in-memory store for tracking extracted domains
+// Simple in-memory store for tracking extracted domains (max 500 entries)
+const MAX_DOMAINS = 500;
 const extractedDomains = new Map<string, number>(); // domain -> timestamp
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 // Cleanup old domain entries every 15 minutes
 setInterval(() => {
   const now = Date.now();
-  const FIFTEEN_MINUTES = 15 * 60 * 1000;
-  
   for (const [domain, timestamp] of extractedDomains.entries()) {
     if (now - timestamp > FIFTEEN_MINUTES) {
       extractedDomains.delete(domain);
     }
   }
-}, 15 * 60 * 1000);
+}, FIFTEEN_MINUTES);
 
-// Helper function to get CORS headers (consistent with arena routes)
-function getCorsHeaders(origin: string = ''): Record<string, string> {
-  const CORS_ORIGINS = ['https://henry.ink', 'http://127.0.0.1:3003', 'http://localhost:3003'];
-  const allowedOrigin = CORS_ORIGINS.includes(origin) ? origin : '*';
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+function trackDomain(domain: string) {
+  // Evict oldest if at capacity
+  if (extractedDomains.size >= MAX_DOMAINS) {
+    const oldest = extractedDomains.keys().next().value;
+    if (oldest) extractedDomains.delete(oldest);
+  }
+  extractedDomains.set(domain, Date.now());
 }
 
-export async function archiveOptionsRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  
-  return new Response(null, {
-    status: 204,
-    headers: {
-      ...corsHeaders,
-      'Access-Control-Max-Age': '86400'
-    }
-  });
-}
+export { optionsResponse as archiveOptionsRoute };
 
 export async function createArchiveRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  
+  const reqOrigin = req.headers.get('Origin') || '';
+  const corsHeaders = getCorsHeaders(reqOrigin);
+
   try {
     // Parse URL from query params for GET request
     const requestUrl = new URL(req.url);
     const url = requestUrl.searchParams.get('url');
-    
+
     if (!url) {
-      return Response.json({ error: "Missing url parameter" }, { 
+      return Response.json({ error: "Missing url parameter" }, {
         status: 400,
         headers: corsHeaders
       });
     }
-    
+
     // Validate URL format
     const parsedUrl = new URL(url);
-    
+
     // Allow both HTTP and HTTPS protocols
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      const requestOrigin = req.headers.get('Origin') || '';
-      const corsHeaders = getCorsHeaders(requestOrigin);
-      return Response.json({ error: "Only HTTP and HTTPS URLs are allowed" }, { 
+      return Response.json({ error: "Only HTTP and HTTPS URLs are allowed" }, {
         status: 403,
         headers: corsHeaders
       });
     }
-    
+
     // Track the domain being archived
     const domain = parsedUrl.hostname.replace(/^www\./, '');
-    extractedDomains.set(domain, Date.now());
-    
+    trackDomain(domain);
+
     // Build asset proxy base URL from request origin
-    const origin = req.headers.get('Origin');
-    const assetProxyBaseUrl = requestUrl.hostname === 'api.henry.ink' 
-      ? 'https://api.henry.ink' 
+    const assetProxyBaseUrl = requestUrl.hostname === 'api.henry.ink'
+      ? 'https://api.henry.ink'
       : `${requestUrl.protocol}//${requestUrl.host}`;
-    
+
     // Auto-detect link rewrite base URL - only rewrite links if on henry.ink production
-    const linkRewriteBaseUrl = origin === 'https://henry.ink' ? 'https://henry.ink' : undefined;
+    const linkRewriteBaseUrl = reqOrigin === 'https://henry.ink' ? 'https://henry.ink' : undefined;
     
     const archive = await createArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl);
     return Response.json(archive, {

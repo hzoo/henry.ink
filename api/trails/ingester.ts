@@ -49,11 +49,22 @@ interface JetstreamAccountEvent {
 
 type JetstreamEvent = JetstreamCommitEvent | JetstreamIdentityEvent | JetstreamAccountEvent;
 
+// Cache Intl.Segmenter at module level
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+function countGraphemes(text: string): number {
+	let count = 0;
+	for (const _ of graphemeSegmenter.segment(text)) count++;
+	return count;
+}
+
 export class TrailsIngester {
 	private subscription: JetstreamSubscription;
 	private storage: TrailStorage;
 	private isRunning = false;
+	private retryAttempt = 0;
 	private profileCache = new Set<string>(); // Track DIDs we've already fetched
+	private static MAX_PROFILE_CACHE = 10000;
 
 	constructor(storage: TrailStorage) {
 		this.storage = storage;
@@ -93,6 +104,11 @@ export class TrailsIngester {
 			};
 
 			await this.storage.storeProfile(basicProfile);
+			// Bound cache size
+			if (this.profileCache.size >= TrailsIngester.MAX_PROFILE_CACHE) {
+				const first = this.profileCache.values().next().value;
+				if (first) this.profileCache.delete(first);
+			}
 			this.profileCache.add(did);
 
 			// TODO: In a full implementation, you'd fetch from AT Protocol:
@@ -117,6 +133,7 @@ export class TrailsIngester {
 		try {
 			for await (const event of this.subscription) {
 				if (!this.isRunning) break;
+				this.retryAttempt = 0; // Reset on successful message
 
 				if (event.kind === "commit") {
 					await this.handleCommitEvent(event as JetstreamCommitEvent);
@@ -125,8 +142,10 @@ export class TrailsIngester {
 		} catch (error) {
 			console.error("Jetstream connection error:", error);
 			this.isRunning = false;
-			// Simple retry after 5 seconds
-			setTimeout(() => this.start(), 5000);
+			const backoff = Math.min(1000 * Math.pow(2, this.retryAttempt), 60000);
+			this.retryAttempt++;
+			console.log(`Retrying in ${backoff}ms (attempt ${this.retryAttempt})`);
+			setTimeout(() => this.start(), backoff);
 		}
 	}
 
@@ -168,12 +187,7 @@ export class TrailsIngester {
 
 			// Validate description length if present
 			if (record.description) {
-				// Count graphemes for proper emoji/unicode support
-				const graphemeCount = [
-					...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
-						record.description,
-					),
-				].length;
+				const graphemeCount = countGraphemes(record.description);
 				if (graphemeCount > 300) {
 					console.warn("Trail description too long");
 					return;
@@ -259,11 +273,7 @@ export class TrailsIngester {
 
 			// Validate note length if present
 			if (record.note) {
-				const graphemeCount = [
-					...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
-						record.note,
-					),
-				].length;
+				const graphemeCount = countGraphemes(record.note);
 				if (graphemeCount > 300) {
 					console.warn("Mark note too long");
 					return;
