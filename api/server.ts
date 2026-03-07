@@ -1,17 +1,14 @@
 import { serve } from "bun";
-import { 
-  createArchiveRoute, 
-  assetProxyRoute, 
-  archiveOptionsRoute 
+import {
+  createArchiveRoute,
+  assetProxyRoute,
 } from "./archive/routes";
-import { 
-  enhanceRoute, 
-  arenaSearchRoute, 
+import {
+  enhanceRoute,
+  arenaSearchRoute,
   channelBlocksRoute,
-  arenaOptionsRoute,
 } from "./arena/routes";
 import {
-  trailsOptionsRoute,
   getTrailsRoute,
   getTrailRoute,
   getStatsRoute,
@@ -22,7 +19,7 @@ import {
 } from "./trails/routes";
 import { TrailsIngester } from "./trails/ingester";
 import { TrailStorage } from "./trails/trail-storage";
-import { youtubeTranscriptOptionsRoute, youtubeTranscriptRoute } from "./youtube/routes";
+import { youtubeTranscriptRoute } from "./youtube/routes";
 import { getCorsHeaders, optionsResponse } from "./cors";
 
 /**
