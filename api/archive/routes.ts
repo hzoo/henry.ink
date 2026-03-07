@@ -127,8 +127,7 @@ export async function assetProxyRoute(req: Request) {
     
     // Check if this domain was recently extracted (last 15 minutes)
     const extractTime = extractedDomains.get(assetDomain);
-    const FIFTEEN_MINUTES = 15 * 60 * 1000;
-    
+
     // Also allow trusted CDNs
     const isTrustedCDN = isTrustedCDNDomain(assetDomain);
     
