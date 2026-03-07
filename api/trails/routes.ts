@@ -5,19 +5,11 @@
 
 import { TrailStorage, type StoredTrail, type StoredMark, type StoredTrailView } from './trail-storage';
 import type { Profile } from './types';
+import { getCorsHeaders, optionsResponse } from '../cors';
 
 // Initialize storage
 const DB_PATH = process.env.TRAILS_DB_PATH || './api/trails/data/trails.db';
 const storage = new TrailStorage(DB_PATH);
-
-// CORS headers
-function getCorsHeaders(): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
 
 /**
  * Transform StoredTrailView to camelCase TrailView for API responses
@@ -52,19 +44,14 @@ function transformTrailView(storedTrail: any): any {
   };
 }
 
-export async function trailsOptionsRoute(req: Request): Promise<Response> {
-  return new Response(null, {
-    status: 204,
-    headers: getCorsHeaders(),
-  });
-}
+export { optionsResponse as trailsOptionsRoute };
 
 /**
  * GET /api/trails - List trails
  * Query params: author_did, search, limit, offset
  */
 export async function getTrailsRoute(req: Request): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const url = new URL(req.url);
@@ -108,7 +95,7 @@ export async function getTrailsRoute(req: Request): Promise<Response> {
  * GET /api/trails/:uri - Get specific trail with marks
  */
 export async function getTrailRoute(req: Request, uri: string): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const trail = storage.getTrail(uri);
@@ -162,7 +149,7 @@ export async function getTrailRoute(req: Request, uri: string): Promise<Response
  * GET /api/stats - Get trail system statistics
  */
 export async function getStatsRoute(req: Request): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const stats = storage.getStats();
@@ -190,7 +177,7 @@ export async function getStatsRoute(req: Request): Promise<Response> {
  * GET /api/trails/by-actor - Get trails created by specific actor
  */
 export async function getTrailsByActorRoute(req: Request, actorDid: string): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const url = new URL(req.url);
@@ -223,7 +210,7 @@ export async function getTrailsByActorRoute(req: Request, actorDid: string): Pro
  * GET /api/trails/containing - Find trails containing a specific URI
  */
 export async function getTrailsContainingRoute(req: Request): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const url = new URL(req.url);
@@ -267,7 +254,7 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
  * GET /api/trails/search - Search trails by name or description
  */
 export async function searchTrailsRoute(req: Request): Promise<Response> {
-  const corsHeaders = getCorsHeaders();
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin') || '');
   
   try {
     const url = new URL(req.url);

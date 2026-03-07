@@ -50,6 +50,8 @@ export class TrailStorage {
     this.db.run("PRAGMA journal_mode = WAL");
     this.db.run("PRAGMA synchronous = NORMAL");
     this.db.run("PRAGMA cache_size = 10000");
+    this.db.run("PRAGMA temp_store = MEMORY");
+    this.db.run("PRAGMA mmap_size = 30000000");
 
     // Trails table
     this.db.run(`
@@ -86,11 +88,12 @@ export class TrailStorage {
     // Create indexes for performance
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_trails_author ON trails(author_did);
-      CREATE INDEX IF NOT EXISTS idx_trails_created_at ON trails(created_at);
+      CREATE INDEX IF NOT EXISTS idx_trails_created_at ON trails(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_marks_trail ON marks(trail_uri);
+      CREATE INDEX IF NOT EXISTS idx_marks_trail_created ON marks(trail_uri, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_marks_author ON marks(author_did);
-      CREATE INDEX IF NOT EXISTS idx_marks_created_at ON marks(created_at);
-      CREATE INDEX IF NOT EXISTS idx_marks_subject_type ON marks(subject_type);
+      CREATE INDEX IF NOT EXISTS idx_marks_subject ON marks(subject_uri);
+      CREATE INDEX IF NOT EXISTS idx_marks_external_url ON marks(external_url);
     `);
 
     // Profiles table for caching

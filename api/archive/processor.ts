@@ -15,7 +15,8 @@ async function getSharedBrowser(): Promise<Browser> {
   return sharedBrowserPromise;
 }
 
-// Simple in-memory cache for archived pages (15 minute TTL)
+// Bounded in-memory cache for archived pages (15 minute TTL, max 50 entries)
+const MAX_CACHE_SIZE = 50;
 const archiveCache = new Map<string, { result: ArchiveResult; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -27,7 +28,7 @@ setInterval(() => {
       archiveCache.delete(url);
     }
   }
-}, 15 * 60 * 1000); // Clean every 15 minutes
+}, CACHE_TTL);
 
 // Strip JavaScript from HTML for security while preserving all styling
 function stripJavaScript(html: string): string {
@@ -78,63 +79,36 @@ function stripJavaScript(html: string): string {
   return dom.serialize();
 }
 
+// Precompiled regex for CSS url() matching
+const CSS_URL_REGEX = /url\((["']?)([^)]+)\1\)/g;
+const FONT_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
+const IMAGE_REGEX = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i;
+const PREMIUM_FONT_REGEX = /\b(use\.typekit\.net|p\.typekit\.net)\b/i;
+
 // Function to rewrite asset URLs (fonts via proxy, Google Fonts direct, background images via proxy)
+// Single-pass replacement: O(n) instead of O(n²)
 function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
-  // Find all URLs in CSS (fonts, background images, etc.)
-  const urlRegex = /url\((["']?)([^)]+)\1\)/g;
+  return css.replace(CSS_URL_REGEX, (fullMatch, quote, originalUrl) => {
+    if (originalUrl.startsWith('data:')) return fullMatch;
 
-  let processedCSS = css;
-  const processedUrls: string[] = [];
-
-  let match;
-  while ((match = urlRegex.exec(css)) !== null) {
-    const originalUrl = match[2];
-    const quote = match[1];
-
-    // Skip data URIs that are already inlined
-    if (originalUrl.startsWith('data:')) continue;
-
-    // Convert relative URLs to absolute
     try {
       const absoluteUrl = new URL(originalUrl, baseUrl).href;
-      if (!processedUrls.includes(absoluteUrl)) {
-        processedUrls.push(absoluteUrl);
 
-        // Determine asset type and source
-        const isFontFile = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i.test(absoluteUrl);
-        const isImageFile = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i.test(absoluteUrl);
-        const isTrustedCDNUrl = isTrustedCDN(absoluteUrl);
+      let replacementUrl: string;
 
-        // Check for premium font services that won't work when proxied
-        const isPremiumFont = /\b(use\.typekit\.net|p\.typekit\.net)\b/i.test(absoluteUrl);
-
-
-        let replacementUrl: string;
-
-        if (isTrustedCDNUrl) {
-          // Keep trusted CDN URLs as-is (no proxying needed)
-          replacementUrl = absoluteUrl;
-        } else if (isPremiumFont) {
-          // Skip premium fonts that won't work when proxied - let them fail fast
-          replacementUrl = absoluteUrl;
-        } else if (isFontFile || isImageFile) {
-          // Proxy all other fonts and images to avoid CORS issues
-          replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        } else {
-          // For other assets, convert to absolute URL but don't proxy
-          replacementUrl = absoluteUrl;
-        }
-
-        // Replace the original URL with the processed URL
-        const urlPattern = new RegExp(`url\\((["']?)${originalUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
-        processedCSS = processedCSS.replace(urlPattern, `url(${quote}${replacementUrl}${quote})`);
+      if (isTrustedCDN(absoluteUrl) || PREMIUM_FONT_REGEX.test(absoluteUrl)) {
+        replacementUrl = absoluteUrl;
+      } else if (FONT_REGEX.test(absoluteUrl) || IMAGE_REGEX.test(absoluteUrl)) {
+        replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+      } else {
+        replacementUrl = absoluteUrl;
       }
-    } catch (error) {
-      console.log(`❌ Invalid URL in CSS: ${originalUrl}`);
-    }
-  }
 
-  return processedCSS;
+      return `url(${quote}${replacementUrl}${quote})`;
+    } catch {
+      return fullMatch;
+    }
+  });
 }
 
 
@@ -659,7 +633,11 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       bodyAttrs: pageData.bodyAttrs
     };
 
-    // Cache the result
+    // Cache the result (evict oldest if at capacity)
+    if (archiveCache.size >= MAX_CACHE_SIZE) {
+      const oldest = archiveCache.keys().next().value;
+      if (oldest) archiveCache.delete(oldest);
+    }
     archiveCache.set(url, {
       result,
       timestamp: Date.now()

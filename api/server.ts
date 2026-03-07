@@ -23,6 +23,7 @@ import {
 import { TrailsIngester } from "./trails/ingester";
 import { TrailStorage } from "./trails/trail-storage";
 import { youtubeTranscriptOptionsRoute, youtubeTranscriptRoute } from "./youtube/routes";
+import { getCorsHeaders, optionsResponse } from "./cors";
 
 /**
  * Unified API server combining Arena, Archive, and Trails services
@@ -35,37 +36,18 @@ const trailStorage = new TrailStorage(process.env.TRAILS_DB_PATH || './api/trail
 const trailsIngester = new TrailsIngester(trailStorage);
 
 const server = serve({
+  hostname: "127.0.0.1",
   port: PORT,
   
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
-    
-    // CORS headers for all API responses
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
+    const origin = req.headers.get('Origin') || '';
+    const corsHeaders = getCorsHeaders(origin);
 
     // Handle preflight requests globally
     if (req.method === 'OPTIONS') {
-      // Route-specific OPTIONS handlers
-      if (path === '/api/archive') {
-        return archiveOptionsRoute(req);
-      } else if (path.startsWith('/api/arena')) {
-        return arenaOptionsRoute(req);
-      } else if (path.startsWith('/api/trails') || path === '/api/stats') {
-        return trailsOptionsRoute(req);
-      } else if (path === '/api/youtube/transcript') {
-        return youtubeTranscriptOptionsRoute(req);
-      }
-      
-      // Generic OPTIONS response
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
+      return optionsResponse(req);
     }
 
     try {

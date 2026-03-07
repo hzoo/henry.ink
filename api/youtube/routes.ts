@@ -1,4 +1,5 @@
 import type { YoutubeTranscriptResponse, TranscriptResponse } from "@/src/lib/youtube-transcript-types";
+import { getCorsHeaders, optionsResponse } from '../cors';
 
 class YoutubeTranscriptError extends Error {
   constructor(message: string) {
@@ -258,23 +259,18 @@ async function getVideoTitle(videoId: string): Promise<string | undefined> {
   return undefined;
 }
 
+// Bounded cache: max 200 entries, 1 hour TTL
+const MAX_CACHE_SIZE = 200;
 const inMemoryCache = new Map<string, { data: YoutubeTranscriptResponse; expires: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-function getCorsHeaders(origin: string = ''): Record<string, string> {
-  const allowedOrigins = new Set([
-    'https://henry.ink',
-    'http://127.0.0.1:3003',
-    'http://localhost:3003',
-    '*',
-  ]);
-  const value = allowedOrigins.has(origin) ? origin : '*';
-  return {
-    'Access-Control-Allow-Origin': value,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
+// Periodic cleanup of expired entries (not on hot path)
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of inMemoryCache) {
+    if (v.expires <= now) inMemoryCache.delete(k);
+  }
+}, CACHE_TTL_MS);
 
 function cleanTranscript(transcript: TranscriptResponse[]): TranscriptResponse[] {
   return transcript.map((item) => ({
@@ -301,6 +297,11 @@ async function fetchTranscriptData(videoId: string, lang: string): Promise<Youtu
     transcript: cleanedTranscript,
   };
 
+  // Evict oldest if at capacity (expired entries cleaned by interval)
+  if (inMemoryCache.size >= MAX_CACHE_SIZE) {
+    const oldest = inMemoryCache.keys().next().value;
+    if (oldest) inMemoryCache.delete(oldest);
+  }
   inMemoryCache.set(cacheKey, {
     data: response,
     expires: now + CACHE_TTL_MS,
@@ -309,16 +310,7 @@ async function fetchTranscriptData(videoId: string, lang: string): Promise<Youtu
   return response;
 }
 
-export async function youtubeTranscriptOptionsRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  return new Response(null, {
-    status: 204,
-    headers: {
-      ...getCorsHeaders(origin),
-      'Access-Control-Max-Age': '86400',
-    },
-  });
-}
+export { optionsResponse as youtubeTranscriptOptionsRoute };
 
 export async function youtubeTranscriptRoute(req: Request): Promise<Response> {
   const requestUrl = new URL(req.url);

@@ -3,6 +3,7 @@ import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
 import type { ArenaChannel, ArenaSearchResponse } from './arena-api-types';
 import type { ArenaBlock } from '../../src/lib/arena-types';
+import { getCorsHeaders, optionsResponse } from '../cors';
 
 // API Response Types (exported for frontend use)
 export interface ArenaChannelBlocksResponse {
@@ -87,29 +88,7 @@ interface EnhanceRequest {
   options?: EnhancementOptions;
 }
 
-// Remove duplicate - use ArenaSearchChannel from arena-api-types.ts instead
-
-// Helper function to get CORS headers
-function getCorsHeaders(origin: string = ''): Record<string, string> {
-  const CORS_ORIGINS = ['https://henry.ink', 'http://127.0.0.1:3003', 'http://localhost:3003'];
-  const allowedOrigin = CORS_ORIGINS.includes(origin) ? origin : '*';
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
-
-export async function arenaOptionsRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders,
-  });
-}
+export { optionsResponse as arenaOptionsRoute };
 
 /**
  * Handle content enhancement requests

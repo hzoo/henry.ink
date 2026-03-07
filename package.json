@@ -24,7 +24,8 @@
     "deploy:youtube_worker": "bunx wrangler deploy -c wrangler.youtube-transcript.toml",
     "deploy:workers": "bun run deploy:bsky_worker && bun run deploy:jina_worker && bun run deploy:youtube_worker",
     "api": "bun api/server.ts",
-    "migrate:api": "bun scripts/migrate-api.ts"
+    "migrate:api": "bun scripts/migrate-api.ts",
+    "deploy:api": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@atcute/atproto": "^3.1.2",
