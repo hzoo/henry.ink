@@ -52,7 +52,7 @@ type JetstreamEvent = JetstreamCommitEvent | JetstreamIdentityEvent | JetstreamA
 // Cache Intl.Segmenter at module level
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-function countGraphemes(text: string): number {
+export function countGraphemes(text: string): number {
 	let count = 0;
 	for (const _ of graphemeSegmenter.segment(text)) count++;
 	return count;

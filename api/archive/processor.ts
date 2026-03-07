@@ -87,7 +87,7 @@ const PREMIUM_FONT_REGEX = /\b(use\.typekit\.net|p\.typekit\.net)\b/i;
 
 // Function to rewrite asset URLs (fonts via proxy, Google Fonts direct, background images via proxy)
 // Single-pass replacement: O(n) instead of O(n²)
-function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
+export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
   return css.replace(CSS_URL_REGEX, (fullMatch, quote, originalUrl) => {
     if (originalUrl.startsWith('data:')) return fullMatch;
 
