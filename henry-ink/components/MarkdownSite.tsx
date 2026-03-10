@@ -299,7 +299,7 @@ export function MarkdownSite() {
 							original
 						</a>
 					</div>)}
-					
+
 					{/* Content - conditional width based on mode */}
 					<div className={contentMode === 'archive' ? '' : 'max-w-4xl mx-auto'}>
 						{contentMode === 'embed' && embedContent ? (
@@ -322,8 +322,12 @@ export function MarkdownSite() {
 								<div className="archive-mode">
 									<ArenaEnhancedContent
 										htmlContent={DOMPurify.sanitize(contentState.html, {
-											USE_PROFILES: { html: true },
-											ALLOWED_ATTR: ['id', 'class', 'style', 'href', 'src', 'alt', 'title', 'target', 'rel']
+											USE_PROFILES: { html: true, svg: true },
+											FORBID_TAGS: ['script', 'iframe', 'embed', 'object', 'applet', 'base',
+												'form', 'noscript', 'template', 'math', 'link',
+												'foreignObject', 'animate', 'animateTransform', 'animateMotion', 'set',
+												'use', 'feImage'],
+											FORBID_ATTR: ['formaction', 'xlink:href'],
 										})}
 										contentRef={contentRef}
 										mode="archive"

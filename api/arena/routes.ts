@@ -155,7 +155,6 @@ export async function enhanceRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Enhancement failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -268,7 +267,6 @@ export async function arenaSearchRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Arena search failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -365,7 +363,6 @@ export async function channelBlocksRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch channel blocks',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,

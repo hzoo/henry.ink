@@ -7,6 +7,10 @@ import type { ArchiveResponse } from "@/api/archive/routes";
 import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
 import "@/henry-ink/embed/youtube";
 
+// Client-side archive cache (avoids re-fetching within a session)
+const MAX_CLIENT_CACHE = 30;
+const archiveClientCache = new Map<string, ArchiveResponse>();
+
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
 	// Already has protocol
@@ -92,7 +96,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 	}
 
 	contentStateSignal.value = { type: "loading", mode };
-
+	// Clear fallback banner on new fetch (will be re-set if needed)
 	try {
 		if (mode === 'md') {
 			// Original ji.na flow for markdown content
@@ -122,39 +126,36 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 			
 			contentStateSignal.value = { type: "success", content, title, mode };
 		} else if (mode === 'archive') {
-			// New archive service flow for full HTML content
-			const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-			const response = await fetch(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
-				method: 'GET',
-			});
+			// Check client cache first
+			let archive = archiveClientCache.get(targetUrl);
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
-				);
+			if (!archive) {
+				const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+				const response = await fetch(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
+					method: 'GET',
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(
+						`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
+					);
+				}
+
+				archive = await response.json() as ArchiveResponse;
+				if (archiveClientCache.size >= MAX_CLIENT_CACHE) {
+					archiveClientCache.delete(archiveClientCache.keys().next().value!);
+				}
+				archiveClientCache.set(targetUrl, archive);
 			}
 
-			const archive = await response.json() as ArchiveResponse;
-			
-			// Extract text content from HTML for Arena matching
-			let textContent = '';
-			try {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(archive.html, 'text/html');
-				textContent = doc.body?.textContent || '';
-			} catch (e) {
-				console.warn('Failed to extract text from archive HTML:', e);
-				textContent = archive.html; // Fallback to raw HTML
-			}
-			
-			contentStateSignal.value = { 
-				type: "success", 
-				content: textContent, // Text content for Arena enhancement
+			contentStateSignal.value = {
+				type: "success",
+				content: archive.textContent,
 				title: archive.title,
 				mode,
-				html: archive.html, // Store full HTML for direct rendering
-				css: archive.css, // Store CSS for injection
+				html: archive.html,
+				css: archive.css,
 				htmlAttrs: archive.htmlAttrs,
 				bodyAttrs: archive.bodyAttrs
 			};

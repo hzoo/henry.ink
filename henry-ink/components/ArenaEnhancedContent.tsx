@@ -55,13 +55,14 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnh
         acceptNode: (node) => {
           const parent = node.parentElement;
           if (parent) {
-            // Skip if already in a link, code, or pre
-            if (parent.tagName === 'A' || 
-                parent.tagName === 'CODE' || 
+            // Skip if inside a link, code, pre, or SVG (namespace-unsafe to inject HTML)
+            if (parent.tagName === 'A' ||
+                parent.tagName === 'CODE' ||
                 parent.tagName === 'PRE' ||
                 parent.closest('a') ||
                 parent.closest('code') ||
-                parent.closest('pre')) {
+                parent.closest('pre') ||
+                parent.closest('svg')) {
               return NodeFilter.FILTER_REJECT;
             }
           }
