@@ -1,11 +1,19 @@
 import { createArchive } from "./processor";
 import { isTrustedCDNDomain } from "./trusted-cdns";
 import { getCorsHeaders, optionsResponse } from "../cors";
+import { validateArchiveUrl, validateUrl } from "./url-validation";
+import { RateLimiter } from "../rate-limit";
+
+// 3 burst, 1 every 5s sustained — you're reading articles, not speed-running
+const archiveLimiter = new RateLimiter(3, 0.2);
+// 30 burst covers one page load of assets, then 5/sec trickle
+const assetLimiter = new RateLimiter(30, 5);
 
 // API Response Types (exported for frontend use)
 export interface ArchiveResponse {
 	html: string;
 	css?: string;
+	textContent: string;
 	title?: string;
 	htmlAttrs?: Record<string, string>;
 	bodyAttrs?: Record<string, string>;
@@ -41,6 +49,17 @@ export async function createArchiveRoute(req: Request) {
   const reqOrigin = req.headers.get('Origin') || '';
   const corsHeaders = getCorsHeaders(reqOrigin);
 
+  // Rate limit by IP (X-Forwarded-For from reverse proxy, fallback to origin)
+  const clientIp = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    || req.headers.get('CF-Connecting-IP')
+    || 'unknown';
+  if (!archiveLimiter.consume(clientIp)) {
+    return Response.json({ error: 'Too many requests' }, {
+      status: 429,
+      headers: { ...corsHeaders, 'Retry-After': '5' }
+    });
+  }
+
   try {
     // Parse URL from query params for GET request
     const requestUrl = new URL(req.url);
@@ -53,18 +72,13 @@ export async function createArchiveRoute(req: Request) {
       });
     }
 
-    // Validate URL format
-    const parsedUrl = new URL(url);
-
-    // Allow both HTTP and HTTPS protocols
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return Response.json({ error: "Only HTTP and HTTPS URLs are allowed" }, {
-        status: 403,
-        headers: corsHeaders
-      });
+    // Validate URL: block private IPs, require domain name
+    const urlError = validateArchiveUrl(url);
+    if (urlError) {
+      return Response.json({ error: urlError }, { status: 403, headers: corsHeaders });
     }
 
-    // Track the domain being archived
+    const parsedUrl = new URL(url);
     const domain = parsedUrl.hostname.replace(/^www\./, '');
     trackDomain(domain);
 
@@ -101,7 +115,17 @@ export async function assetProxyRoute(req: Request) {
   const origin = req.headers.get('Origin') || '';
   const corsHeaders = getCorsHeaders(origin);
   const startTime = Date.now();
-  
+
+  const clientIp = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    || req.headers.get('CF-Connecting-IP')
+    || 'unknown';
+  if (!assetLimiter.consume(clientIp)) {
+    return Response.json({ error: 'Too many requests' }, {
+      status: 429,
+      headers: { ...corsHeaders, 'Retry-After': '2' }
+    });
+  }
+
   try {
     const url = new URL(req.url);
     const assetUrl = url.searchParams.get('url');
@@ -113,14 +137,13 @@ export async function assetProxyRoute(req: Request) {
       });
     }
 
-    // Validate URL format and require HTTPS
-    const parsedUrl = new URL(assetUrl);
-    if (parsedUrl.protocol !== 'https:') {
-      return Response.json({ error: "Only HTTPS URLs allowed" }, { 
-        status: 403,
-        headers: corsHeaders
-      });
+    // Validate URL: HTTPS only, block private IPs
+    const urlError = validateUrl(assetUrl);
+    if (urlError) {
+      return Response.json({ error: urlError }, { status: 403, headers: corsHeaders });
     }
+
+    const parsedUrl = new URL(assetUrl);
 
     // Validate asset URL domain
     const assetDomain = parsedUrl.hostname.replace(/^www\./, '');
@@ -138,8 +161,13 @@ export async function assetProxyRoute(req: Request) {
       });
     }
 
-    // Detect asset type from URL and prepare appropriate headers
+    // Only proxy fonts and images — reject unknown types
     const assetType = detectAssetType(assetUrl);
+    if (assetType === 'unknown') {
+      return Response.json({ error: "Only font and image assets can be proxied" }, {
+        status: 403, headers: corsHeaders
+      });
+    }
     const acceptHeader = getAcceptHeaderForAssetType(assetType);
 
     // Fetch the asset file with timeout
@@ -225,10 +253,7 @@ export async function assetProxyRoute(req: Request) {
 
   } catch (error) {
     console.error("Asset proxy error:", error);
-    return Response.json({ 
-      error: "Internal server error while proxying asset",
-      details: error instanceof Error ? error.message : String(error)
-    }, { 
+    return Response.json({ error: "Asset proxy error" }, {
       status: 500,
       headers: corsHeaders
     });
@@ -287,7 +312,7 @@ function isValidAssetType(url: string, contentType: string, assetType: string): 
              urlLower.includes('.avif') || urlLower.includes('.bmp');
     
     default:
-      return true; // Allow unknown types through for now
+      return false; // Reject unknown types
   }
 }
 

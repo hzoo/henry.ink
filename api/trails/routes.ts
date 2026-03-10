@@ -7,6 +7,13 @@ import { TrailStorage, type StoredTrail, type StoredMark, type StoredTrailView }
 import type { Profile } from './types';
 import { getCorsHeaders, optionsResponse } from '../cors';
 
+const MAX_LIMIT = 100;
+function clampPagination(limitStr: string | null, offsetStr: string | null, defaultLimit = 20) {
+  const limit = Math.min(Math.max(parseInt(limitStr || String(defaultLimit)) || defaultLimit, 1), MAX_LIMIT);
+  const offset = Math.max(parseInt(offsetStr || '0') || 0, 0);
+  return { limit, offset };
+}
+
 // Initialize storage
 const DB_PATH = process.env.TRAILS_DB_PATH || './api/trails/data/trails.db';
 const storage = new TrailStorage(DB_PATH);
@@ -57,8 +64,7 @@ export async function getTrailsRoute(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const authorDid = url.searchParams.get('author_did');
     const search = url.searchParams.get('search');
-    const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const { limit, offset } = clampPagination(url.searchParams.get('limit'), url.searchParams.get('offset'));
 
     let trails: StoredTrailView[];
 
@@ -81,7 +87,7 @@ export async function getTrailsRoute(req: Request): Promise<Response> {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch trails',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,
@@ -110,9 +116,7 @@ export async function getTrailRoute(req: Request, uri: string): Promise<Response
     }
 
     const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
-    
+    const { limit, offset } = clampPagination(url.searchParams.get('limit'), url.searchParams.get('offset'), 50);
     const marks = storage.getTrailMarks(uri, limit, offset);
     
     // Get creator profile information
@@ -133,7 +137,7 @@ export async function getTrailRoute(req: Request, uri: string): Promise<Response
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch trail',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,
@@ -162,7 +166,7 @@ export async function getStatsRoute(req: Request): Promise<Response> {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch stats',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,
@@ -181,9 +185,7 @@ export async function getTrailsByActorRoute(req: Request, actorDid: string): Pro
   
   try {
     const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
-
+    const { limit, offset } = clampPagination(url.searchParams.get('limit'), url.searchParams.get('offset'));
     const trails = storage.getTrailsByAuthor(actorDid, limit, offset);
     const transformedTrails = trails.map(transformTrailView);
 
@@ -196,7 +198,7 @@ export async function getTrailsByActorRoute(req: Request, actorDid: string): Pro
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch trails by actor',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,
@@ -215,7 +217,7 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
   try {
     const url = new URL(req.url);
     const subjectUri = url.searchParams.get('subject');
-    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const { limit } = clampPagination(url.searchParams.get('limit'), null);
     const authorDid = url.searchParams.get('author_did');
 
     if (!subjectUri) {
@@ -240,7 +242,7 @@ export async function getTrailsContainingRoute(req: Request): Promise<Response> 
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch trails containing subject',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,
@@ -259,7 +261,7 @@ export async function searchTrailsRoute(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const query = url.searchParams.get('q');
-    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const { limit } = clampPagination(url.searchParams.get('limit'), null);
 
     if (!query || query.trim().length < 2) {
       return new Response(
@@ -283,7 +285,7 @@ export async function searchTrailsRoute(req: Request): Promise<Response> {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to search trails',
-        message: error instanceof Error ? error.message : 'Unknown error'
+
       }),
       {
         status: 500,

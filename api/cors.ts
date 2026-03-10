@@ -5,11 +5,15 @@ const CORS_ORIGINS = new Set([
 ]);
 
 export function getCorsHeaders(origin?: string): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': origin && CORS_ORIGINS.has(origin) ? origin : '*',
+  // Only allow known origins — omit header for unknown origins (browser blocks the response)
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
+  if (origin && CORS_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
 }
 
 export function optionsResponse(req: Request): Response {

@@ -341,11 +341,11 @@ export async function youtubeTranscriptRoute(req: Request): Promise<Response> {
     });
   } catch (error) {
     console.error('YouTube transcript error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Details:', error instanceof Error ? error.message : error);
     const response: YoutubeTranscriptResponse = {
       videoId,
       transcript: [],
-      error: message,
+      error: 'Failed to fetch transcript',
     };
 
     return new Response(JSON.stringify(response), {

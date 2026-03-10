@@ -16,8 +16,7 @@ export const TRUSTED_CDNS = [
   'use.typekit.net',
   'fonts.bunny.net',
   
-  // Cloud providers (generic patterns)
-  'cloudfront.net',
+  // Specific cloud provider assets (no wildcard domains like cloudfront.net)
   'github.githubassets.com',
   'assets.vercel.com',
 ] as const;
