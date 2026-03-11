@@ -177,7 +177,7 @@ export function LoginButton() {
 			) : (
 				<button
 					onClick={handleSignIn}
-					className="flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-400 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 transition-colors"
+					className="flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 transition-colors"
 					disabled={isLoadingSession.value}
 					aria-label="Sign in with Bluesky"
 				>
