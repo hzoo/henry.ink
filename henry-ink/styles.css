@@ -16,18 +16,18 @@
     box-sizing: revert;
     border: revert;
   }
-  
+
   /* Restore semantic element styling */
   .archive-mode h1, .archive-mode h2, .archive-mode h3,
   .archive-mode h4, .archive-mode h5, .archive-mode h6 {
     font-size: revert;
     font-weight: revert;
   }
-  
+
   .archive-mode ol, .archive-mode ul {
     list-style: revert;
   }
-  
+
   .archive-mode img, .archive-mode svg, .archive-mode video {
     display: revert;
     vertical-align: revert;
@@ -93,29 +93,27 @@
   color: #0e7a3e;
 }
 
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .arena-channel-link,
-  .prose .arena-channel-link,
-  .prose-lg .arena-channel-link {
-    color: #4ADE80 !important; /* Lighter green for dark mode */
-    border-bottom-color: #4ADE80 !important;
-  }
-  
-  .arena-channel-link:hover,
-  .prose .arena-channel-link:hover,
-  .prose-lg .arena-channel-link:hover {
-    color: #86EFAC !important;
-    border-bottom-color: #86EFAC !important;
-  }
+/* Dark mode adjustments - uses .dark class to match Tailwind v4 custom variant */
+.dark .arena-channel-link,
+.dark .prose .arena-channel-link,
+.dark .prose-lg .arena-channel-link {
+  color: #4ADE80 !important;
+  border-bottom-color: #4ADE80 !important;
+}
 
-  .arena-link-icon {
-    color: #4ADE80;
-  }
+.dark .arena-channel-link:hover,
+.dark .prose .arena-channel-link:hover,
+.dark .prose-lg .arena-channel-link:hover {
+  color: #86EFAC !important;
+  border-bottom-color: #86EFAC !important;
+}
 
-  .arena-link-icon:hover {
-    color: #86EFAC;
-  }
+.dark .arena-link-icon {
+  color: #4ADE80;
+}
+
+.dark .arena-link-icon:hover {
+  color: #86EFAC;
 }
 
 /* Archive Mode Wrapper - Create containing block for fixed positioned elements */
