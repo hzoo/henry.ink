@@ -3,6 +3,7 @@ import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
 import type { ArenaChannel, ArenaSearchResponse } from './arena-api-types';
 import type { ArenaBlock } from '../../src/lib/arena-types';
+import { arenaFetchJson } from './arena-api';
 import { getCorsHeaders, optionsResponse } from '../cors';
 
 // API Response Types (exported for frontend use)
@@ -17,10 +18,6 @@ export interface ArenaSearchAPIResponse {
   channelCount: number;
   query: string;
 }
-
-// Arena API tokens
-const APP_TOKEN = process.env.ARENA_APP_TOKEN;
-const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
 
 // Shared instances for arena functionality
 const DB_PATH = process.env.ARENA_DB_PATH || './api/arena/data/channels.db';
@@ -199,28 +196,7 @@ export async function arenaSearchRoute(req: Request) {
     searchUrl.searchParams.set('q', query);
     searchUrl.searchParams.set('per', '100');
     
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-    };
-    
-    if (APP_TOKEN) {
-      headers['x-app-token'] = APP_TOKEN;
-    }
-    
-    if (AUTH_TOKEN) {
-      headers['x-auth-token'] = AUTH_TOKEN;
-    }
-    
-    const response = await fetch(searchUrl.toString(), {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Arena API error: ${response.status}`);
-    }
-    
-    const data = await response.json() as ArenaSearchResponse;
+    const data = await arenaFetchJson<ArenaSearchResponse>(searchUrl.toString());
     const channels = data.channels || [];
     
     if (channels.length > 0) {
@@ -330,20 +306,10 @@ export async function channelBlocksRoute(req: Request) {
         // Fetch channel info to get author data
         const channelInfoUrl = `https://api.are.na/v2/channels/${slug}`;
         
-        const headers: Record<string, string> = {
-          'Accept': 'application/json',
-        };
-        
-        if (APP_TOKEN) headers['x-app-token'] = APP_TOKEN;
-        if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
-
-        const channelResponse = await fetch(channelInfoUrl, { headers });
-        if (channelResponse.ok) {
-          const channelData = await channelResponse.json() as { user: { username?: string; full_name?: string; slug?: string } };
-          if (channelData.user) {
-            const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
-            storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
-          }
+        const channelData = await arenaFetchJson<{ user: { username?: string; full_name?: string; slug?: string } }>(channelInfoUrl);
+        if (channelData.user) {
+          const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
+          storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
         }
       }
     } catch (error) {
