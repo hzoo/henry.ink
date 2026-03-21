@@ -3,6 +3,8 @@ import { ChannelPatternMatcher } from './pattern-matcher';
 import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
 import type { ArenaChannel, ArenaSearchResponse } from './arena-api-types';
 import type { ArenaBlock } from '../../src/lib/arena-types';
+import { arenaFetchJson } from './arena-api';
+import { getCorsHeaders, optionsResponse } from '../cors';
 
 // API Response Types (exported for frontend use)
 export interface ArenaChannelBlocksResponse {
@@ -16,10 +18,6 @@ export interface ArenaSearchAPIResponse {
   channelCount: number;
   query: string;
 }
-
-// Arena API tokens
-const APP_TOKEN = process.env.ARENA_APP_TOKEN;
-const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
 
 // Shared instances for arena functionality
 const DB_PATH = process.env.ARENA_DB_PATH || './api/arena/data/channels.db';
@@ -87,29 +85,7 @@ interface EnhanceRequest {
   options?: EnhancementOptions;
 }
 
-// Remove duplicate - use ArenaSearchChannel from arena-api-types.ts instead
-
-// Helper function to get CORS headers
-function getCorsHeaders(origin: string = ''): Record<string, string> {
-  const CORS_ORIGINS = ['https://henry.ink', 'http://127.0.0.1:3003', 'http://localhost:3003'];
-  const allowedOrigin = CORS_ORIGINS.includes(origin) ? origin : '*';
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
-
-export async function arenaOptionsRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders,
-  });
-}
+export { optionsResponse as arenaOptionsRoute };
 
 /**
  * Handle content enhancement requests
@@ -176,7 +152,6 @@ export async function enhanceRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Enhancement failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -221,28 +196,7 @@ export async function arenaSearchRoute(req: Request) {
     searchUrl.searchParams.set('q', query);
     searchUrl.searchParams.set('per', '100');
     
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-    };
-    
-    if (APP_TOKEN) {
-      headers['x-app-token'] = APP_TOKEN;
-    }
-    
-    if (AUTH_TOKEN) {
-      headers['x-auth-token'] = AUTH_TOKEN;
-    }
-    
-    const response = await fetch(searchUrl.toString(), {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Arena API error: ${response.status}`);
-    }
-    
-    const data = await response.json() as ArenaSearchResponse;
+    const data = await arenaFetchJson<ArenaSearchResponse>(searchUrl.toString());
     const channels = data.channels || [];
     
     if (channels.length > 0) {
@@ -289,7 +243,6 @@ export async function arenaSearchRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Arena search failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -353,20 +306,10 @@ export async function channelBlocksRoute(req: Request) {
         // Fetch channel info to get author data
         const channelInfoUrl = `https://api.are.na/v2/channels/${slug}`;
         
-        const headers: Record<string, string> = {
-          'Accept': 'application/json',
-        };
-        
-        if (APP_TOKEN) headers['x-app-token'] = APP_TOKEN;
-        if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
-
-        const channelResponse = await fetch(channelInfoUrl, { headers });
-        if (channelResponse.ok) {
-          const channelData = await channelResponse.json() as { user: { username?: string; full_name?: string; slug?: string } };
-          if (channelData.user) {
-            const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
-            storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
-          }
+        const channelData = await arenaFetchJson<{ user: { username?: string; full_name?: string; slug?: string } }>(channelInfoUrl);
+        if (channelData.user) {
+          const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
+          storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
         }
       }
     } catch (error) {
@@ -386,7 +329,6 @@ export async function channelBlocksRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch channel blocks',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,

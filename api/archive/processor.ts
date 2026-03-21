@@ -15,7 +15,8 @@ async function getSharedBrowser(): Promise<Browser> {
   return sharedBrowserPromise;
 }
 
-// Simple in-memory cache for archived pages (15 minute TTL)
+// Bounded in-memory cache for archived pages (15 minute TTL, max 50 entries)
+const MAX_CACHE_SIZE = 50;
 const archiveCache = new Map<string, { result: ArchiveResult; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -27,114 +28,102 @@ setInterval(() => {
       archiveCache.delete(url);
     }
   }
-}, 15 * 60 * 1000); // Clean every 15 minutes
+}, CACHE_TTL);
 
-// Strip JavaScript from HTML for security while preserving all styling
-function stripJavaScript(html: string): string {
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
+// Dangerous URI schemes — allow data:image/ for inline images, block everything else
+// Block data:image/svg+xml specifically (SVGs can contain scripts)
+const DANGEROUS_URI_RE = /^\s*(javascript|vbscript|blob)\s*:/i;
+const DANGEROUS_DATA_URI_RE = /^\s*data\s*:(?!image\/(?!svg\+xml))/i;
 
-  // Remove all <script> tags
-  const scripts = document.querySelectorAll('script');
-  scripts.forEach((script: Element) => script.remove());
+// Sanitize a JSDOM document in-place: strip scripts, dangerous elements, event handlers
+function sanitizeDocument(document: Document): void {
+  // Remove dangerous elements:
+  // - script: JS execution
+  // - iframe/embed/object/applet: load external content in same origin context
+  // - base: hijacks all relative URLs
+  // - meta[http-equiv]: redirects, charset overrides
+  // - noscript/template: mXSS vectors (JSDOM/browser parser differentials)
+  // - math: mXSS vector via annotation-xml
+  // - form: phishing (default action="" submits to current page, formaction on buttons)
+  // - link: prefetch/pingback/prerender tracking, icon injection
+  document.querySelectorAll(
+    'script, iframe, embed, object, applet, base, meta[http-equiv], ' +
+    'noscript, template, math, form, link'
+  ).forEach((el: Element) => el.remove());
 
-  // Remove all event handlers (onclick, onload, etc.)
-  const allElements = document.querySelectorAll('*');
-  allElements.forEach((element: Element) => {
-    // Remove all on* attributes
-    const attributes = element.attributes;
+  // Sanitize SVGs: keep visual elements, strip anything that can execute code
+  document.querySelectorAll(
+    'svg foreignObject, svg script, svg animate, svg animateTransform, ' +
+    'svg animateMotion, svg set, svg use, svg a'
+  ).forEach((el: Element) => el.remove());
+
+  // Walk all elements: strip event handlers, dangerous URIs, script data attrs
+  document.querySelectorAll('*').forEach((element: Element) => {
     const attributesToRemove: string[] = [];
+    for (let i = 0; i < element.attributes.length; i++) {
+      const attr = element.attributes[i];
+      const name = attr.name.toLowerCase();
 
-    for (let i = 0; i < attributes.length; i++) {
-      const attr = attributes[i];
-      if (attr.name.toLowerCase().startsWith('on')) {
+      // Strip all on* event handlers
+      if (name.startsWith('on')) {
         attributesToRemove.push(attr.name);
+        continue;
+      }
+
+      // Strip formaction (bypasses form-level action stripping)
+      if (name === 'formaction') {
+        attributesToRemove.push(attr.name);
+        continue;
+      }
+
+      // Strip dangerous URI schemes from href, src, action, poster, etc.
+      if (['href', 'src', 'action', 'poster', 'formaction', 'xlink:href'].includes(name)) {
+        if (DANGEROUS_URI_RE.test(attr.value) || DANGEROUS_DATA_URI_RE.test(attr.value)) {
+          attributesToRemove.push(attr.name);
+        }
       }
     }
+    attributesToRemove.forEach(attrName => element.removeAttribute(attrName));
 
-    attributesToRemove.forEach(attrName => {
-      element.removeAttribute(attrName);
-    });
-
-    // Remove javascript: URLs from href and src
-    if (element.hasAttribute('href') && element.getAttribute('href')?.toLowerCase().startsWith('javascript:')) {
-      element.removeAttribute('href');
-    }
-    if (element.hasAttribute('src') && element.getAttribute('src')?.toLowerCase().startsWith('javascript:')) {
-      element.removeAttribute('src');
+    // Remove script-related data attributes
+    for (const attr of ['data-script', 'data-js', 'data-on']) {
+      if (element.hasAttribute(attr)) element.removeAttribute(attr);
     }
   });
-
-  // Remove any remaining script-related attributes
-  const scriptAttributes = ['data-script', 'data-js', 'data-on'];
-  allElements.forEach((element: Element) => {
-    scriptAttributes.forEach(attr => {
-      if (element.hasAttribute(attr)) {
-        element.removeAttribute(attr);
-      }
-    });
-  });
-
-  return dom.serialize();
 }
 
+// Precompiled regex for CSS url() matching
+const CSS_URL_REGEX = /url\((["']?)([^)]+)\1\)/g;
+const FONT_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
+const IMAGE_REGEX = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i;
+const PREMIUM_FONT_REGEX = /\b(use\.typekit\.net|p\.typekit\.net)\b/i;
+
 // Function to rewrite asset URLs (fonts via proxy, Google Fonts direct, background images via proxy)
-function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
-  // Find all URLs in CSS (fonts, background images, etc.)
-  const urlRegex = /url\((["']?)([^)]+)\1\)/g;
+// Single-pass replacement: O(n) instead of O(n²)
+export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
+  return css.replace(CSS_URL_REGEX, (fullMatch, quote, originalUrl) => {
+    if (originalUrl.startsWith('data:')) return fullMatch;
 
-  let processedCSS = css;
-  const processedUrls: string[] = [];
-
-  let match;
-  while ((match = urlRegex.exec(css)) !== null) {
-    const originalUrl = match[2];
-    const quote = match[1];
-
-    // Skip data URIs that are already inlined
-    if (originalUrl.startsWith('data:')) continue;
-
-    // Convert relative URLs to absolute
     try {
       const absoluteUrl = new URL(originalUrl, baseUrl).href;
-      if (!processedUrls.includes(absoluteUrl)) {
-        processedUrls.push(absoluteUrl);
 
-        // Determine asset type and source
-        const isFontFile = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i.test(absoluteUrl);
-        const isImageFile = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i.test(absoluteUrl);
-        const isTrustedCDNUrl = isTrustedCDN(absoluteUrl);
+      let replacementUrl: string;
 
-        // Check for premium font services that won't work when proxied
-        const isPremiumFont = /\b(use\.typekit\.net|p\.typekit\.net)\b/i.test(absoluteUrl);
-
-
-        let replacementUrl: string;
-
-        if (isTrustedCDNUrl) {
-          // Keep trusted CDN URLs as-is (no proxying needed)
-          replacementUrl = absoluteUrl;
-        } else if (isPremiumFont) {
-          // Skip premium fonts that won't work when proxied - let them fail fast
-          replacementUrl = absoluteUrl;
-        } else if (isFontFile || isImageFile) {
-          // Proxy all other fonts and images to avoid CORS issues
-          replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        } else {
-          // For other assets, convert to absolute URL but don't proxy
-          replacementUrl = absoluteUrl;
-        }
-
-        // Replace the original URL with the processed URL
-        const urlPattern = new RegExp(`url\\((["']?)${originalUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\)`, 'g');
-        processedCSS = processedCSS.replace(urlPattern, `url(${quote}${replacementUrl}${quote})`);
+      if (isTrustedCDN(absoluteUrl) || PREMIUM_FONT_REGEX.test(absoluteUrl)) {
+        replacementUrl = absoluteUrl;
+      } else if (FONT_REGEX.test(absoluteUrl) || IMAGE_REGEX.test(absoluteUrl)) {
+        replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+      } else {
+        // Strip unknown url() references (not fonts/images/trusted CDNs)
+        // Prevents tracking pixels via list-style-image, cursor, content, etc.
+        return 'url(about:blank)';
       }
-    } catch (error) {
-      console.log(`❌ Invalid URL in CSS: ${originalUrl}`);
-    }
-  }
 
-  return processedCSS;
+      return `url(${quote}${replacementUrl}${quote})`;
+    } catch {
+      return 'url(about:blank)';
+    }
+  });
 }
 
 
@@ -149,11 +138,14 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
     return null;
   }
 
-  // Skip validation for extremely large CSS (>2MB) to prevent crashes
+  // Strip @import rules before processing (bypass scoping by loading external sheets)
+  css = css.replace(/@import\s+[^;]+;/gi, '/* @import stripped */');
+
+  // Reject oversized CSS entirely — returning unscoped CSS is a security risk
   const MAX_CSS_SIZE = 2 * 1024 * 1024; // 2MB
   if (css.length > MAX_CSS_SIZE) {
-    console.log(`⚠️ CSS too large (${Math.round(css.length / 1024 / 1024)}MB), skipping validation`);
-    return css; // Return original CSS without processing
+    console.log(`⚠️ CSS too large (${Math.round(css.length / 1024 / 1024)}MB), rejecting`);
+    return null;
   }
 
   try {
@@ -272,19 +264,16 @@ async function validateAndProcessCSS(css: string): Promise<string | null> {
 
   } catch (error) {
     const isTimeout = error instanceof Error && error.message === 'CSS processing timeout';
-    console.log(`❌ CSS validation ${isTimeout ? 'timed out' : 'failed'}: ${error instanceof Error ? error.message : String(error)}`);
-    // console.log(`📝 First 500 chars of failed CSS:`, css.substring(0, 500));
-
-    // Instead of returning null, return the original CSS
-    // This ensures we don't lose styles due to timeouts or validation failures
-    // console.log(`🔄 Returning original CSS due to ${isTimeout ? 'timeout' : 'validation failure'}`);
-    return css;
+    console.log(`❌ CSS ${isTimeout ? 'timeout' : 'failed'}: ${error instanceof Error ? error.message : String(error)}`);
+    // Return null — never return unscoped CSS, it's a security risk
+    return null;
   }
 }
 
 interface ArchiveResult {
   html: string;
   css: string;
+  textContent: string;
   title: string;
   author: string;
   publishedTime: string;
@@ -439,48 +428,32 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
 
     const pageMetadata = pageData.metadata;
 
-    // Strip JavaScript from the HTML for security while preserving all styling
-    const cleanedHTML = stripJavaScript(fullHTMLContent);
-
-    // Combine all CSS into a single bundle for client-side injection
-    // console.log(`📦 Combining CSS - processedCSS length: ${processedCSS?.length || 0}`);
-    if (processedCSS) {
-      // console.log(`📦 ProcessedCSS preview:`, processedCSS.substring(0, 300));
-    } else {
-      // console.log(`❌ processedCSS is null or empty!`);
-    }
-
     let finalCSS = processedCSS || '';
 
     // Check if there are any html/body transformations that need layer consistency
     const hasHtmlBodyRules = finalCSS.includes(':where(.archive-mode-html)') || finalCSS.includes(':where(.archive-mode-body)');
 
     if (hasHtmlBodyRules) {
-      // Wrap each :where() rule individually in @layer utilities, preserving surrounding context
       finalCSS = finalCSS.replace(
         /:where\(\.archive-mode-(html|body)\)\s*\{[^}]+\}/g,
         (match) => `@layer utilities {\n  ${match}\n}`
       );
     }
 
-    // console.log(`📦 Final combined CSS length: ${finalCSS.length}`);
-
-    // Create virtual console to suppress CSS parsing errors (Lightning CSS handles validation)
+    // Single JSDOM pass: strip JS, rewrite assets, extract text — no re-parsing
     const virtualConsole = new VirtualConsole();
-    virtualConsole.on("error", () => {
-      // Suppress JSDOM CSS parsing errors - Lightning CSS already validated the CSS
-    });
+    virtualConsole.on("error", () => {});
 
-    // Parse HTML with JSDOM (use cleaned HTML without CSS)
-    const dom = new JSDOM(cleanedHTML, {
-      resources: "usable",
-      runScripts: "outside-only",
+    const dom = new JSDOM(fullHTMLContent, {
       pretendToBeVisual: false,
       virtualConsole,
     });
     const document = dom.window.document;
 
-    // Add security and responsive meta tags if not present
+    // Sanitize in-place (was previously a separate parse+serialize cycle)
+    sanitizeDocument(document);
+
+    // Add viewport meta if not present
     if (!document.querySelector('meta[name="viewport"]')) {
       const viewport = document.createElement('meta');
       viewport.setAttribute('name', 'viewport');
@@ -488,14 +461,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       document.head.appendChild(viewport);
     }
 
-
-    // Remove original stylesheet links since we're inlining the CSS
-    const stylesheetLinks = document.querySelectorAll('link[rel="stylesheet"]');
-    stylesheetLinks.forEach(link => link.remove());
-
-    // Remove preload/prefetch links that cause 404s (Next.js performance hints we don't need)
-    const preloadLinks = document.querySelectorAll('link[rel="preload"], link[rel="prefetch"], link[rel="dns-prefetch"], link[rel="modulepreload"]');
-    preloadLinks.forEach(link => link.remove());
+    // Note: link elements already removed by sanitizeDocument
 
     // Convert image URLs to use asset proxy (both img[src] and source[srcset])
     const images = document.querySelectorAll('img[src]');
@@ -631,14 +597,11 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       // console.log(`🔗 Processed ${linkCount} relative links`);
     }
 
-    // Body content is already included in the full HTML
+    // Remove inline style tags (CSS already extracted separately via Playwright)
+    document.querySelectorAll('style').forEach((tag: Element) => tag.remove());
 
-    // Remove all style tags and CSS links from the HTML since we'll return CSS separately
-    const styleTags = document.querySelectorAll('style');
-    styleTags.forEach((tag: Element) => tag.remove());
-
-    const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
-    cssLinks.forEach(link => link.remove());
+    // Extract text content server-side (saves a client-side DOMParser round-trip)
+    const textContent = document.body?.textContent || '';
 
     const cleanHTML = dom.serialize();
 
@@ -648,6 +611,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     const result = {
       html: cleanHTML,
       css: finalCSS,
+      textContent,
       title: pageMetadata.title,
       author: pageMetadata.author || '',
       publishedTime: pageMetadata.publishedTime || '',
@@ -659,7 +623,11 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       bodyAttrs: pageData.bodyAttrs
     };
 
-    // Cache the result
+    // Cache the result (evict oldest if at capacity)
+    if (archiveCache.size >= MAX_CACHE_SIZE) {
+      const oldest = archiveCache.keys().next().value;
+      if (oldest) archiveCache.delete(oldest);
+    }
     archiveCache.set(url, {
       result,
       timestamp: Date.now()

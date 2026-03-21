@@ -4,6 +4,12 @@ import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 import type { ArchiveResponse } from "@/api/archive/routes";
+import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
+import "@/henry-ink/embed/youtube";
+
+// Client-side archive cache (avoids re-fetching within a session)
+const MAX_CLIENT_CACHE = 30;
+const archiveClientCache = new Map<string, ArchiveResponse>();
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -11,7 +17,7 @@ function isUrl(input: string): boolean {
 	if (input.startsWith('http://') || input.startsWith('https://')) {
 		return true;
 	}
-	
+
 	// Contains a dot and looks domain-like
 	// Basic check: has dot, no spaces, reasonable domain pattern
 	return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(\/.*)?$/.test(input.trim());
@@ -27,7 +33,7 @@ function normalizeUrl(input: string): string | null {
 
 async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 	const normalizedUrl = normalizeUrl(inputUrl);
-	
+
 	if (!normalizedUrl) {
 		contentStateSignal.value = {
 			type: "error",
@@ -36,11 +42,61 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		};
 		return;
 	}
-	
+
 	const targetUrl = normalizedUrl;
 
-	contentStateSignal.value = { type: "loading", mode };
+	// Handle third-party embeds (YouTube, Vimeo, etc.) separately
+	const embedProvider = resolveEmbedProvider(targetUrl);
+	if (embedProvider) {
+		const embedMode: ContentMode = 'embed';
 
+		// Force embed mode for embed URLs
+		if (contentModeSignal.value !== embedMode) {
+			contentModeSignal.value = embedMode;
+		}
+
+		contentStateSignal.value = { type: 'loading', mode: embedMode };
+
+		try {
+			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
+			const transcriptUrl =
+				import.meta.env.VITE_YOUTUBE_TRANSCRIPT_URL ||
+				import.meta.env.VITE_YOUTUBE_WORKER_URL ||
+				'http://localhost:3000/api/youtube/transcript';
+			const embed = await embedProvider.fetchContent(normalizedForProvider, {
+				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as typeof fetch,
+				env: {
+					transcriptUrl,
+				},
+			});
+
+			contentStateSignal.value = {
+				type: 'success',
+				content: embed.textContent,
+				title: embed.title,
+				mode: embedMode,
+				embed,
+			};
+		} catch (e: unknown) {
+			console.error("Embed fetch error:", e);
+			contentStateSignal.value = {
+				type: 'error',
+				message: e instanceof Error ? e.message : 'An unexpected error occurred while fetching embedded content.',
+				mode: embedMode,
+			};
+		}
+		return;
+	}
+
+	// Regular content fetching for non-embed URLs
+	// Reset mode to archive if currently in embed mode (user switched from YouTube to regular page)
+	if (mode === 'embed') {
+		contentModeSignal.value = 'archive';
+		return; // Will re-trigger with correct mode
+	}
+
+	contentStateSignal.value = { type: "loading", mode };
+	// Clear fallback banner on new fetch (will be re-set if needed)
 	try {
 		if (mode === 'md') {
 			// Original ji.na flow for markdown content
@@ -70,39 +126,36 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 			
 			contentStateSignal.value = { type: "success", content, title, mode };
 		} else if (mode === 'archive') {
-			// New archive service flow for full HTML content
-			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
-			const response = await fetch(`${archiveUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
-				method: 'GET',
-			});
+			// Check client cache first
+			let archive = archiveClientCache.get(targetUrl);
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
-				);
+			if (!archive) {
+				const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+				const response = await fetch(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
+					method: 'GET',
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(
+						`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
+					);
+				}
+
+				archive = await response.json() as ArchiveResponse;
+				if (archiveClientCache.size >= MAX_CLIENT_CACHE) {
+					archiveClientCache.delete(archiveClientCache.keys().next().value!);
+				}
+				archiveClientCache.set(targetUrl, archive);
 			}
 
-			const archive = await response.json() as ArchiveResponse;
-			
-			// Extract text content from HTML for Arena matching
-			let textContent = '';
-			try {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(archive.html, 'text/html');
-				textContent = doc.body?.textContent || '';
-			} catch (e) {
-				console.warn('Failed to extract text from archive HTML:', e);
-				textContent = archive.html; // Fallback to raw HTML
-			}
-			
-			contentStateSignal.value = { 
-				type: "success", 
-				content: textContent, // Text content for Arena enhancement
+			contentStateSignal.value = {
+				type: "success",
+				content: archive.textContent,
 				title: archive.title,
 				mode,
-				html: archive.html, // Store full HTML for direct rendering
-				css: archive.css, // Store CSS for injection
+				html: archive.html,
+				css: archive.css,
 				htmlAttrs: archive.htmlAttrs,
 				bodyAttrs: archive.bodyAttrs
 			};
@@ -122,7 +175,7 @@ export function useUrlPathSyncer() {
 	const location = useLocation();
 
 	useEffect(() => {
-		const currentPath = location.path;
+		const currentPath = location.url; // Use full URL with query parameters
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
 			const normalizedUrl = normalizeUrl(potentialUrl);
@@ -145,7 +198,7 @@ export function useUrlPathSyncer() {
 				currentUrl.value = "";
 			}
 		}
-	}, [location.path]);
+	}, [location.url]);
 }
 
 // Effect to fetch content when currentUrl or mode changes

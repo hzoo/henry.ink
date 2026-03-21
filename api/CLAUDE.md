@@ -1,7 +1,7 @@
 # API Services
 
 ## Overview
-Unified API server providing Arena and Archive services through a single endpoint. Contains modular services for content enhancement and web page archiving.
+Unified API server providing Arena, Archive, and Trails services through a single endpoint. Contains modular services for content enhancement, web page archiving, and AT Protocol trails/marks aggregation.
 
 ## Services
 
@@ -10,6 +10,9 @@ Creates secure archives of web pages by capturing the full HTML content and vali
 
 ### Arena Service  
 Enhances content with Arena channel links using pattern matching and provides search/discovery capabilities for Arena channels.
+
+### Trails Service
+Read-only AppView for ink.henry.annotate.trail and ink.henry.annotate.mark records. Ingests data from AT Protocol firehose and provides fast aggregated queries. Record creation happens via AT Protocol RPC (not through this API).
 
 ## Development Commands
 
@@ -88,6 +91,53 @@ Fetches blocks for a specific Arena channel.
 }
 ```
 
+### Trails Service
+
+#### GET `/api/trails`
+Lists trails with optional filtering.
+
+**Query Parameters:**
+- `author_did` - Filter by author DID
+- `search` - Search trail names/descriptions
+- `limit` - Results limit (default: 20)
+- `offset` - Pagination offset (default: 0)
+
+#### GET `/api/trails/:uri`
+Get specific trail with its marks.
+
+**Query Parameters:**
+- `limit` - Marks limit (default: 50)
+- `offset` - Marks pagination offset (default: 0)
+
+#### GET `/api/trails/by-actor/:did`
+Get trails created by specific actor.
+
+#### GET `/api/trails/containing`
+Find trails containing a specific URI.
+
+**Query Parameters:**
+- `subject` - URI to search for (required)
+- `limit` - Results limit (default: 20)
+
+#### GET `/api/trails/search`
+Search trails by name or description.
+
+**Query Parameters:**
+- `q` - Search query (required, min 2 chars)
+- `limit` - Results limit (default: 20)
+
+#### GET `/api/stats`
+Get trails system statistics.
+
+**Response:**
+```json
+{
+  "total_trails": 150,
+  "total_marks": 1200,
+  "total_authors": 45
+}
+```
+
 ### Health Checks
 
 #### GET `/api/health`
@@ -102,4 +152,6 @@ ARENA_AUTH_TOKEN=your_arena_auth_token
 
 # Database configuration
 ARENA_DB_PATH=./api/arena/data/channels.db  # Optional, defaults to this path
+TRAILS_DB_PATH=./api/trails/data/trails.db  # Optional, defaults to this path
+API_PORT=3000  # Optional, defaults to 3000
 ```
