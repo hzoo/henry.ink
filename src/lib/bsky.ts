@@ -6,51 +6,11 @@ import type {
 	InferOutput,
 	ResourceUri,
 } from "@atcute/lexicons";
-import { isYouTubeUrl, extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
+import { extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
 
 const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
 });
-
-// Cache for DID to handle resolution
-const handleCache = new Map<string, string>();
-
-// Resolve DID to handle using Bluesky API
-export async function resolveDidToHandle(did: string): Promise<string> {
-    // Check cache first
-    if (handleCache.has(did)) {
-        return handleCache.get(did)!;
-    }
-
-    try {
-        // Use getProfile to get the handle from DID
-        const { ok: profileSuccess, data: profileData } = await rpc.get('app.bsky.actor.getProfile', {
-            params: { actor: did },
-        });
-
-        if (!profileSuccess) {
-            const fallback = '@bluesky-user';
-            handleCache.set(did, fallback);
-            return fallback;
-        }
-
-        if (profileData.handle) {
-            const handle = `@${profileData.handle}`;
-            handleCache.set(did, handle);
-            return handle;
-        }
-
-        // Fallback: use the DID shortened
-        const shortDid = did.replace('did:plc:', '@did:');
-        handleCache.set(did, shortDid);
-        return shortDid;
-    } catch (error) {
-        console.error(`❌ Failed to resolve DID ${did}:`, error);
-        const fallback = '@bluesky-user';
-        handleCache.set(did, fallback);
-        return fallback;
-    }
-}
 
 // Calculate engagement score for a post
 function getEngagementScore(post: {
@@ -61,16 +21,48 @@ function getEngagementScore(post: {
 	const likes = post.likeCount || 0;
 	const reposts = post.repostCount || 0;
 	const replies = post.replyCount || 0;
-	// You could weight these differently if desired, e.g.:
-	// return (likes * 1) + (reposts * 2) + (replies * 1.5);
 	return likes + reposts + replies;
 }
 
-function sortPosts(
+function preparePosts(
 	posts: InferOutput<
 		AppBskyFeedSearchPosts.mainSchema["output"]["schema"]
 	>["posts"],
+	url: string,
 ) {
+	const videoId = extractYouTubeVideoId(url);
+	if (videoId) {
+		posts = posts.filter((post) => {
+			const record = post.record;
+			if (typeof record?.text === "string" && record.text.includes(videoId)) {
+				return true;
+			}
+			if (
+				post.embed?.$type === "app.bsky.embed.external#view" &&
+				post.embed.external.uri.includes(videoId)
+			) {
+				return true;
+			}
+			// Records are open lexicon objects; only read fields we can verify.
+			if (!Array.isArray(record?.facets)) return false;
+			return record.facets.some((facet: unknown) => {
+				if (!facet || typeof facet !== "object" || !("features" in facet)) {
+					return false;
+				}
+				return (
+					Array.isArray(facet.features) &&
+					facet.features.some(
+						(feature: unknown) =>
+							feature !== null &&
+							typeof feature === "object" &&
+							"uri" in feature &&
+							typeof feature.uri === "string" &&
+							feature.uri.includes(videoId),
+					)
+				);
+			});
+		});
+	}
 	return posts.sort((a, b) => {
 		const scoreA = getEngagementScore(a);
 		const scoreB = getEngagementScore(b);
@@ -122,32 +114,7 @@ export async function searchBskyPosts(
 				AppBskyFeedSearchPosts.mainSchema["output"]["schema"]
 			>;
 
-			// Filter YouTube URLs to exact video matches
-			let posts = data.posts;
-			if (isYouTubeUrl(url)) {
-				const videoId = extractYouTubeVideoId(url);
-				if (videoId) {
-					posts = posts.filter(post => {
-						// Check post text
-						if (post.record?.text?.includes(videoId)) return true;
-
-						// Check embedded URLs
-						if (post.embed?.external?.uri?.includes(videoId)) return true;
-
-						// Check facet links
-						const facets = (post.record as any)?.facets || [];
-						for (const facet of facets) {
-							for (const feature of facet.features || []) {
-								if (feature.uri?.includes(videoId)) return true;
-							}
-						}
-
-						return false;
-					});
-				}
-			}
-
-			return sortPosts(posts);
+			return preparePosts(data.posts, url);
 		}
 
 		// Direct RPC call if rpc is available (user is logged in)
@@ -167,32 +134,7 @@ export async function searchBskyPosts(
 			}
 		}
 
-		// Filter YouTube URLs to exact video matches
-		let posts = data.posts;
-		if (isYouTubeUrl(url)) {
-			const videoId = extractYouTubeVideoId(url);
-			if (videoId) {
-				posts = posts.filter(post => {
-					// Check post text
-					if (post.record?.text?.includes(videoId)) return true;
-
-					// Check embedded URLs
-					if (post.embed?.external?.uri?.includes(videoId)) return true;
-
-					// Check facet links
-					const facets = (post.record as any)?.facets || [];
-					for (const facet of facets) {
-						for (const feature of facet.features || []) {
-							if (feature.uri?.includes(videoId)) return true;
-						}
-					}
-
-					return false;
-				});
-			}
-		}
-
-		return sortPosts(posts);
+		return preparePosts(data.posts, url);
 	} catch (error: unknown) {
 		console.error("Caught bsky search error:", JSON.stringify(error, null, 2));
 
@@ -217,41 +159,6 @@ export async function searchBskyPosts(
 			// AbortError is expected on signal abort, no need to re-throw after logging
 		} else {
 			// Re-throw non-Error exceptions after logging
-			throw error;
-		}
-	}
-}
-
-// window.getRecord = getRecord;
-// getRecord('henryzoo.com', 'app.bsky.feed.post', '3lltzjrnjnc2b')
-// .reply.root.uri
-export async function getRecord(
-	repo: string,
-	collection: string,
-	rkey: string,
-	options?: { signal?: AbortSignal },
-) {
-	try {
-		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
-			"com.atproto.repo.getRecord",
-			{
-				params: {
-					repo: repo as ActorIdentifier,
-					collection: collection as `com.atproto.repo.${string}`,
-					rkey,
-				},
-				signal: options?.signal,
-			},
-		);
-
-		if (!ok) {
-			throw new Error(`Error fetching record: ${data.error}`);
-		}
-
-		return data.value;
-	} catch (error: unknown) {
-		if (error instanceof Error && error.name !== "AbortError") {
-			console.error("Error fetching record:", error);
 			throw error;
 		}
 	}
