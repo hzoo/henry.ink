@@ -1,20 +1,22 @@
 # Deployment and consolidation runbook
 
-Audit date: 2026-10-12. This is a plan, not authorization to change production.
-No deployment, service restart, Cloudflare mutation, secret rotation or database
-migration was performed. The accompanying code adds a local/CI verification gate.
+Audit date: 2026-10-12. This runbook records the baseline and staged release plan,
+not blanket authorization to change production. Subsequent owner-approved legacy
+Worker/domain/KV deletion is recorded in [Deployment](../DEPLOYMENT.md).
+No application deployment, VPS service restart, or database migration was made
+as part of that infrastructure cleanup.
 
 ## Start here
 
-1. **Owner:** provide a short-lived Cloudflare token limited to zone read access for `henry.ink`, or sign into the dashboard for supervised inspection. Do not paste tokens into chat. Existing Pages deploy access does not grant zone settings access.
-2. **Owner:** provide an authorized VPS administrator/provider-console path. App SSH is available, but upgrading Caddy, installing origin certificates and reloading the shared config need administrator authority. No unrestricted sudo is needed.
+1. **Access ready:** the short-lived `henry.ink` read-only audit token is verified; existing Wrangler OAuth supplies deployment access separately. Do not paste tokens into chat. Redirect/Origin/Configuration Rules reads still return 403 with the audit token.
+2. **Owner:** use the existing password-authenticated sudo session for reviewed administrator steps. The owner confirmed `(ALL : ALL) ALL`; unattended SSH still cannot authenticate sudo. No new account or passwordless sudo is needed.
 3. **Inspect first:** record actual SSL mode, origin overrides, DNS targets, cache rules and rollback targets. Caddy currently serves the API over origin HTTP; public HTTPS does not prove origin TLS.
 4. **Administrator + CF owner:** upgrade Caddy, normalize trusted CF client IPs, add/test origin HTTPS, then enable Full (strict) for the approved scope. Preserve unrelated sites and a recovery session.
 5. **CF owner:** add an API-host cache-bypass rule after reviewing existing rule precedence. Leave Pages and Worker caches alone.
 6. **Release:** verify an immutable candidate, deploy API first and Pages second, then run live acceptance checks. The commands and rollback boundaries are below. No Worker deletion or new CF product is required.
 
 `bun run verify` now isolates test databases in a temporary directory, runs both
-type checks, 259 tests including Chrome checks, builds the web app, and runs six
+type checks, 298 tests including Chrome and PM2 repair checks, builds the web app, and runs six
 desktop/mobile production-bundle smoke cases. This passed locally. Deliberate
 localhost endpoint, empty article, broken scroll and dropped-CSS mutations were
 rejected in an isolated copy. The smoke uses intercepted API responses; live
@@ -44,8 +46,11 @@ in the task; **Unknown** means not established. Recheck evidence before executio
 an authorized VPS administrator is available, origin HTTPS and normalized client
 identity are verified, backups and rollback targets exist, and the final candidate
 passes `bun run verify`. Public HTTPS currently proves only client-to-edge TLS.
-The HTTP origin evidence is consistent with Flexible SSL or an origin override,
-but neither setting was read; do not assert either as fact.
+Follow-up dashboard inspection confirmed the zone's default is **Flexible SSL**.
+Per-host origin/configuration overrides remain unverified. See the dated
+[infrastructure inventory](../DEPLOYMENT.md#infrastructure-inventory-2026-10-12)
+for verified domain mappings, Worker traffic, and the PM2 startup mismatch;
+that follow-up supersedes the original table's corresponding unknowns.
 
 ## Intended boundary
 
@@ -56,14 +61,15 @@ consolidation, not an approved Cloudflare account/zone migration.
 
 | Component | Source contract / action |
 | --- | --- |
-| Browser | `henry-ink/services.ts`, `henry-ink/reader/archive-cache.ts`, and `src/lib/api-url.ts` use the configured API origin. Both Original and Text use archive data; no Jina call appears in this path. The Jina statement in `api/annotations/README.md` is stale relative to inspected code. |
+| Browser | `henry-ink/services.ts`, `henry-ink/reader/archive-cache.ts`, and `src/lib/api-url.ts` use the configured API origin. Both Original and Text use archive data; no Jina call appears in this path. |
 | API | `api/server.ts` binds loopback and serves `/api/archive`, `/api/asset-proxy`, `/api/annotations/margin`, `/api/arena/{enhance,search,channel-blocks}`, `/api/youtube/transcript`, `/api/health`. Keep port 3000 private. |
 | Bluesky Worker | `wrangler.toml`: script `bsky_search_posts`, binding `BLUESKY_SESSION_KV`, namespace `45e1b4c9deb24ddfbd9fa33d3ad15a3c`. Browser example URL is `https://bsky-search.henry.ink`. Live custom-domain mapping is unknown. |
-| Legacy Jina | `wrangler.jina-proxy.toml`: `jina_worker`, binding `JINA_CACHE`, namespace `983b607b41cd406c8a3d78004dd03291`. Retain until all clients and traffic are inventoried. |
-| Legacy YouTube | `wrangler.youtube-transcript.toml`: `youtube-transcript-worker`, binding `YOUTUBE_TRANSCRIPT_CACHE`, namespace `e3760955d3c84c9696c52a63352626c8`; preview `fad6ccfee93746f39953411de2082435`. Already proxies to `https://api.henry.ink/api/youtube/transcript`. Retain for rollback/older clients. |
+| Legacy Jina | **Deleted with owner approval:** `jina_worker`, custom domain/DNS, and KV `983b607b41cd406c8a3d78004dd03291`. Source/config/deploy command removed. |
+| Legacy YouTube | **Deleted with owner approval:** `youtube-transcript-worker`, custom domain/DNS, KV `e3760955d3c84c9696c52a63352626c8`, and preview KV `fad6ccfee93746f39953411de2082435`. Source/config/deploy command removed. The frontend uses the VPS transcript endpoint. |
 
 Worker configs have no explicit account ID or active route declarations. Do not
-run `deploy:workers` as part of the Pages/API rollout. Identify their live account,
+bulk-deploy Workers as part of the Pages/API rollout. The blanket
+`deploy:workers` script has been removed. Identify their live account,
 routes, versions and bindings before any Worker operation; namespace IDs are
 account-scoped, not portable migration handles.
 
@@ -79,8 +85,6 @@ account-scoped, not portable migration handles.
 | `ARCHIVE_CACHE_PATH` | VPS-only; default `archive-snapshots.db`, resolved against cwd. |
 | `ARENA_APP_TOKEN`, `ARENA_AUTH_TOKEN` | Optional server credentials for upstream access; preserve securely, never `VITE_` inputs. |
 | `BLUESKY_IDENTIFIER`, `BLUESKY_APP_PASSWORD` | Worker runtime credentials; session KV contains sensitive tokens. `SITE_URL` is declared in its interface but unused in inspected implementation. |
-| `JINA_API_KEY` | Legacy Worker secret only. Do not copy into Pages or the browser. |
-| `YOUTUBE_TRANSCRIPT_API_URL` | Legacy Worker public var; configured to the VPS transcript endpoint. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deployment runner only. Never upload them in frontend artifacts or install the deployment token in the public API process. |
 
 Vite loads root env files (`envDir: "../"`). Inspect key names without dumping
@@ -97,7 +101,7 @@ execution; approval for this audit did not approve any of them.
 
 | Change set | Minimum authority and scope |
 | --- | --- |
-| Read-only inventory | Selected account: Pages/Workers/KV read as needed. Only the `henry.ink` zone: Zone Read, DNS Read, Zone Settings Read, Cache Settings Read; add route/rule/Access reads only for resources being inspected. |
+| Read-only inventory | Selected account: Pages/Workers/KV read as needed. Only the `henry.ink` zone: Zone Read, DNS Read, Zone Settings Read, Cache Rules Read; add route/rule/Access reads only for resources being inspected. |
 | Pages release | Account-scoped **Cloudflare Pages Edit** for the verified Pages account. No DNS/SSL/KV writes. The ordinary token permission is account-wide, not a per-project guarantee; isolate the runner and protect its workflow. |
 | Worker change, separately | Selected account: Workers Scripts Edit; Workers KV Storage Edit only if creating/changing KV resources. Add zone Workers Routes Edit or DNS Write only when the approved operation actually changes those resources. |
 | SSL mode | Short-lived token with **Zone Settings Write** only for `henry.ink`; separate from routine deployment. Add SSL and Certificates Write only for separate certificate/AOP operations that require it. |
@@ -308,7 +312,7 @@ add another layer until query keys, Origin variance and asset admission are prov
 | Transcript API | Successful transcript responses use `public, max-age=3600`; still bypass edge initially. |
 | Are.na / health / preflight | Do not add edge caching. Health is not a cache freshness proof for other paths. |
 | Bluesky Worker | Cache API success TTL 600 seconds; session KV is sensitive. Do not bulk delete KV as a cache purge. |
-| Legacy Jina / YouTube | One-day KV expiry but one-year immutable HTTP caching in source. Removing edge/KV entries cannot recall browser-held responses. Keep legacy endpoints or explicitly plan versioned URLs and a client migration. |
+| Legacy Jina / YouTube | Retired with owner approval. Previously cached browser responses cannot be recalled by deleting Workers or KV. Current clients use the VPS API. |
 
 ## Stage 6: approved application rollout
 
@@ -389,7 +393,7 @@ reproducibility; the inspected root package does not pin Wrangler.
 4. Repeat archive/Margin GETs with the same URL and different Origins. Require no edge HIT/Age growth, correct no-store and CORS headers. For one admitted asset, verify MIME/security headers and the existing browser TTL. Check application cache reuse without confusing it with CDN cache state.
 5. From two controlled clients, verify distinct normalized addresses in restricted Caddy logs and single upstream XFF in the isolated harness. Forged XFF/CF headers must not change identity. Verify direct-origin denial on IPv4/IPv6; demonstrate custom AOP if claiming zone-authenticated origin. Rate-limit exhaustion tests belong in staging, not production. Do not expose IPs in public responses.
 6. Observe errors, capture latency/resource use and 429s for an agreed window (proposed minimum 24 hours). Preserve all rollback artifacts and old Worker routes. No automatic deletion after a timer.
-7. Only with separate retirement approval: inspect all web/demo/extension consumers and provider traffic, switch any remaining Jina/YouTube clients, validate replacement behavior, and remove one legacy route at a time. Keep version/config/bindings for reversal; delete scripts/KV/secrets only after another retention decision. Bluesky is not part of this retirement.
+7. Legacy Jina/YouTube retirement is complete with owner approval. Do not redeploy them as part of a release or recreate deleted KV namespaces. Bluesky remains live and is not part of this retirement.
 
 ## Stage 8: rollback
 
@@ -413,7 +417,7 @@ permissions, or retry deployment indefinitely to manufacture a passing result.
 ## Outstanding approvals and unknowns
 
 - Zone/account ownership, actual token scopes, SSL mode/overrides, DNS targets, cache/rule order, live Worker domains/versions and current Pages deployment remain unverified.
-- Named administrator is required for Caddy upgrade/configuration, origin certificates/AOP, firewall review and any system Chrome/runtime changes. Existing sudo unavailability is not resolved by this document.
-- PM2's live launch/watch/startup environment and effective database paths must be confirmed before activation; only selected saved metadata and listeners were inspected.
+- An administrator's private sudo session is required for Caddy upgrade/configuration, origin certificates/AOP, firewall review and system runtime changes. The owner has password-authenticated sudo; unattended SSH does not.
+- PM2's live watch/restart settings are verified. Its inactive boot unit points at the wrong PM2 home; repair and reboot recovery verification remain pending. Effective database paths must be confirmed before application deployment.
 - Parent reports a green gate (259 tests, 6 production-bundle browser cases). The committed release SHA and VPS toolchain reconciliation remain pending; this audit did not independently rerun verification or run live browser acceptance.
-- Explicit approval is pending for backups/candidate writes on VPS, API/Pages deployment, SSL/cache/DNS changes, credential changes, origin-authentication setup, rollback operations and legacy resource retirement. No zone/account transfer, Tunnel rollout or public Access wall is approved.
+- Legacy Worker/domain/KV retirement was explicitly approved and completed. Other production changes need their reviewed scope and required access; this document does not approve a zone/account transfer, Tunnel rollout, or public Access wall.

@@ -60,7 +60,6 @@ bun run lint         # Biome linting and formatting (if configured)
 bun run deploy:demo      # Deploy demo to Cloudflare Pages
 bun run deploy:ink       # Deploy henry.ink to Cloudflare Pages
 bun run deploy:bsky_worker # Deploy Bluesky proxy worker
-bun run deploy:jina_worker # Deploy Jina proxy worker
 bun run release          # Release new version
 ```
 

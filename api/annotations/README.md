@@ -38,4 +38,4 @@ Keep the reader HUD outside that document. Article appearance and annotation int
 
 Focused tests: `bun test api/annotations`.
 
-Local preview: run `bun run api` and `bun run ink`, then open `http://127.0.0.1:3003`. The backend listens on port 3000. The original-layout path and Margin lookup use this backend; Text only still uses the separately configured Jina service. Production deployment and remote record deletion are separate operations.
+Local preview: run `bun run api` and `bun run ink`, then open `http://127.0.0.1:3003`. The backend listens on port 3000. Original layout, Text only, and Margin lookup use this backend; Text only reuses the article snapshot rather than calling a separate extraction service. Production deployment and remote record deletion are separate operations.
