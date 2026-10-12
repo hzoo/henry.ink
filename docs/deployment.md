@@ -11,7 +11,7 @@ as part of that infrastructure cleanup.
 1. **Access ready:** the short-lived `henry.ink` read-only audit token is verified; existing Wrangler OAuth supplies deployment access separately. Do not paste tokens into chat. Redirect/Origin/Configuration Rules reads still return 403 with the audit token.
 2. **Owner:** use the existing password-authenticated sudo session for reviewed administrator steps. The owner confirmed `(ALL : ALL) ALL`; unattended SSH still cannot authenticate sudo. No new account or passwordless sudo is needed.
 3. **Inspect first:** record actual SSL mode, origin overrides, DNS targets, cache rules and rollback targets. Caddy currently serves the API over origin HTTP; public HTTPS does not prove origin TLS.
-4. **Administrator + CF owner:** upgrade Caddy, normalize trusted CF client IPs, add/test origin HTTPS, then enable Full (strict) for the approved scope. Preserve unrelated sites and a recovery session.
+4. **Administrator + CF owner:** apply the scoped Caddy candidate, verify origin HTTPS, then enable Full (strict) for `api.henry.ink` only. A Caddy upgrade is separate maintenance, not a prerequisite. Preserve unrelated sites and a recovery session.
 5. **CF owner:** add an API-host cache-bypass rule after reviewing existing rule precedence. Leave Pages and Worker caches alone.
 6. **Release:** verify an immutable candidate, deploy API first and Pages second, then run live acceptance checks. The commands and rollback boundaries are below. No Worker deletion or new CF product is required.
 
@@ -202,10 +202,22 @@ still required. A unit-test-only run or `/api/health` is not an equivalent gate.
 
 ## Stage 3: normalize trusted client identity
 
-**Pending administrator approval.** Upgrade Caddy to a currently supported,
-reviewed version with these directives; `trusted_proxies_strict` requires at least
-2.8. Do not paste this template into the verified 2.6.2 binary. Validate the full
-shared configuration and regression-test unrelated sites before/after upgrade.
+**October 12 revision: applied and verified.** The owner applied the scoped
+candidate; backup `/etc/caddy/.origin-install.vwS464IR`. Direct origin certificate
+verification and public article/CORS checks passed. Cloudflare rule
+`cca0d2fdf7044b5080372081f1243676` now selects Strict only for `api.henry.ink`;
+zone-wide SSL remains Flexible. HTTP retirement/admission remain separate work.
+See root `DEPLOYMENT.md` for the dated acceptance results. Use
+`ops/caddy-api.caddy`, tested with the installed Caddy 2.6.2. Do not add global
+trust settings or upgrade the shared server as part of this change. Schedule
+the old Caddy version's upgrade separately.
+
+**Cleanup follow-up:** the owner deleted arena DNS; read-only API verification
+confirmed absence. Removing its Caddy route and the transitional HTTP API proxy
+is staged, not yet applied. The root deployment guide has the current sudo
+command. The repository template/installer now target HTTPS-only, requiring the
+already valid certificate. References below to importing the snippet into HTTP
+API/arena blocks describe the completed initial transition, not the end state.
 
 `api/archive/routes.ts` and `api/annotations/routes.ts` choose the first XFF
 element, then CF-Connecting-IP, then `unknown`. With untrusted Cloudflare peers,
@@ -214,63 +226,38 @@ forwarding XFF or blindly trusting CF headers instead enables spoofing. The fix
 is a restricted trust boundary plus **one normalized upstream XFF value**.
 
 1. Fetch current IPv4 **and** IPv6 ranges from [Cloudflare's published list](https://www.cloudflare.com/ips/), using its `ips-v4` and `ips-v6` links. Validate every entry as a CIDR, review the diff, date the snapshot, and use the same list for trust and origin admission. Never trust `0.0.0.0/0`, `::/0`, all private ranges, or arbitrary forwarded headers. Assign an owner to review range updates.
-2. Merge the following into an administrator-staged copy of the full Caddyfile. `CF_CIDRS` below is a substitution marker, not executable configuration. Preserve all unrelated sites/options. The global trust change affects shared servers, so review every existing proxy consumer.
-
-```caddyfile
-{
-    servers {
-        trusted_proxies static CF_CIDRS
-        trusted_proxies_strict
-        client_ip_headers CF-Connecting-IP
-    }
-}
-
-(henry_api_backend) {
-    reverse_proxy 127.0.0.1:3000 {
-        header_up X-Forwarded-For {client_ip}
-        header_up -CF-Connecting-IP
-        header_up -X-Real-IP
-        header_up -Forwarded
-    }
-}
-```
+2. Merge `ops/caddy-api.caddy` into a copy of the full live Caddyfile, replacing the old HTTP API block. Change the existing HTTP `arena.henry.ink` block to `import henry_api_proxy`: it reaches the same API. Preserve every other site. The snippet defaults a request-scoped variable to the socket peer and replaces it with CF-Connecting-IP only for a Cloudflare peer and a single address-shaped header.
 
 Only trusted peer ranges may supply CF-Connecting-IP; other peers resolve to their
 socket address. No XFF fallback is configured at Caddy. The API's preferred XFF
 is overwritten with that result, and alternative identity headers are removed.
-See [Caddy trust options](https://caddyserver.com/docs/caddyfile/options#trusted-proxies),
+The header regexp rejects lists and non-address characters, not every invalid IP;
+the identity guarantee depends on Cloudflare supplying the header. These are
+rate-limit identities, not user authentication. See
+[request variables](https://caddyserver.com/docs/caddyfile/directives/vars),
 [upstream header controls](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#headers),
 and [client-IP placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders).
 
 3. Check that CF's Remove visitor IP headers transform is off for this route and Pseudo IPv4 is not overwriting real addresses. Inventory same-zone Worker subrequests: they can alter CF-Connecting-IP; cross-zone Worker requests may share a fixed address. Do not route public API calls through another Worker as a transparent identity-preserving shortcut. These are documented [Cloudflare header semantics](https://developers.cloudflare.com/fundamentals/reference/http-headers/).
-4. Before production, test an isolated Caddy instance with a loopback-only header-echo upstream and a deliberately trusted local test peer. Assert: trusted peer's CF IP becomes exactly one XFF; forged incoming XFF does not survive; untrusted peer's CF/XFF values are ignored; missing CF header falls back safely; IPv6 works. Remove the harness after testing. Never expose a diagnostic echo route publicly or test this by flooding production.
-5. Apply the backend snippet to the existing HTTP API site first, validate and reload through the administrator. Check public health and a controlled request's Caddy client-IP log. This fixes identity before enabling the TLS/admission changes below. No persistent raw-header/body logging is needed.
+4. Run `python3 scripts/test-caddy-origin.py ops/caddy-api.caddy` on a host with Caddy installed. Ten cases passed on the VPS's actual binary: seven forwarding cases plus API HTTP redirect, retired-host fallback and an unrelated HTTP site. The harness uses isolated loopback listeners, disables its admin API and uses temporary internal certificates without installing trust; it never exposes diagnostic routes on production or requests public certificates.
+5. Use `scripts/install-caddy-origin.sh --check BUNDLE_DIRECTORY` before handing off `--apply` to the administrator. The bundle contains a reviewed full baseline/candidate and SHA256SUMS. The current HTTPS-only cleanup helper requires a valid origin certificate, validates as the Caddy service user, retains a root-owned backup, guards against drift, reloads without restarting, and checks verified HTTPS health, the HTTP redirect and retired alias with guarded rollback on failure. It does not change Cloudflare settings.
 
 ## Stage 4: origin TLS, then admission
 
-**Pending administrator and zone-owner approval.** Preserve the HTTP backend
+**Origin TLS and hostname-only Strict completed October 12; steps 6-8 remain
+pending.** This sequence documents the rollout and its remaining hardening.
+Preserve the HTTP backend
 temporarily so an unknown existing edge-to-origin HTTP mode does not turn into a
 redirect loop. Do not simply replace `http://api.henry.ink` with an auto-redirecting
 HTTPS-only site before Cloudflare is ready.
 
-1. Choose an origin certificate. For a CF-only origin, the deterministic option here is an Origin CA certificate covering `api.henry.ink`, generated/installed securely by the owner. Set an expiry/rotation owner. Alternatively use a public certificate with a demonstrated ACME renewal path; HTTP/TLS challenges can be affected by proxy/firewall changes, and DNS challenge needs its own scoped credential/module. Never disable certificate verification. [Origin CA](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/), [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https).
-2. Store the origin certificate and key under `/etc/caddy/certs/`, readable by Caddy but not other application users (for example directory root:caddy 0750, key root:caddy 0640). Add an explicit HTTPS API block while retaining the explicit HTTP block. The paths below are the proposed files, not existing verified files.
-
-```caddyfile
-http://api.henry.ink {
-    import henry_api_backend
-}
-
-https://api.henry.ink {
-    tls /etc/caddy/certs/api.henry.ink.pem /etc/caddy/certs/api.henry.ink.key
-    import henry_api_backend
-}
-```
+1. The candidate uses Caddy automatic public ACME certificates, avoiding a new manually rotated certificate or DNS API credential. TLS-ALPN challenges are disabled for this hostname because Cloudflare terminates public TLS. HTTP challenges must reach Caddy through the proxy; inspect conflicting redirects/WAF rules if issuance fails. Do not repeatedly force issuance or disable certificate verification. [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https).
+2. During the initial transition both explicit HTTP and HTTPS API blocks were retained. The current template removes the HTTP proxy now that Strict is verified; Caddy supplies automatic HTTP redirects and ACME challenge handling. Caddy owns certificate storage and renewal; no private keys need to be copied into the repository or chat. The old arena alias's DNS was deleted and its Caddy route removal is staged.
 
 3. Administrator runs `caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile` with the actual service user's file access, installs the reviewed file, then uses the service's approved reload command (normally `systemctl reload caddy`). Do not stop Caddy or use `restart` unnecessarily. Confirm loaded configuration and unrelated hosts. See [Caddy validation/reload](https://caddyserver.com/docs/command-line).
-4. From an allowed test machine, test the origin directly using SNI: `curl --fail --resolve "api.henry.ink:443:$ORIGIN_IP" --cacert "$ORIGIN_CA_ROOT" https://api.henry.ink/api/health`. Use the proper official Origin CA root; omit `--cacert` for a publicly trusted certificate. Test every active A/AAAA target. No `-k`. A normal browser will not trust Origin CA when DNS proxying is disabled.
-5. Inspect all other proxied hostnames before changing a zone-wide SSL setting. In Cloudflare, set SSL/TLS encryption to **Full (strict)** only once each affected origin is compatible, or use an approved hostname-scoped Configuration Rule if available and independently permissioned. The zone-wide API operation is `PATCH /zones/{zone_id}/settings/ssl` with body `{"value":"strict"}`; perform through the owner's protected client, then GET and verify. Resolve conflicting origin/configuration rules. Full (strict) validates origin certificate expiry, trust and hostname. [Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/).
-6. Verify public HTTPS health, archive and CORS without 525/526, redirect loops or certificate errors. Only then replace the HTTP API backend block with `respond 403` (or an approved HTTPS redirect). No API traffic may continue to the origin in cleartext.
+4. Wait for successful certificate issuance, then test directly with SNI: `curl --fail --resolve api.henry.ink:443:152.53.230.217 https://api.henry.ink/api/health`. Test any additional active A/AAAA targets. No `-k`. An HTTP health check or successful config validation does not prove origin TLS readiness.
+5. In Cloudflare, inspect existing Configuration/Origin Rules and add a hostname-only Configuration Rule matching `http.host eq "api.henry.ink"`, setting SSL to **Full (strict)**. Do not change the zone-wide Flexible setting while unrelated origins still require HTTP. The saved audit token cannot read/write these rules; use the owner's dashboard or separately approved scoped access. Full (strict) validates origin certificate expiry, trust and hostname. [Configuration Rule settings](https://developers.cloudflare.com/rules/configuration-rules/settings/), [Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/).
+6. Verify public HTTPS health, archive and CORS without 525/526, redirect loops or certificate errors. Then remove the explicit HTTP API proxy block so Caddy redirects ordinary HTTP requests to HTTPS automatically. Remove the arena alias route too. Keep port 80 reachable for certificate renewal and unrelated sites; no API response should be served in cleartext. This cleanup candidate is staged pending sudo.
 7. Restrict the API HTTPS site by **peer** address, using the reviewed CF ranges: `@outside not remote_ip CF_CIDRS`, followed by `respond @outside 403`. Do not use `client_ip` for this admission check: it is the visitor, not the CF peer. Validate/reload and confirm public requests still work while direct-origin requests fail. See [Caddy peer matching](https://caddyserver.com/docs/caddyfile/matchers#remote-ip).
 8. Have the administrator review host/provider firewall restrictions for IPv4 and IPv6. Permit only required CF HTTP(S) ingress where compatible with every hosted site; preserve SSH/VPN and recovery access first. Do not apply a global CF-only firewall to this shared VPS without unrelated-site approval. Port 3000 and Caddy admin must remain loopback-only. Never expose the API port as a workaround.
 
