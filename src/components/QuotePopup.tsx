@@ -1,6 +1,8 @@
 import { useSignal, useSignalEffect, useComputed } from "@preact/signals";
 import { quotedSelection, currentUrl, showCommentDialog } from "@/src/lib/messaging";
 import { atCuteState } from "@/demo/lib/oauth";
+import { contentStateSignal } from '@/henry-ink/signals';
+import { pageMetadata } from '@/src/lib/page-metadata';
 import type {
 	AppBskyFeedPost,
 	AppBskyRichtextFacet,
@@ -106,40 +108,19 @@ const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFac
 	}];
 };
 
-// Helper function to fetch page metadata using Jina worker
 const fetchPageMetadata = async (originalUrl: string) => {
-	try {
-		// Use the same Jina worker that henry.ink uses to get metadata
-		const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
-		const response = await fetch(`${jinaUrl}/${originalUrl}`);
-		const content = await response.text();
-		
-		// Extract title from markdown content using same pattern as henry-ink
-		let title = 'View on original site';
-		let description = 'Click to view the original article';
-		
-		// Look for title using same pattern as henry-ink/services.ts
-		const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
-						 content.match(/^#\s+(.+)$/m) ||
-						 content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-		if (titleMatch) {
-			title = titleMatch[1].trim();
-		}
-		
-		// Look for description (usually in italics after title)
-		const descMatch = content.match(/\*(.+)\*/);
-		if (descMatch) {
-			description = descMatch[1].trim();
-		}
-		
-		return { title, description };
-	} catch (error) {
-		console.warn('Failed to fetch page metadata from Jina worker:', error);
-		return {
-			title: 'View on original site',
-			description: 'Click to view the original article'
-		};
+	const article = contentStateSignal.peek();
+	if (article.type === 'success' && article.url === originalUrl) {
+		return pageMetadata(originalUrl, article);
 	}
+	if (typeof browser !== 'undefined' && browser.tabs) {
+		try {
+			const tabs: { url?: string; title?: string }[] = await browser.tabs.query({ active: true, currentWindow: true });
+			const tab = tabs.find(tab => tab.url === originalUrl);
+			if (tab?.url) return pageMetadata(originalUrl, { url: tab.url, title: tab.title });
+		} catch { /* Metadata must not prevent posting. */ }
+	}
+	return pageMetadata(originalUrl);
 };
 
 // Helper function to create external embed
@@ -211,11 +192,15 @@ export function QuotePopup() {
 
 	// Effect to fetch metadata for preview
 	useSignalEffect(() => {
-		if (currentUrl.value) {
-			fetchPageMetadata(currentUrl.value).then(metadata => {
-				previewMetadata.value = metadata;
+		const url = currentUrl.value;
+		let active = true;
+		previewMetadata.value = null;
+		if (url) {
+			fetchPageMetadata(url).then(metadata => {
+				if (active) previewMetadata.value = metadata;
 			});
 		}
+		return () => { active = false; };
 	});
 
 	// Effect to fetch user profile

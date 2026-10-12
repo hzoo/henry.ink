@@ -9,6 +9,7 @@ declare module '*.svg?react' {
   
 // Augmentations for Vite environment variables used by OAuth
 interface ImportMetaEnv {
+	readonly VITE_API_URL?: string;
 	// readonly VITE_DEV_SERVER_PORT?: string;
 	// readonly VITE_CLIENT_URI: string;
 	readonly VITE_OAUTH_CLIENT_ID: string;

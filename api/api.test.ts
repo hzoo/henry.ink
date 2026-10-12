@@ -6,6 +6,8 @@ describe("getCorsHeaders", () => {
   test("returns origin for allowed origins", () => {
     expect(getCorsHeaders("https://henry.ink")["Access-Control-Allow-Origin"]).toBe("https://henry.ink");
     expect(getCorsHeaders("http://localhost:3003")["Access-Control-Allow-Origin"]).toBe("http://localhost:3003");
+    expect(getCorsHeaders("https://annotation-demo.henryzoo.com")["Access-Control-Allow-Origin"]).toBe("https://annotation-demo.henryzoo.com");
+    expect(getCorsHeaders("https://henry.ink")["Vary"]).toBe("Origin");
   });
 
   test("omits access for unknown origins", () => {

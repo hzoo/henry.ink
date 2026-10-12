@@ -1,5 +1,8 @@
 const CORS_ORIGINS = new Set([
   'https://henry.ink',
+  'https://annotation-demo.henryzoo.com',
+  'https://annotation-sidebar-demo.pages.dev',
+  'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni',
   'http://127.0.0.1:3003',
   'http://localhost:3003',
 ]);
@@ -7,6 +10,7 @@ const CORS_ORIGINS = new Set([
 export function getCorsHeaders(origin?: string): Record<string, string> {
   // Only allow known origins — omit header for unknown origins (browser blocks the response)
   const headers: Record<string, string> = {
+    'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Expose-Headers': 'Retry-After',
