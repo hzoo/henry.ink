@@ -22,6 +22,19 @@ This project began as a [browser extension](extension/) developed for the [Commu
 - [Loom: interface to the multiverse, 2021](https://generative.ink/posts/loom-interface-to-the-multiverse/)
 - [Bible references, footnotes, commentaries, concordance](https://en.wikipedia.org/wiki/Bible_citation)
 
+## Verification
+
+Run `bun install --frozen-lockfile` and install the browser once with
+`bunx playwright install --with-deps chrome` (Linux) or `bunx playwright install chrome` (macOS).
+
+- `bun test`: fast unit/component tests; real-browser tests are skipped.
+- `bun run verify`: web and API type checks, the full browser-enabled suite, production web build, and desktop/mobile smoke checks of that build.
+- `bun run test:smoke`: recheck the existing `henry-ink/dist` build without rebuilding it.
+
+The smoke checks use committed synthetic articles and intercepted API responses, not live upstream services. They verify typography/colors, content retention, script isolation, highlight ranges and jumps, archive reuse in text mode, and production API destinations. Screenshots are written to `test-results/`; they are review artifacts, not pixel-diff assertions. These checks do not prove that a live upstream is available, that every website keeps its original layout, or that the extension builds.
+
+`deploy:ink` and the VPS deploy script run `verify` before publishing/restarting. GitHub Actions runs the same gate without production credentials. Local builds must set `VITE_API_URL=https://api.henry.ink` in `.env.production` if `.env` contains a localhost API URL. The deployed bundle must match the public configuration used for its smoke check.
+
 ## Future Ideas
 
 - **Cross-Platform Integration**: Expand beyond Bluesky and Arena to include HN, Reddit, personal notes

@@ -8,6 +8,7 @@ test('reuses the article index and invalidates it for source, visibility, viewpo
   const prior = { window: globalThis.window, document: globalThis.document, AbortController: globalThis.AbortController, Event: globalThis.Event };
   Object.assign(globalThis, { window: dom.window, document: dom.window.document, AbortController: dom.window.AbortController, Event: dom.window.Event });
   const { h, render, options } = await import('preact');
+  const previousAnimationFrame = options.requestAnimationFrame;
   options.requestAnimationFrame = callback => { setTimeout(callback, 0); };
   const { InlineNotes } = await import('@/henry-ink/reader/InlineNotes');
   const { readerNotes, matchedNotes } = await import('@/henry-ink/reader/notes');
@@ -138,6 +139,7 @@ test('reuses the article index and invalidates it for source, visibility, viewpo
     expect(matchedNotes.value.size).toBe(0);
   } finally {
     render(null, mount);
+    options.requestAnimationFrame = previousAnimationFrame;
     readerNotes.value = { status: 'idle', url: '' };
     extractedQuotes.value = [];
     quotesUrl.value = '';

@@ -10,6 +10,9 @@ git pull --ff-only
 echo "=> Installing dependencies..."
 bun install --frozen-lockfile
 
+echo "=> Verifying before restart..."
+bun run verify
+
 echo "=> Restarting API..."
 pm2 restart henry-ink-api --update-env
 

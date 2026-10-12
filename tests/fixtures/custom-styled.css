@@ -1,0 +1,9 @@
+html { background: #e8e0cf; color: #2b352e; }
+body.workshop { margin: 0; font: 18px/1.65 Georgia, serif; }
+.site-header, .site-footer { padding: 1rem 6vw; font: 14px/1.4 monospace; }
+.sheet { max-width: 42rem; margin: 2rem auto; padding: 2rem; background: #fff9ec; border-top: 8px solid #47735a; }
+.essay h1 { font-size: 2.4rem; line-height: 1.1; }
+.essay p { margin: 1.3em 0; }
+.essay em { color: #77552d; }
+a { color: inherit; }
+@media (max-width: 600px) { .sheet { margin: 0; padding: 1.25rem; } }

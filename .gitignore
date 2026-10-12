@@ -35,3 +35,4 @@ channels.db*
 trails.db*
 archive-snapshots.db*
 .wrangler
+test-results/
