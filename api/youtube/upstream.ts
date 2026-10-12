@@ -1,3 +1,5 @@
+import { blockedError, TranscriptError, upstreamError } from '@/api/youtube/errors';
+
 export type Fetcher = (url: string, options: RequestInit) => Promise<Response>;
 
 // Limits apply to decoded bytes, not just the server's Content-Length claim.
@@ -13,14 +15,23 @@ export async function fetchText(
   fetcher: Fetcher,
 ): Promise<string> {
   signal.throwIfAborted();
-  const response = await fetcher(url, {
-    ...options, signal, redirect: 'error', credentials: 'omit',
-  });
+  let response: Response;
+  try {
+    response = await fetcher(url, {
+      ...options, signal, redirect: 'error', credentials: 'omit',
+    });
+  } catch {
+    signal.throwIfAborted();
+    throw upstreamError();
+  }
   if (signal.aborted || !response.ok || !response.body ||
       Number(response.headers.get('content-length')) > maxBytes) {
     void response.body?.cancel().catch(() => {});
     signal.throwIfAborted();
-    throw new Error('Invalid or oversized YouTube response');
+    if (response.status === 429 || response.status === 403) {
+      throw blockedError(response.status === 429 ? 429 : 503);
+    }
+    throw upstreamError();
   }
 
   const reader = response.body.getReader();
@@ -37,11 +48,14 @@ export async function fetchText(
       signal.throwIfAborted();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > maxBytes) throw new Error('YouTube response too large');
+      if (bytes > maxBytes) throw upstreamError();
       chunks.push(decoder.decode(value, { stream: true }));
     }
     chunks.push(decoder.decode());
     return chunks.join('');
+  } catch (error) {
+    signal.throwIfAborted();
+    throw error instanceof TranscriptError ? error : upstreamError();
   } finally {
     listeners.abort();
     cancel();
