@@ -23,6 +23,8 @@ export interface PublicFetchOptions {
   allowHttp?: boolean;
   signal?: AbortSignal;
   accept?: string;
+  // Called with each decoded chunk before retention; throwing stops the read.
+  onBytes?: (bytes: number) => void;
 }
 
 export type PublicFetcher = (url: string, options: PublicFetchOptions) => Promise<PublicResource>;
@@ -53,7 +55,7 @@ function responseHeaders(response: IncomingMessage): Headers {
   return headers;
 }
 
-async function readBody(response: IncomingMessage, maxBytes: number, signal: AbortSignal): Promise<Buffer> {
+async function readBody(response: IncomingMessage, maxBytes: number, signal: AbortSignal, onBytes?: (bytes: number) => void): Promise<Buffer> {
   const length = Number(response.headers["content-length"]);
   if (Number.isFinite(length) && length > maxBytes) {
     response.destroy();
@@ -90,6 +92,8 @@ async function readBody(response: IncomingMessage, maxBytes: number, signal: Abo
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
       decodedBytes += chunk.length;
       if (decodedBytes > maxBytes) throw new ArchiveFetchError("Resource too large", 413);
+      onBytes?.(chunk.length);
+      signal.throwIfAborted();
       chunks.push(chunk);
     }
     return Buffer.concat(chunks, decodedBytes);
@@ -153,7 +157,7 @@ export function createPublicFetcher(
           current = new URL(location, url).href;
           continue;
         }
-        const body = await readBody(response, options.maxBytes, signal);
+        const body = await readBody(response, options.maxBytes, signal, options.onBytes);
         headers.delete("content-encoding");
         headers.delete("transfer-encoding");
         headers.set("content-length", String(body.length));

@@ -5,7 +5,8 @@ import { RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher, type PublicResource } from "@/api/archive/public-fetch";
 import { MAX_ASSET_BYTES, validateAsset } from "@/api/archive/asset-validation";
 
-const archiveLimiter = new RateLimiter(3, 0.2);
+const archiveReadLimiter = new RateLimiter(30, 5);
+const archiveCaptureLimiter = new RateLimiter(3, 0.2);
 const assetLimiter = new RateLimiter(30, 5);
 
 export interface ArchiveResponse {
@@ -62,32 +63,40 @@ function clientIp(req: Request): string {
 
 export { optionsResponse as archiveOptionsRoute };
 
-export async function createArchiveRoute(req: Request): Promise<Response> {
-  const origin = req.headers.get("Origin") || "";
-  const cors = getCorsHeaders(origin);
-  if (!archiveLimiter.consume(clientIp(req))) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors, 5);
-  try {
-    const requestUrl = new URL(req.url);
-    const url = requestUrl.searchParams.get("url");
-    if (!url) return errorResponse(new ArchiveFetchError("Missing url parameter", 400), cors);
-    const error = validateArchiveUrl(url);
-    if (error) return errorResponse(new ArchiveFetchError(error, 403), cors);
-    const assetBase = requestUrl.hostname === "api.henry.ink" ? "https://api.henry.ink" : requestUrl.origin;
-    const linkBase = origin === "https://henry.ink" ? "https://henry.ink" : undefined;
-    const archive = await createArchive(url, assetBase, linkBase);
-    registerArchiveAssets(archive);
-    return Response.json(archive, {
-      headers: {
-        ...cors,
-        // Output varies by Origin, and proxy permissions are process-local.
-        Vary: "Origin",
-        "Cache-Control": "no-store",
-        "Cloudflare-CDN-Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  } catch (error) { return errorResponse(error, cors); }
+export function createArchiveHandler(service: typeof createArchive = createArchive) {
+  return async (req: Request): Promise<Response> => {
+    const origin = req.headers.get("Origin") || "";
+    const cors = getCorsHeaders(origin);
+    if (req.signal.aborted) return errorResponse(new ArchiveFetchError('Archive request cancelled', 499), cors);
+    const ip = clientIp(req);
+    if (!archiveReadLimiter.consume(ip)) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors, 1);
+    try {
+      const requestUrl = new URL(req.url);
+      const url = requestUrl.searchParams.get("url");
+      if (!url) return errorResponse(new ArchiveFetchError("Missing url parameter", 400), cors);
+      const error = validateArchiveUrl(url);
+      if (error) return errorResponse(new ArchiveFetchError(error, 403), cors);
+      const assetBase = requestUrl.hostname === "api.henry.ink" ? "https://api.henry.ink" : requestUrl.origin;
+      const linkBase = origin === "https://henry.ink" ? "https://henry.ink" : undefined;
+      const archive = await service(url, assetBase, linkBase, () => {
+        if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
+      });
+      registerArchiveAssets(archive);
+      return Response.json(archive, {
+        headers: {
+          ...cors,
+          // Output varies by Origin; each response renews exact asset permissions.
+          Vary: "Origin",
+          "Cache-Control": "no-store",
+          "Cloudflare-CDN-Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    } catch (error) { return errorResponse(error, cors, 5); }
+  };
 }
+
+export const createArchiveRoute = createArchiveHandler();
 
 export function createAssetProxyHandler(fetcher: PublicFetcher = fetchPublicResource) {
   const pending = new Map<string, Promise<{ resource: PublicResource; contentType: string }>>();

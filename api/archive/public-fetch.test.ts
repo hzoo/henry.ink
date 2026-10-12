@@ -96,6 +96,49 @@ describe("bounded public transport", () => {
     expect(result.headers.get("content-length")).toBe("7");
   });
 
+  test("reports decoded bytes, not compressed wire bytes, exactly once", async () => {
+    const body = "article".repeat(100);
+    const compressed = gzipSync(body);
+    let reported = 0;
+    const fetcher = createPublicFetcher(publicDns, async () => response(compressed, { "content-encoding": "gzip" }));
+    const result = await fetcher("https://example.com", { ...options, onBytes(bytes) { reported += bytes; } });
+    expect(result.body.length).toBe(body.length);
+    expect(reported).toBe(body.length);
+    expect(reported).toBeGreaterThan(compressed.length);
+  });
+
+  test("a shared decoded-byte budget stops reads and destroys the source immediately", async () => {
+    const stream = Object.assign(new PassThrough(), { headers: {}, statusCode: 200 }) as unknown as IncomingMessage;
+    const fetcher = createPublicFetcher(publicDns, async () => stream);
+    let reported = 0;
+    const overflow = new ArchiveFetchError("Shared budget exhausted", 413);
+    const result = fetcher("https://example.com", {
+      ...options,
+      onBytes(bytes) {
+        reported += bytes;
+        if (reported > 8) throw overflow;
+      },
+    });
+    const failure = result.catch(error => error);
+    // Leave the stream open: rejection must not wait for the rest of the body.
+    (stream as unknown as PassThrough).write(Buffer.alloc(9));
+    expect(await failure).toBe(overflow);
+    expect(reported).toBe(9);
+    expect(stream.destroyed).toBe(true);
+  });
+
+  test("callback rejection after decompression destroys the wire stream", async () => {
+    const stream = response(gzipSync("x".repeat(500)), { "content-encoding": "gzip" });
+    const fetcher = createPublicFetcher(publicDns, async () => stream);
+    const overflow = new ArchiveFetchError("Shared budget exhausted", 413);
+    let reported = 0;
+    await expect(fetcher("https://example.com", {
+      ...options, onBytes(bytes) { reported += bytes; throw overflow; },
+    })).rejects.toBe(overflow);
+    expect(reported).toBe(500);
+    expect(stream.destroyed).toBe(true);
+  });
+
   test("deadline covers stalled DNS and stalled response bodies", async () => {
     const stalledDns = createPublicFetcher(() => new Promise(() => {}));
     await expect(stalledDns("https://example.com", { ...options, timeoutMs: 15 })).rejects.toBeInstanceOf(ArchiveFetchError);

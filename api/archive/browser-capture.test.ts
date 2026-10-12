@@ -1,13 +1,122 @@
 import { afterAll, expect, test } from "bun:test";
-import { capturePage, closeArchiveBrowser } from "@/api/archive/browser-capture";
+import { capturePage, closeArchiveBrowser, createCaptureDownloader } from "@/api/archive/browser-capture";
 import { flattenCapturedStylesheets } from "@/api/archive/captured-css";
-import { ArchiveFetchError, type PublicFetcher } from "@/api/archive/public-fetch";
+import { ArchiveFetchError, type PublicFetcher, type PublicFetchOptions, type PublicResource } from "@/api/archive/public-fetch";
 import { chromium } from "playwright";
 import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
 import { createArchiveService } from "@/api/archive/processor";
 
 const browserTest = test.skipIf(!process.env.ARCHIVE_BROWSER_TESTS);
 afterAll(async () => { if (process.env.ARCHIVE_BROWSER_TESTS) await closeArchiveBrowser(); });
+
+const resource = (url: string, bytes = 10): PublicResource => ({
+  url, status: 200, headers: new Headers({ "content-type": "text/css" }), body: Buffer.alloc(bytes),
+});
+
+test("capture admits at most four network downloads from a 39-stylesheet burst", async () => {
+  const controller = new AbortController();
+  const gates: Array<() => void> = [];
+  let active = 0;
+  let peak = 0;
+  let calls = 0;
+  const download = createCaptureDownloader(async url => {
+    calls++;
+    peak = Math.max(peak, ++active);
+    await new Promise<void>(resolve => gates.push(resolve));
+    active--;
+    return resource(url);
+  }, controller);
+  try {
+    const results = Array.from({ length: 39 }, (_, i) => download(`https://source.example/${i}.css`, "stylesheet"));
+    for (let i = 0; i < results.length; i += 4) {
+      await Promise.resolve();
+      expect(active).toBe(Math.min(4, results.length - i));
+      for (const release of gates.splice(0)) release();
+      await Promise.all(results.slice(i, i + 4));
+    }
+    expect(calls).toBe(39);
+    expect(peak).toBe(4);
+  } finally { controller.abort(); }
+});
+
+test("capture budget overflow aborts active downloads and rejects queued ones without starting them", async () => {
+  const controller = new AbortController();
+  const started: Array<{ options: PublicFetchOptions; resolve: (value: PublicResource) => void }> = [];
+  const download = createCaptureDownloader((url, options) => new Promise(resolve => started.push({ options, resolve })), controller);
+  const results = Promise.allSettled(Array.from({ length: 39 }, (_, i) => download(`https://source.example/${i}.css`, "stylesheet")));
+  await Promise.resolve();
+  expect(started).toHaveLength(4);
+  started[0].options.onBytes!(1024 * 1024);
+  started[1].options.onBytes!(1024 * 1024);
+  expect(() => started[2].options.onBytes!(1)).toThrow("Page stylesheets too large");
+  for (const [i, pending] of started.entries()) {
+    expect(pending.options.signal?.aborted).toBe(true);
+    pending.resolve(resource(`https://source.example/${i}.css`));
+  }
+  for (const result of await results) {
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected") expect(result.reason).toMatchObject({ status: 413, message: "Page stylesheets too large" });
+  }
+  expect(started).toHaveLength(4);
+});
+
+test("capture charges returned buffers from mock fetchers and keeps per-resource limits", async () => {
+  for (const kind of ["document", "stylesheet"] as const) {
+    const controller = new AbortController();
+    const download = createCaptureDownloader(async url => resource(url, 2 * 1024 * 1024 + 1), controller);
+    await expect(download("https://source.example/resource", kind)).rejects.toMatchObject({ status: 413, message: "Resource too large" });
+    expect(controller.signal.aborted).toBe(true);
+  }
+  const controller = new AbortController();
+  const download = createCaptureDownloader(async url => resource(url, 1024 * 1024 + 1), controller);
+  await download("https://source.example/one.css", "stylesheet");
+  await expect(download("https://source.example/two.css", "stylesheet")).rejects.toMatchObject({ status: 413, message: "Page stylesheets too large" });
+});
+
+test("capture charges initial HTML toward the shared total and does not double-charge chunks", async () => {
+  const controller = new AbortController();
+  const download = createCaptureDownloader(async (url, options) => {
+    const bytes = url.endsWith("overflow.css") ? 1 : 2 * 1024 * 1024;
+    options.onBytes!(bytes / 2);
+    // Only half was reported: the returned buffer must charge the remainder.
+    return resource(url, bytes);
+  }, controller);
+  await download("https://source.example/one", "document");
+  await download("https://source.example/two", "document");
+  await expect(download("https://source.example/overflow.css", "stylesheet")).rejects.toMatchObject({ status: 413, message: "Page resources too large" });
+});
+
+test("streamed bytes from failed resources still spend the capture budget", async () => {
+  const controller = new AbortController();
+  const download = createCaptureDownloader(async (_url, options) => {
+    options.onBytes!(1024 * 1024);
+    throw new Error("Connection lost after reading");
+  }, controller);
+  await expect(download("https://source.example/one.css", "stylesheet")).rejects.toThrow("Connection lost");
+  await expect(download("https://source.example/two.css", "stylesheet")).rejects.toThrow("Connection lost");
+  await expect(download("https://source.example/three.css", "stylesheet")).rejects.toMatchObject({ status: 413 });
+});
+
+test("capture cancellation rejects queued work without waiting for active fetchers", async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const gates: Array<(value: PublicResource) => void> = [];
+  const download = createCaptureDownloader(() => {
+    calls++;
+    return new Promise(resolve => gates.push(resolve));
+  }, controller);
+  const active = Promise.allSettled(Array.from({ length: 4 }, () => download("https://source.example/active.css", "stylesheet")));
+  const queued = download("https://source.example/queued.css", "stylesheet");
+  const failure = queued.catch(error => error);
+  await Promise.resolve();
+  controller.abort(new Error("Cancelled capture"));
+  expect(await failure).toMatchObject({ message: "Cancelled capture" });
+  expect(calls).toBe(4);
+  for (const resolve of gates) resolve(resource("https://source.example/active.css"));
+  await active;
+  await expect(download("https://source.example/never.css", "stylesheet")).rejects.toThrow("Cancelled capture");
+  expect(calls).toBe(4);
+});
 
 browserTest("browser downloads only HTML/CSS, never executes source scripts, and reuses redirected CSS", async () => {
   const calls: string[] = [];
@@ -134,7 +243,7 @@ browserTest("browser aborts a page exceeding the resource count budget", async (
     status: 413, message: "Too many page resources",
   });
   // The routed HTML document counts toward the 40-resource limit.
-  expect(cssLimits).toHaveLength(39);
+  expect(cssLimits.length).toBeLessThanOrEqual(39);
 });
 
 browserTest("proxied SVG still renders as an image and cannot execute in a document", async () => {

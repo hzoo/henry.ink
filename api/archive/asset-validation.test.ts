@@ -13,7 +13,7 @@ describe("asset validation", () => {
   test('accepts signature-checked embedded fonts but not HTML, SVG or mislabeled bytes', () => {
     const font = Buffer.from('wOFFfont').toString('base64');
     expect(validatedEmbeddedFont(`data:application/x-font-woff;charset=utf-8;base64,${font}`)).toBe(`data:font/woff;base64,${font}`);
-    expect(validatedEmbeddedFont(`data:font/woff2;base64,${font}`)).toBeUndefined();
+    expect(validatedEmbeddedFont(`data:font/woff2;base64,${font}`)).toBe(`data:font/woff;base64,${font}`);
     expect(validatedEmbeddedFont(`data:font/woff;base64,${Buffer.from('<script>evil()</script>').toString('base64')}`)).toBeUndefined();
     expect(validatedEmbeddedFont(`data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64')}`)).toBeUndefined();
   });
@@ -32,10 +32,31 @@ describe("asset validation", () => {
     oversized.write("wOF2");
     expect(() => validateAsset(makeResource(oversized, "font/woff2"))).toThrow("too large");
   });
+  test("normalizes mislabeled font formats without accepting cross-family mismatches", () => {
+    const otf = Buffer.from("OTTOfont");
+    expect(validateAsset(makeResource(otf, "font/woff2"))).toBe("font/otf");
+    expect(() => validateAsset(makeResource(otf, "text/html"))).toThrow("content type");
+    expect(() => validateAsset(makeResource(otf, "image/png"))).toThrow("content type");
+    expect(() => validateAsset(makeResource(png, "font/woff2"))).toThrow("content type");
+    expect(() => validateAsset(makeResource(Buffer.from("<html>font</html>"), "font/woff2"))).toThrow();
+  });
   test("requires valid SVG XML without entity declarations", () => {
     expect(validateAsset(makeResource(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>'), "image/svg+xml"))).toBe("image/svg+xml");
     for (const source of ['<html/>', '<svg', '<!DOCTYPE svg><svg xmlns="http://www.w3.org/2000/svg"/>']) {
       expect(() => validateAsset(makeResource(Buffer.from(source), "image/svg+xml"))).toThrow();
+    }
+  });
+  test('bounds SVG depth, element count, and attributes before allocating a DOM', () => {
+    const svg = (content: string) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg">${content}</svg>`);
+    for (const content of [
+      '<g>'.repeat(10_000) + '</g>'.repeat(10_000),
+      '<path/>'.repeat(10_000),
+      `<path ${Array.from({ length: 129 }, (_, i) => `a${i}="x"`).join(' ')}/>`]) {
+      expect(() => validateAsset(makeResource(svg(content), 'image/svg+xml'))).toThrow('Invalid SVG');
+    }
+    expect(validateAsset(makeResource(svg('<g>'.repeat(63) + '</g>'.repeat(63)), 'image/svg+xml'))).toBe('image/svg+xml');
+    for (const content of ['<g></path>', '<g x="1" x="2"/>', '<g>&unknown;</g>', '<g:unknown/>']) {
+      expect(() => validateAsset(makeResource(svg(content), 'image/svg+xml'))).toThrow('Invalid SVG');
     }
   });
 });

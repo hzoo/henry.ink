@@ -1,5 +1,9 @@
 import type { YoutubeTranscriptResponse, TranscriptResponse } from "@/src/lib/youtube-transcript-types";
-import { getCorsHeaders, optionsResponse } from '../cors';
+import { getCorsHeaders, optionsResponse } from '@/api/cors';
+import {
+  CAPTIONS_MAX_BYTES, fetchText, REQUEST_TIMEOUT_MS, WATCH_MAX_BYTES,
+  type Fetcher,
+} from '@/api/youtube/upstream';
 
 class YoutubeTranscriptError extends Error {
   constructor(message: string) {
@@ -49,42 +53,71 @@ class YoutubeTranscriptEmptyError extends YoutubeTranscriptError {
   }
 }
 
-const RE_YOUTUBE =
-  /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+const RE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const RE_LANGUAGE = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
+
+function retrieveVideoId(input: string): string | undefined {
+  if (RE_VIDEO_ID.test(input)) return input;
+  if (input.length > 2048) return undefined;
+  try {
+    // Keep accepting bare youtube.com/... and youtu.be/... links.
+    const url = new URL(input.includes('://') ? input : `https://${input}`);
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) return undefined;
+    let id: string | null | undefined;
+    if (url.hostname === 'youtu.be') {
+      id = url.pathname.match(/^\/([A-Za-z0-9_-]{11})\/?$/)?.[1];
+    } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(url.hostname)) {
+      id = url.pathname === '/watch' ? url.searchParams.get('v') :
+        url.pathname.match(/^\/(?:embed|shorts|live|v|e)\/([A-Za-z0-9_-]{11})\/?$/)?.[1];
+    }
+    return id && RE_VIDEO_ID.test(id) ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function validateCaptionUrl(input: string): string {
+  const url = new URL(input);
+  const allowed = (['www.youtube.com', 'youtube.com'].includes(url.hostname) && url.pathname === '/api/timedtext') ||
+    (url.hostname === 'video.google.com' && url.pathname === '/timedtext');
+  if (!allowed || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) {
+    throw new Error('Invalid YouTube caption URL');
+  }
+  return url.href;
+}
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36,gzip(gfe)';
 const RE_XML_TRANSCRIPT =
   /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
 
 class YoutubeTranscript {
-  public static async fetchTranscript(
+  constructor(private fetcher: Fetcher, private signal: AbortSignal) {}
+
+  public async fetchTranscript(
     videoId: string,
     config?: { lang?: string }
-  ): Promise<TranscriptResponse[]> {
+  ): Promise<{ transcript: TranscriptResponse[]; title?: string }> {
+    const videoPageBody = await fetchText(
+      `https://www.youtube.com/watch?v=${videoId}`,
+      { headers: {
+        ...(config?.lang && { 'Accept-Language': config.lang }),
+        'User-Agent': USER_AGENT,
+      } },
+      WATCH_MAX_BYTES, this.signal, this.fetcher,
+    );
+    const title = getVideoTitle(videoPageBody);
     try {
-      return await this.fetchTranscriptWithHtmlScraping(videoId, config);
+      return { title, transcript: await this.fetchTranscriptWithHtmlScraping(videoPageBody, videoId, config) };
     } catch (e) {
       if (e instanceof YoutubeTranscriptEmptyError) {
-        return await this.fetchTranscriptWithInnerTube(videoId, config);
+        return { title, transcript: await this.fetchTranscriptWithInnerTube(videoId, config) };
       } else {
         throw e;
       }
     }
   }
 
-  private static async fetchTranscriptWithHtmlScraping(videoId: string, config?: { lang?: string }) {
-    const identifier = this.retrieveVideoId(videoId);
-    const videoPageResponse = await fetch(
-      `https://www.youtube.com/watch?v=${identifier}`,
-      {
-        headers: {
-          ...(config?.lang && { 'Accept-Language': config.lang }),
-          'User-Agent': USER_AGENT,
-        },
-      }
-    );
-    const videoPageBody = await videoPageResponse.text();
-
+  private async fetchTranscriptWithHtmlScraping(videoPageBody: string, videoId: string, config?: { lang?: string }) {
     const splittedHTML = videoPageBody.split('"captions":');
 
     if (splittedHTML.length <= 1) {
@@ -120,18 +153,17 @@ class YoutubeTranscript {
     return processedTranscript;
   }
 
-  private static async fetchTranscriptWithInnerTube(
+  private async fetchTranscriptWithInnerTube(
     videoId: string,
     config?: { lang?: string }
   ): Promise<TranscriptResponse[]> {
-    const identifier = this.retrieveVideoId(videoId);
     const options = {
       method: 'POST',
       headers: {
         ...(config?.lang && { 'Accept-Language': config.lang }),
         'Content-Type': 'application/json',
         Origin: 'https://www.youtube.com',
-        Referer: `https://www.youtube.com/watch?v=${identifier}`
+        Referer: `https://www.youtube.com/watch?v=${videoId}`
       },
       body: JSON.stringify({
         context: {
@@ -141,16 +173,16 @@ class YoutubeTranscript {
             userAgent: USER_AGENT
           }
         },
-        videoId: identifier,
+        videoId,
       }),
     } satisfies RequestInit;
 
-    const innerTubeApiResponse = await fetch(
+    const innerTubeApiBody = await fetchText(
       'https://www.youtube.com/youtubei/v1/player',
-      options
+      options, CAPTIONS_MAX_BYTES, this.signal, this.fetcher,
     );
 
-    const json = await innerTubeApiResponse.json();
+    const json = JSON.parse(innerTubeApiBody);
     const captions = json?.captions?.playerCaptionsTracklistRenderer;
 
     const processedTranscript = await this.processTranscriptFromCaptions(
@@ -166,7 +198,7 @@ class YoutubeTranscript {
     return processedTranscript;
   }
 
-  private static async processTranscriptFromCaptions(
+  private async processTranscriptFromCaptions(
     captions: any,
     videoId: string,
     config?: { lang?: string }
@@ -175,7 +207,9 @@ class YoutubeTranscript {
       throw new YoutubeTranscriptDisabledError(videoId);
     }
 
-    if (!('captionTracks' in captions)) {
+    if (!Array.isArray(captions.captionTracks) || !captions.captionTracks.length ||
+        !captions.captionTracks.every((track: any) => track &&
+          typeof track.languageCode === 'string' && typeof track.baseUrl === 'string')) {
       throw new YoutubeTranscriptNotAvailableError(videoId);
     }
 
@@ -200,61 +234,38 @@ class YoutubeTranscript {
         : captions.captionTracks[0]
     ).baseUrl;
 
-    const transcriptResponse = await fetch(transcriptURL, {
+    const transcriptBody = await fetchText(validateCaptionUrl(transcriptURL), {
       headers: {
         ...(config?.lang && { 'Accept-Language': config.lang }),
         'User-Agent': USER_AGENT,
       },
-    });
-    if (!transcriptResponse.ok) {
-      throw new YoutubeTranscriptNotAvailableError(videoId);
-    }
-    const transcriptBody = await transcriptResponse.text();
+    }, CAPTIONS_MAX_BYTES, this.signal, this.fetcher);
     const results = [...transcriptBody.matchAll(RE_XML_TRANSCRIPT)];
     const languageCode = config?.lang ?? captions.captionTracks[0]?.languageCode;
 
-    return results.map((result) => ({
-      text: result[3],
-      duration: parseFloat(result[2]),
-      offset: parseFloat(result[1]),
-      lang: languageCode,
-    }));
-  }
-
-  private static retrieveVideoId(videoId: string) {
-    if (videoId.length === 11) {
-      return videoId;
-    }
-    const matchId = videoId.match(RE_YOUTUBE);
-    if (matchId && matchId.length) {
-      return matchId[1];
-    }
-    throw new YoutubeTranscriptError(
-      'Impossible to retrieve Youtube video ID.'
-    );
+    return results.map((result) => {
+      const duration = Number(result[2]);
+      const offset = Number(result[1]);
+      if (!result[1].trim() || !result[2].trim() || !Number.isFinite(duration) ||
+          !Number.isFinite(offset) || duration < 0 || offset < 0) {
+        throw new Error('Invalid YouTube caption timing');
+      }
+      return { text: result[3], duration, offset, lang: languageCode };
+    });
   }
 }
 
-async function getVideoTitle(videoId: string): Promise<string | undefined> {
-  try {
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: { 'User-Agent': USER_AGENT },
-    });
-    const html = await response.text();
+function getVideoTitle(html: string): string | undefined {
+  const titleMatches = [
+    html.match(/<meta property="og:title" content="([^"]+)"/),
+    html.match(/<meta name="title" content="([^"]+)"/),
+    html.match(/<title>([^<]+)<\/title>/),
+  ];
 
-    const titleMatches = [
-      html.match(/<meta property="og:title" content="([^"]+)"/),
-      html.match(/<meta name="title" content="([^"]+)"/),
-      html.match(/<title>([^<]+)<\/title>/),
-    ];
-
-    for (const match of titleMatches) {
-      if (match) {
-        return match[1].replace(' - YouTube', '').trim();
-      }
+  for (const match of titleMatches) {
+    if (match) {
+      return match[1].replace(' - YouTube', '').trim();
     }
-  } catch (e) {
-    console.warn('Failed to extract video title:', e);
   }
   return undefined;
 }
@@ -264,14 +275,6 @@ const MAX_CACHE_SIZE = 200;
 const inMemoryCache = new Map<string, { data: YoutubeTranscriptResponse; expires: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// Periodic cleanup of expired entries (not on hot path)
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of inMemoryCache) {
-    if (v.expires <= now) inMemoryCache.delete(k);
-  }
-}, CACHE_TTL_MS);
-
 function cleanTranscript(transcript: TranscriptResponse[]): TranscriptResponse[] {
   return transcript.map((item) => ({
     ...item,
@@ -279,7 +282,8 @@ function cleanTranscript(transcript: TranscriptResponse[]): TranscriptResponse[]
   }));
 }
 
-async function fetchTranscriptData(videoId: string, lang: string): Promise<YoutubeTranscriptResponse> {
+async function fetchTranscriptData(videoId: string, lang: string, signal: AbortSignal, fetcher: Fetcher): Promise<YoutubeTranscriptResponse> {
+  signal.throwIfAborted();
   const cacheKey = `${videoId}:${lang}`;
   const now = Date.now();
   const cached = inMemoryCache.get(cacheKey);
@@ -287,9 +291,9 @@ async function fetchTranscriptData(videoId: string, lang: string): Promise<Youtu
     return cached.data;
   }
 
-  const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang });
+  const { transcript, title } = await new YoutubeTranscript(fetcher, signal).fetchTranscript(videoId, { lang });
+  signal.throwIfAborted();
   const cleanedTranscript = cleanTranscript(transcript);
-  const title = await getVideoTitle(videoId);
 
   const response: YoutubeTranscriptResponse = {
     videoId,
@@ -297,14 +301,19 @@ async function fetchTranscriptData(videoId: string, lang: string): Promise<Youtu
     transcript: cleanedTranscript,
   };
 
-  // Evict oldest if at capacity (expired entries cleaned by interval)
+  // Remove expired entries on writes; no process-wide cleanup timer is needed.
+  const completedAt = Date.now();
+  for (const [key, entry] of inMemoryCache) {
+    if (entry.expires <= completedAt) inMemoryCache.delete(key);
+  }
+  // Evict oldest if at capacity.
   if (inMemoryCache.size >= MAX_CACHE_SIZE) {
     const oldest = inMemoryCache.keys().next().value;
     if (oldest) inMemoryCache.delete(oldest);
   }
   inMemoryCache.set(cacheKey, {
     data: response,
-    expires: now + CACHE_TTL_MS,
+    expires: completedAt + CACHE_TTL_MS,
   });
 
   return response;
@@ -312,7 +321,7 @@ async function fetchTranscriptData(videoId: string, lang: string): Promise<Youtu
 
 export { optionsResponse as youtubeTranscriptOptionsRoute };
 
-export async function youtubeTranscriptRoute(req: Request): Promise<Response> {
+export async function youtubeTranscriptRoute(req: Request, fetcher: Fetcher = fetch): Promise<Response> {
   const requestUrl = new URL(req.url);
   const origin = req.headers.get('Origin') || '';
   const headers = {
@@ -330,9 +339,20 @@ export async function youtubeTranscriptRoute(req: Request): Promise<Response> {
     );
   }
 
+  const identifier = retrieveVideoId(videoId);
+  if (!identifier || lang.length > 64 || !RE_LANGUAGE.test(lang)) {
+    return new Response(JSON.stringify({
+      videoId, transcript: [], error: !identifier ? 'Invalid videoId parameter' : 'Invalid lang parameter',
+    }), { status: 400, headers });
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const signal = AbortSignal.any([req.signal, controller.signal]);
   try {
-    const data = await fetchTranscriptData(videoId, lang);
-    return new Response(JSON.stringify(data), {
+    const data = await fetchTranscriptData(identifier, lang, signal, fetcher);
+    // Cache by canonical ID, but preserve the caller's videoId in the response.
+    return new Response(JSON.stringify({ ...data, videoId }), {
       status: 200,
       headers: {
         ...headers,
@@ -352,5 +372,7 @@ export async function youtubeTranscriptRoute(req: Request): Promise<Response> {
       status: 500,
       headers,
     });
+  } finally {
+    clearTimeout(timer);
   }
 }

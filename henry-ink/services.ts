@@ -1,16 +1,11 @@
 import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
 import { contentStateSignal, contentModeSignal, contentRevision, type ContentMode } from "@/henry-ink/signals";
-import { requestArchive } from "@/henry-ink/reader/archive-request";
+import { archiveCache } from "@/henry-ink/reader/archive-cache";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
-import type { ArchiveResponse } from "@/api/archive/routes";
 import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
 import "@/henry-ink/embed/youtube";
-
-// Client-side archive cache (avoids re-fetching within a session)
-const MAX_CLIENT_CACHE = 30;
-const archiveClientCache = new Map<string, ArchiveResponse>();
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -100,66 +95,23 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 	}
 
 	contentStateSignal.value = { type: "loading", mode };
-	// Clear fallback banner on new fetch (will be re-set if needed)
 	try {
-		if (mode === 'md') {
-			// Original ji.na flow for markdown content
-			const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
-			const response = await fetch(`${jinaUrl}/${targetUrl}`, { signal });
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Worker error: ${response.status} ${response.statusText}. ${errorText}`,
-				);
-			}
-			const content = await response.text();
-			
-			// Extract title from the content (look for first h1 or title tag)
-			let title = '';
-			try {
-				const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
-								   content.match(/^#\s+(.+)$/m) ||
-								   content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-				if (titleMatch) {
-					title = titleMatch[1].trim();
-				}
-			} catch (e) {
-				// Ignore title extraction errors
-			}
-			
-			if (signal.aborted) return;
-			contentStateSignal.value = { type: "success", url: targetUrl, content, title, mode };
-		} else if (mode === 'archive') {
-			// Check client cache first
-			let archive = archiveClientCache.get(targetUrl);
-
-			if (!archive) {
-				const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-				archive = await requestArchive(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, signal, () => {
-					if (!signal.aborted) contentStateSignal.value = { type: 'loading', mode, message: 'Article service is busy. Waiting to retry...' };
-				});
-				if (signal.aborted) return;
-				if (archiveClientCache.size >= MAX_CLIENT_CACHE) {
-					archiveClientCache.delete(archiveClientCache.keys().next().value!);
-				}
-				archiveClientCache.set(targetUrl, archive);
-			}
-
-			if (signal.aborted) return;
-			contentStateSignal.value = {
-				type: "success",
-				url: targetUrl,
-				content: archive.textContent,
-				resolvedUrl: archive.resolvedUrl,
-				title: archive.title,
-				mode,
-				html: archive.html,
-				css: archive.css,
-				htmlAttrs: archive.htmlAttrs,
-				bodyAttrs: archive.bodyAttrs
-			};
-		}
+		const archive = await archiveCache.read(targetUrl, mode, signal, () => {
+			if (!signal.aborted) contentStateSignal.value = { type: 'loading', mode, message: 'Article service is busy. Waiting to retry...' };
+		});
+		if (signal.aborted) return;
+		contentStateSignal.value = {
+			type: "success",
+			url: targetUrl,
+			content: archive.textContent,
+			resolvedUrl: archive.resolvedUrl,
+			title: archive.title,
+			mode,
+			html: archive.html,
+			css: archive.css,
+			htmlAttrs: archive.htmlAttrs,
+			bodyAttrs: archive.bodyAttrs
+		};
 	} catch (e: unknown) {
 		if (signal.aborted) return;
 		console.error("Fetch error:", e);
