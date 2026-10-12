@@ -1,5 +1,3 @@
-import { profileTrailsCount, scrollToElement } from "@/src/lib/trails-signals";
-
 interface Profile {
   displayName?: string;
   handle: string;
@@ -12,15 +10,9 @@ interface Profile {
 
 interface ProfileHeaderProps {
   profile: Profile;
-  username: string;
 }
 
-export function ProfileHeader({ profile, username }: ProfileHeaderProps) {
-  const handleTrailsClick = (e: Event) => {
-    e.preventDefault();
-    scrollToElement('trails');
-  };
-
+export function ProfileHeader({ profile }: ProfileHeaderProps) {
   return (
     <div className="mb-4 pb-6 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-start gap-4">
@@ -68,20 +60,6 @@ export function ProfileHeader({ profile, username }: ProfileHeaderProps) {
               </span>{" "}
               posts
             </span>
-            {profileTrailsCount.value > 0 && (
-              <button
-                onClick={handleTrailsClick}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-1 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {profileTrailsCount.value}
-                </span>{" "}
-                trails
-              </button>
-            )}
           </div>
         </div>
       </div>

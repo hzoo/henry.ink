@@ -1,19 +1,20 @@
 import { useLocation } from "preact-iso";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { useRef, useEffect } from "preact/hooks";
+import { useRef } from "preact/hooks";
 import { signal, useSignalEffect } from "@preact/signals";
 
-import { contentStateSignal, contentModeSignal } from "@/henry-ink/signals";
+import { contentStateSignal, contentModeSignal, contentRevision } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
 import { HighlightController } from "@/src/components/highlights/HighlightController";
 import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
 import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavigationController";
 import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
-import { ArchiveModeWrapper } from "@/henry-ink/components/ArchiveModeWrapper";
+import { ArchiveDocument } from "@/henry-ink/components/ArchiveDocument";
+import { sanitizeReaderHtml, readerDocumentMode } from "@/henry-ink/reader/document";
+import { useReaderNotes } from "@/henry-ink/reader/notes";
+import { currentUrl } from "@/src/lib/messaging";
 import { YouTubePlayer } from "@/henry-ink/components/YouTubePlayer";
-import { injectArchiveCSS, cleanupArchiveCSS } from "@/henry-ink/utils/cssInjection";
-import "@/henry-ink/styles/archive-mode.css";
 
 // Example carousel component
 const examples = [
@@ -124,12 +125,23 @@ export function MarkdownSite() {
 	const contentState = contentStateSignal.value;
 	const contentMode = contentModeSignal.value;
 	const contentRef = useRef<HTMLDivElement>(null);
+	const renderedHtml = useRef<{ mode: 'archive' | 'md'; source: string; doc: Document; html: string } | null>(null);
 	const showLoading = showLoadingSignal.value;
 	const embedContent = contentState.type === 'success' ? contentState.embed : undefined;
+	const prepareHtml = (mode: 'archive' | 'md', source: string) => {
+		const cached = renderedHtml.current;
+		if (cached?.mode === mode && cached.source === source && cached.doc === document) return cached.html;
+		const html = mode === 'archive'
+			? sanitizeReaderHtml(source, document, true)
+			: DOMPurify.sanitize(marked.parse(source) as string);
+		renderedHtml.current = { mode, source, doc: document, html };
+		return html;
+	};
 
 	// Use the custom hooks for URL syncing and content fetching
 	useUrlPathSyncer();
 	useContentFetcher();
+	useReaderNotes();
 
 	// Handle delayed loading state (only show after 300ms)
 	useSignalEffect(() => {
@@ -143,21 +155,8 @@ export function MarkdownSite() {
 		}
 	});
 
-	// Handle CSS injection for archive mode
-	useEffect(() => {
-		if (contentMode === 'archive' && contentState.type === 'success' && contentState.css) {
-			injectArchiveCSS(contentState.css);
-		} else {
-			cleanupArchiveCSS();
-		}
-
-		return () => {
-			cleanupArchiveCSS();
-		};
-	}, [contentMode, contentState]);
-
 	return (
-		<div className="flex-1 h-full flex flex-col min-w-0">
+		<div className="flex-1 h-full min-h-0 flex flex-col min-w-0">
 			{contentState.type === "loading" && showLoading && (
 				<div className="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
@@ -181,10 +180,7 @@ export function MarkdownSite() {
 								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 							/>
 						</svg>
-						Loading content...
-					</div>
-					<div className="text-gray-500 dark:text-gray-400 text-sm">
-						(first time processing a site can take a moment)
+						{contentState.message || 'Loading content...'}
 					</div>
 				</div>
 			)}
@@ -206,13 +202,14 @@ export function MarkdownSite() {
 						<span className="font-medium">Error:</span>
 						<span className="ml-1">{contentState.message}</span>
 					</div>
+					<button className="mt-3 underline text-sm" onClick={() => contentRevision.value++}>Try again</button>
 				</div>
 			)}
 
-			{contentState.type === "success" && (
+			{contentState.type === "success" && contentState.url === currentUrl.value && (
 				<>
 					{/* Content - conditional width based on mode */}
-					<div className={contentMode === 'archive' ? '' : 'max-w-4xl mx-auto'}>
+					<div className={contentMode === 'archive' ? 'flex-1 min-h-0 flex flex-col' : 'max-w-4xl mx-auto'}>
 						{contentMode === 'embed' && embedContent ? (
 							embedContent.provider === 'youtube' ? (
 								<YouTubePlayer
@@ -226,36 +223,28 @@ export function MarkdownSite() {
 								</div>
 							)
 						) : contentMode === 'archive' && contentState.html ? (
-							<ArchiveModeWrapper
-								htmlAttrs={contentState.htmlAttrs}
-								bodyAttrs={contentState.bodyAttrs}
-							>
-								<div className="archive-mode">
 									<ArenaEnhancedContent
-										htmlContent={DOMPurify.sanitize(contentState.html, {
-											USE_PROFILES: { html: true, svg: true },
-											FORBID_TAGS: ['script', 'iframe', 'embed', 'object', 'applet', 'base',
-												'form', 'noscript', 'template', 'math', 'link',
-												'foreignObject', 'animate', 'animateTransform', 'animateMotion', 'set',
-												'use', 'feImage'],
-											FORBID_ATTR: ['formaction', 'xlink:href'],
-										})}
+										htmlContent={prepareHtml('archive', contentState.html)}
 										contentRef={contentRef}
 										mode="archive"
+										renderContent={html => <ArchiveDocument key={contentState.url} html={html} css={contentState.css || ''}
+											documentMode={readerDocumentMode(contentState.html || '')}
+											resolvedUrl={contentState.resolvedUrl}
+											url={currentUrl.value} title={contentState.title} htmlAttrs={contentState.htmlAttrs} bodyAttrs={contentState.bodyAttrs} />}
 									/>
-								</div>
-							</ArchiveModeWrapper>
 						) : (
 							<ArenaEnhancedContent
-								htmlContent={DOMPurify.sanitize(marked.parse(contentState.content) as string)}
+									htmlContent={prepareHtml('md', contentState.content)}
 								contentRef={contentRef}
 								mode="md"
 							/>
 						)}
 					</div>
-					<HighlightController contentRef={contentRef} />
-					<QuotePositionDots contentRef={contentRef} />
-					<ArenaNavigationController contentRef={contentRef} enabled={contentState.type === 'success'} />
+					{contentMode !== 'archive' && <>
+						<HighlightController contentRef={contentRef} />
+						<QuotePositionDots contentRef={contentRef} />
+						<ArenaNavigationController contentRef={contentRef} enabled={true} />
+					</>}
 				</>
 			)}
 

@@ -101,18 +101,20 @@ function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 export function Sidebar({
 	hidePopup = false,
 	autoAllowDomain,
+	hideQuotePopup = false,
 }: {
 	hidePopup?: boolean;
 	autoAllowDomain?: string;
+	hideQuotePopup?: boolean;
 }) {
 	useAtCute();
 
 	return (
-		<div className="flex flex-col h-svh relative">
+		<div className="flex flex-col h-full min-h-0 relative">
 			{!autoAllowDomain && <SidebarHeader />}
 			<SidebarBody autoAllowDomain={autoAllowDomain} />
 			{!hidePopup && <FirstTimePopup />}
-			<QuotePopup />
+			{!hideQuotePopup && <QuotePopup />}
 		</div>
 	);
 }

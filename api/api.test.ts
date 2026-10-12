@@ -1,7 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { getCorsHeaders, optionsResponse } from "./cors";
 import { rewriteAssetUrlsInCSS } from "./archive/processor";
-import { countGraphemes } from "./trails/ingester";
 
 describe("getCorsHeaders", () => {
   test("returns origin for allowed origins", () => {
@@ -9,10 +8,10 @@ describe("getCorsHeaders", () => {
     expect(getCorsHeaders("http://localhost:3003")["Access-Control-Allow-Origin"]).toBe("http://localhost:3003");
   });
 
-  test("returns * for unknown origins", () => {
-    expect(getCorsHeaders("https://evil.com")["Access-Control-Allow-Origin"]).toBe("*");
-    expect(getCorsHeaders("")["Access-Control-Allow-Origin"]).toBe("*");
-    expect(getCorsHeaders()["Access-Control-Allow-Origin"]).toBe("*");
+  test("omits access for unknown origins", () => {
+    expect(getCorsHeaders("https://evil.com")["Access-Control-Allow-Origin"]).toBeUndefined();
+    expect(getCorsHeaders("")["Access-Control-Allow-Origin"]).toBeUndefined();
+    expect(getCorsHeaders()["Access-Control-Allow-Origin"]).toBeUndefined();
   });
 });
 
@@ -46,16 +45,16 @@ describe("rewriteAssetUrlsInCSS", () => {
     expect(result).toContain("api/asset-proxy?url=");
   });
 
-  test("leaves data URIs untouched", () => {
-    const css = `.icon { background: url(data:image/svg+xml;base64,abc); }`;
+  test("preserves raster data URIs", () => {
+    const css = `.icon { background: url(data:image/png;base64,abc); }`;
     const result = rewriteAssetUrlsInCSS(css, base, proxy);
-    expect(result).toBe(css);
+    expect(result).toContain("data:image/png;base64,abc");
   });
 
-  test("leaves non-asset URLs as absolute", () => {
+  test("blocks unknown asset references", () => {
     const css = `.x { background: url('/page'); }`;
     const result = rewriteAssetUrlsInCSS(css, base, proxy);
-    expect(result).toContain("https://example.com/page");
+    expect(result).toContain("about:blank");
     expect(result).not.toContain("asset-proxy");
   });
 
@@ -70,33 +69,6 @@ describe("rewriteAssetUrlsInCSS", () => {
     const result = rewriteAssetUrlsInCSS(css, base, proxy);
     expect(result).not.toContain("asset-proxy");
     expect(result).toContain("use.typekit.net");
-  });
-});
-
-describe("countGraphemes", () => {
-  test("counts ASCII correctly", () => {
-    expect(countGraphemes("hello")).toBe(5);
-    expect(countGraphemes("")).toBe(0);
-  });
-
-  test("counts emoji as single graphemes", () => {
-    expect(countGraphemes("👋")).toBe(1);
-    expect(countGraphemes("👨‍👩‍👧‍👦")).toBe(1); // family emoji = 1 grapheme
-    expect(countGraphemes("hi 👋")).toBe(4); // h, i, space, wave
-  });
-
-  test("counts combined characters correctly", () => {
-    expect(countGraphemes("é")).toBe(1); // precomposed
-    expect(countGraphemes("e\u0301")).toBe(1); // decomposed e + combining accent
-  });
-
-  test("enforces 300 grapheme limit correctly", () => {
-    const under = "a".repeat(300);
-    const over = "a".repeat(301);
-    expect(countGraphemes(under)).toBe(300);
-    expect(countGraphemes(over)).toBe(301);
-    expect(countGraphemes(under) > 300).toBe(false);
-    expect(countGraphemes(over) > 300).toBe(true);
   });
 });
 

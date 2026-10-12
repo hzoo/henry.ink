@@ -11,6 +11,9 @@ import { QuotePopup } from "@/src/components/QuotePopup";
 import { contentStateSignal, activeTabSignal, arenaViewModeSignal } from "@/henry-ink/signals";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import type { ArenaMatch } from "@/src/lib/arena-types";
+import { MarginNotes } from "@/henry-ink/components/MarginNotes";
+import { ReaderIcon } from "@/src/components/ReaderIcon";
+import { ProviderLogo } from "@/src/components/ProviderLogo";
 
 interface TabbedSidebarProps {
 	hidePopup?: boolean;
@@ -42,51 +45,60 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	};
 
 	return (
-		<div className="flex flex-col h-full relative lg:bg-transparent bg-gray-50 dark:bg-gray-950">
+		<div className="flex flex-col h-full relative bg-white dark:bg-gray-900">
 			{/* Tab Navigation with inline controls */}
-			<div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
-				<div className="flex items-stretch">
+			<div className="flex-shrink-0 px-2 py-1.5 border-b border-gray-100 dark:border-gray-800">
+				<div className="flex items-center rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800" role="group" aria-label="Discussion source">
+					<button onClick={() => activeTabSignal.value = 'notes'}
+						aria-pressed={activeTabSignal.value === 'notes'}
+						className={`flex flex-1 min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-gray-500 ${activeTabSignal.value === 'notes' ? 'bg-white shadow-sm text-gray-950 dark:bg-gray-700 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white'}`}>
+						<ReaderIcon name="highlight" /> Notes
+					</button>
 					<button
 						onClick={() => (activeTabSignal.value = 'bluesky')}
-						className={`flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 transition-colors ${
+						aria-pressed={activeTabSignal.value === 'bluesky'}
+						className={`flex flex-1 min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-gray-500 transition-colors ${
 							activeTabSignal.value === 'bluesky'
-								? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-								: 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+								? 'bg-white shadow-sm text-gray-950 dark:bg-gray-700 dark:text-white'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white'
 						}`}
 					>
-						Bluesky
+						<ProviderLogo provider="Bluesky" /> Bluesky
 					</button>
 					<button
 						onClick={() => (activeTabSignal.value = 'arena')}
-						className={`flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 transition-colors ${
+						aria-pressed={activeTabSignal.value === 'arena'}
+						className={`flex flex-1 min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-gray-500 transition-colors ${
 							activeTabSignal.value === 'arena'
-								? 'border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
-								: 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+								? 'bg-white shadow-sm text-gray-950 dark:bg-gray-700 dark:text-white'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white'
 						}`}
 					>
-						Arena
+						<ReaderIcon name="grid" /> Arena
 						{arenaMatches.length > 0 && (
-							<span className="ml-1.5 text-xs opacity-60">{arenaMatches.length}</span>
+							<span className="text-[10px] tabular-nums opacity-60">{arenaMatches.length}</span>
 						)}
 					</button>
 
 					{/* Inline controls */}
-					<div className="flex items-center px-2 gap-1 border-b-2 border-transparent">
+				</div>
+					<div className="flex items-center justify-end empty:hidden">
 						{activeTabSignal.value === 'bluesky' ? (
 							<button
 								onClick={handleRefresh}
-								className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+								className="inline-flex min-h-10 min-w-10 items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-lg focus-visible:outline-2 focus-visible:outline-gray-500"
 								title={cacheTimeAgo.value ? `Cached ${getTimeAgo(cacheTimeAgo.value)} — click to refresh` : "Refresh Bluesky discussions"}
 							>
 								<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 								</svg>
 							</button>
-						) : (
+						) : activeTabSignal.value === 'arena' ? (
 							<>
 								<button
 									onClick={() => arenaViewModeSignal.value = arenaViewModeSignal.value === 'preview' ? 'compact' : 'preview'}
-									className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+									className="inline-flex min-h-10 min-w-10 items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-lg focus-visible:outline-2 focus-visible:outline-gray-500"
+									aria-pressed={arenaViewModeSignal.value === 'preview'}
 									title={arenaViewModeSignal.value === 'preview' ? 'Switch to compact view' : 'Switch to preview mode'}
 								>
 									{arenaViewModeSignal.value === 'preview' ? (
@@ -101,7 +113,7 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 								</button>
 								<button
 									onClick={handleArenaRefresh}
-									className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+									className="inline-flex min-h-10 min-w-10 items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-lg focus-visible:outline-2 focus-visible:outline-gray-500"
 									title="Refresh Arena channels"
 								>
 									<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,20 +121,19 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 									</svg>
 								</button>
 							</>
-						)}
+						) : null}
 					</div>
-				</div>
 			</div>
 
 			{/* Tab Content */}
-			{activeTabSignal.value === 'bluesky' && (
-				<div className="flex-1 overflow-hidden">
+				<div className="flex-1 min-h-0 overflow-hidden" hidden={activeTabSignal.value !== 'bluesky'}>
 					<Sidebar
 						hidePopup={true}
+						hideQuotePopup={true}
 						autoAllowDomain={autoAllowDomain}
 					/>
 				</div>
-			)}
+			{activeTabSignal.value === 'notes' && <div class="flex-1 min-h-0 overflow-hidden"><MarginNotes /></div>}
 
 			{activeTabSignal.value === 'arena' && <ArenaSidebar />}
 

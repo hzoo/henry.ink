@@ -1,42 +1,25 @@
-import { chromium, type Browser, devices } from "playwright";
 import { JSDOM, VirtualConsole } from "jsdom";
 import { transform } from "lightningcss";
-import { isTrustedCDN } from "./trusted-cdns";
-
-// Reuse a single browser instance for efficiency
-let sharedBrowserPromise: Promise<Browser> | null = null;
-async function getSharedBrowser(): Promise<Browser> {
-  if (!sharedBrowserPromise) {
-    sharedBrowserPromise = chromium.launch({ 
-      headless: true,
-      channel: 'chrome'
-    });
-  }
-  return sharedBrowserPromise;
-}
-
-// Bounded in-memory cache for archived pages (15 minute TTL, max 50 entries)
-const MAX_CACHE_SIZE = 50;
-const archiveCache = new Map<string, { result: ArchiveResult; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-
-// Clean up old cache entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [url, entry] of archiveCache.entries()) {
-    if (now - entry.timestamp > CACHE_TTL) {
-      archiveCache.delete(url);
-    }
-  }
-}, CACHE_TTL);
+import { isTrustedCDN } from "@/api/archive/trusted-cdns";
+import { capturePage } from "@/api/archive/browser-capture";
+import { archiveCacheKey, SnapshotCache } from "@/api/archive/snapshot-cache";
+import { rewriteSrcset } from "@/api/archive/srcset";
+import { readerDocumentMode, READER_DOCTYPES } from "@/src/lib/archive-document-mode";
+import { validatedEmbeddedFont } from "@/api/archive/asset-validation";
 
 // Dangerous URI schemes — allow data:image/ for inline images, block everything else
 // Block data:image/svg+xml specifically (SVGs can contain scripts)
-const DANGEROUS_URI_RE = /^\s*(javascript|vbscript|blob)\s*:/i;
+const DANGEROUS_URI_RE = /^(javascript|vbscript|blob):/i;
 const DANGEROUS_DATA_URI_RE = /^\s*data\s*:(?!image\/(?!svg\+xml))/i;
 
 // Sanitize a JSDOM document in-place: strip scripts, dangerous elements, event handlers
 function sanitizeDocument(document: Document): void {
+  // Legacy pages sometimes wrap article text in forms. Remove submission
+  // controls and unwrap the form, not the readable content inside it.
+  document.querySelectorAll('form').forEach(form => {
+    form.querySelectorAll('input, select, textarea, button').forEach(control => control.remove());
+    form.replaceWith(...Array.from(form.childNodes));
+  });
   // Remove dangerous elements:
   // - script: JS execution
   // - iframe/embed/object/applet: load external content in same origin context
@@ -44,11 +27,10 @@ function sanitizeDocument(document: Document): void {
   // - meta[http-equiv]: redirects, charset overrides
   // - noscript/template: mXSS vectors (JSDOM/browser parser differentials)
   // - math: mXSS vector via annotation-xml
-  // - form: phishing (default action="" submits to current page, formaction on buttons)
   // - link: prefetch/pingback/prerender tracking, icon injection
   document.querySelectorAll(
     'script, iframe, embed, object, applet, base, meta[http-equiv], ' +
-    'noscript, template, math, form, link'
+    'noscript, template, math, link'
   ).forEach((el: Element) => el.remove());
 
   // Sanitize SVGs: keep visual elements, strip anything that can execute code
@@ -78,7 +60,8 @@ function sanitizeDocument(document: Document): void {
 
       // Strip dangerous URI schemes from href, src, action, poster, etc.
       if (['href', 'src', 'action', 'poster', 'formaction', 'xlink:href'].includes(name)) {
-        if (DANGEROUS_URI_RE.test(attr.value) || DANGEROUS_DATA_URI_RE.test(attr.value)) {
+        const uri = attr.value.replace(/[\u0000-\u0020\u007f]/g, '');
+        if (DANGEROUS_URI_RE.test(uri) || DANGEROUS_DATA_URI_RE.test(uri)) {
           attributesToRemove.push(attr.name);
         }
       }
@@ -92,182 +75,83 @@ function sanitizeDocument(document: Document): void {
   });
 }
 
-// Precompiled regex for CSS url() matching
-const CSS_URL_REGEX = /url\((["']?)([^)]+)\1\)/g;
 const FONT_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
 const IMAGE_REGEX = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i;
-const PREMIUM_FONT_REGEX = /\b(use\.typekit\.net|p\.typekit\.net)\b/i;
 
-// Function to rewrite asset URLs (fonts via proxy, Google Fonts direct, background images via proxy)
-// Single-pass replacement: O(n) instead of O(n²)
 export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
-  return css.replace(CSS_URL_REGEX, (fullMatch, quote, originalUrl) => {
-    if (originalUrl.startsWith('data:')) return fullMatch;
-
-    try {
-      const absoluteUrl = new URL(originalUrl, baseUrl).href;
-
-      let replacementUrl: string;
-
-      if (isTrustedCDN(absoluteUrl) || PREMIUM_FONT_REGEX.test(absoluteUrl)) {
-        replacementUrl = absoluteUrl;
-      } else if (FONT_REGEX.test(absoluteUrl) || IMAGE_REGEX.test(absoluteUrl)) {
-        replacementUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-      } else {
-        // Strip unknown url() references (not fonts/images/trusted CDNs)
-        // Prevents tracking pixels via list-style-image, cursor, content, etc.
-        return 'url(about:blank)';
-      }
-
-      return `url(${quote}${replacementUrl}${quote})`;
-    } catch {
-      return 'url(about:blank)';
-    }
-  });
+  if (!css.trim()) return '';
+  if (Buffer.byteLength(css) > 2 * 1024 * 1024) return '';
+  try {
+    return transform({
+      filename: 'assets.css', code: Buffer.from(css), errorRecovery: true,
+      visitor: {
+        Rule: { import() { return []; } },
+        Url(value) {
+          if (value.url.startsWith('#') || /^data:image\/(?:png|jpeg|gif|webp|avif);/i.test(value.url)) return value;
+          if (/^data:/i.test(value.url)) return { ...value, url: validatedEmbeddedFont(value.url) || 'about:blank' };
+          try {
+            const absolute = new URL(value.url, baseUrl);
+            if (absolute.protocol !== 'https:' && absolute.protocol !== 'http:') return { ...value, url: 'about:blank' };
+            if (isTrustedCDN(absolute.href)) return { ...value, url: absolute.href };
+            if (FONT_REGEX.test(absolute.href) || IMAGE_REGEX.test(absolute.href)) {
+              return { ...value, url: `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absolute.href)}` };
+            }
+          } catch { }
+          return { ...value, url: 'about:blank' };
+        },
+      },
+    }).code.toString();
+  } catch { return ''; }
 }
 
-
-
-
-// Function to validate and minify CSS using Lightning CSS (with conservative targets for JSDOM compatibility)
-async function validateAndProcessCSS(css: string): Promise<string | null> {
-  // console.log(`🎨 Processing CSS, length: ${css.length}`);
-
+// Isolation belongs to the sandboxed reader document, not source CSS selectors.
+export async function validateAndProcessCSS(css: string): Promise<string | null> {
   if (!css.trim()) {
-    console.log('❌ Empty CSS provided to validator');
     return null;
   }
 
-  // Strip @import rules before processing (bypass scoping by loading external sheets)
-  css = css.replace(/@import\s+[^;]+;/gi, '/* @import stripped */');
-
-  // Reject oversized CSS entirely — returning unscoped CSS is a security risk
-  const MAX_CSS_SIZE = 2 * 1024 * 1024; // 2MB
-  if (css.length > MAX_CSS_SIZE) {
-    console.log(`⚠️ CSS too large (${Math.round(css.length / 1024 / 1024)}MB), rejecting`);
+  const MAX_CSS_SIZE = 2 * 1024 * 1024;
+  const cssBytes = Buffer.byteLength(css);
+  if (cssBytes > MAX_CSS_SIZE) {
+    console.log(`CSS too large (${Math.round(cssBytes / 1024 / 1024)}MB), rejecting`);
     return null;
   }
 
   try {
-    // Add timeout to CSS processing to prevent hangs
-    const CSS_TIMEOUT = 5000; // 5 seconds
-    const processCSS = async () => {
-      return transform({
-        filename: 'archive-mode.css',
+    // Synchronous parsing is bounded by input size, not by a Promise timer.
+    const result = transform({
+        filename: 'archive.css',
         code: Buffer.from(css),
-        minify: false, // Disable minification to avoid breaking complex selectors
+        minify: false,
         targets: {
-          // Use more modern browser targets to support newer CSS features
           chrome: 109 << 16,
           firefox: 128 << 16,
           safari: 18 << 16,
         },
-        // Additional flags to make CSS more compatible
         unusedSymbols: [],
         errorRecovery: true, // Continue processing even if some CSS is invalid
-        // Add visitor to transform selectors for archive mode scoping
         visitor: {
           Rule: {
-            style(rule) {
-              try {
-                // The rule structure is different - access the actual style rule via rule.value
-                const styleRule = rule.value;
-
-                if (!styleRule || !styleRule.selectors || !Array.isArray(styleRule.selectors)) {
-                  // console.log(`⚠️  StyleRule has no selectors:`, typeof styleRule?.selectors);
-                  return rule;
-                }
-
-                // console.log(`🔍 Processing rule with ${styleRule.selectors.length} selectors`);
-
-                // Transform each selector to add .archive-mode prefix  
-                styleRule.selectors = styleRule.selectors.map(selector => {
-                  // Lightning CSS selectors are arrays of SelectorComponent objects
-
-                  // Transform html/body/root selectors using :where() for zero specificity
-                  let needsTransform = false;
-                  const transformedSelector = selector.map(component => {
-                    if (component.type === 'type') {
-                      if (component.name === 'html') {
-                        needsTransform = true;
-                        // Transform to :where(.archive-mode-html) for zero specificity
-                        return {
-                          type: 'pseudo-class' as const,
-                          kind: 'where' as const,
-                          selectors: [[{ type: 'class' as const, name: 'archive-mode-html' }]]
-                        };
-                      } else if (component.name === 'body') {
-                        needsTransform = true;
-                        // Transform to :where(.archive-mode-body) for zero specificity
-                        return {
-                          type: 'pseudo-class' as const,
-                          kind: 'where' as const,
-                          selectors: [[{ type: 'class' as const, name: 'archive-mode-body' }]]
-                        };
-                      }
-                    } else if (component.type === 'pseudo-class' && component.kind === 'root') {
-                      needsTransform = true;
-                      // console.log(`🔍 Found :root rule - will transform to :where(.archive-mode-html)`);
-                      // Transform :root to :where(.archive-mode-html) for zero specificity
-                      return {
-                        type: 'pseudo-class' as const,
-                        kind: 'where' as const,
-                        selectors: [[{ type: 'class' as const, name: 'archive-mode-html' }]]
-                      };
-                    }
-                    return component;
-                  });
-
-                  if (needsTransform) {
-                    // console.log(`🔄 Transformed html/body/root selector to :where() for zero specificity`);
-                    return transformedSelector;
-                  }
-
-                  // Check if already scoped (first component is .archive-mode class)
-                  if (selector.length > 0 &&
-                    selector[0].type === 'class' &&
-                    (selector[0] as any).name === 'archive-mode') {
-                    // console.log(`✅ Already scoped selector`);
-                    return selector;
-                  }
-
-                  // For all other selectors, prepend .archive-mode class and descendant combinator
-                  const archiveModeClass = { type: 'class' as const, name: 'archive-mode' };
-                  const descendantCombinator = { type: 'combinator' as const, value: 'descendant' as const };
-                  const scopedSelector = [archiveModeClass, descendantCombinator, ...selector];
-
-                  // console.log(`🔄 Adding .archive-mode ancestor prefix`);
-                  return scopedSelector;
-                });
-
-                return rule;
-              } catch (error) {
-                console.log(`❌ Error transforming selector: ${error instanceof Error ? error.message : String(error)}`);
-                // console.log(`❌ Rule structure:`, JSON.stringify(rule, null, 2));
-                return rule;
-              }
-            }
+            import() { return []; },
           }
         }
       });
-    };
 
-    // Race CSS processing against timeout
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('CSS processing timeout')), CSS_TIMEOUT);
-    });
-
-    const result = await Promise.race([processCSS(), timeoutPromise]);
-
-    // console.log(`✅ CSS validation succeeded, output length: ${result.code.toString().length}`);
     return result.code.toString();
 
   } catch (error) {
-    const isTimeout = error instanceof Error && error.message === 'CSS processing timeout';
-    console.log(`❌ CSS ${isTimeout ? 'timeout' : 'failed'}: ${error instanceof Error ? error.message : String(error)}`);
-    // Return null — never return unscoped CSS, it's a security risk
+    console.log(`❌ CSS failed: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
+}
+
+function extractRootAttributes(element: Element): Record<string, string> {
+  const attributes: Record<string, string> = { class: '', style: '' };
+  for (const name of ['class', 'style', 'lang', 'id', 'dir', 'bgcolor', 'text', 'link', 'vlink', 'alink', 'marginwidth', 'marginheight', 'topmargin', 'leftmargin', 'rightmargin', 'bottommargin']) {
+    const value = element.getAttribute(name);
+    if (value !== null) attributes[name] = value;
+  }
+  return attributes;
 }
 
 interface ArchiveResult {
@@ -279,172 +163,45 @@ interface ArchiveResult {
   publishedTime: string;
   domain: string;
   url: string;
+  resolvedUrl: string;
   extractionTime: number;
   contentSize: number;
-  htmlAttrs: {
-    class: string;
-    style: string;
-    lang: string;
-  };
-  bodyAttrs: {
-    class: string;
-    style: string;
+  htmlAttrs: Record<string, string>;
+  bodyAttrs: Record<string, string>;
+}
+
+export function createArchiveService(capture: typeof capturePage = capturePage) {
+  const cache = new SnapshotCache<ArchiveResult>({
+    maxEntries: 50, maxBytes: 32 * 1024 * 1024, ttlMs: 15 * 60 * 1000,
+    concurrency: 2, maxPending: 8,
+    size: result => Buffer.byteLength(JSON.stringify(result)),
+  });
+  return async (url: string, assetProxyBaseUrl = 'http://localhost:3000', linkRewriteBaseUrl?: string): Promise<ArchiveResult> => {
+    const result = await cache.getOrCreate(archiveCacheKey(url, assetProxyBaseUrl, linkRewriteBaseUrl),
+      () => processArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl, capture));
+    return result.url === url ? result : { ...result, url };
   };
 }
 
-export async function createArchive(url: string, assetProxyBaseUrl?: string, linkRewriteBaseUrl?: string): Promise<ArchiveResult> {
+export const createArchive = createArchiveService();
+
+async function processArchive(url: string, assetProxyBaseUrl: string, linkRewriteBaseUrl: string | undefined, capture: typeof capturePage): Promise<ArchiveResult> {
   const startTime = Date.now();
-
-  // Check cache first
-  const cached = archiveCache.get(url);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    console.log(`📦 Archive: ${url} | Cache hit | 0ms`);
-    return cached.result;
-  }
-
-  const browser = await getSharedBrowser();
-  const context = await browser.newContext({
-    ...devices["Desktop Chrome"],
-    // Keep JavaScript enabled to capture dynamic content, but we'll strip it later
-    javaScriptEnabled: true,
-  });
-  const page = await context.newPage();
-
+  const { fullHTMLContent, pageData, cssSources } = await capture(url);
+  const baseUrl = pageData.baseUrl;
+  const pageMetadata = pageData.metadata;
+  const allCSS = cssSources.map(source => {
+    const css = rewriteAssetUrlsInCSS(source.content, source.baseUrl, assetProxyBaseUrl);
+    return source.media ? `@media ${source.media} {\n${css}\n}` : css;
+  }).join('\n');
+  const processedCSS = await validateAndProcessCSS(allCSS);
+  let dom: JSDOM | undefined;
   try {
-    // Load the page and let JavaScript execute
-    await page.goto(url, {
-      waitUntil: "load",
-      timeout: 5000,
-    });
-
-    // Get the full rendered HTML after JavaScript execution
-    const fullHTMLContent = await page.content();
-
-    // Extract all CSS (external and inline) in document order
-    const { allCSS, baseUrl } = await page.evaluate(async () => {
-      // Get all stylesheet-related elements in document order
-      const allStyleElements = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'));
-
-      // Process all CSS elements in parallel
-      const cssPromises = allStyleElements.map(async (element: Element, index: number) => {
-        try {
-          if (element.tagName.toLowerCase() === 'link') {
-            // External stylesheet
-            const link = element as HTMLLinkElement;
-            const href = link.getAttribute('href');
-            if (!href) return { content: '', index };
-
-            // Convert relative URLs to absolute
-            const cssUrl = new URL(href, window.location.href).href;
-            const response = await fetch(cssUrl);
-            if (response.ok) {
-              const cssText = await response.text();
-              return {
-                content: `/* From: ${cssUrl} */\n${cssText}`,
-                index
-              };
-            }
-          } else if (element.tagName.toLowerCase() === 'style') {
-            // Inline style tag
-            const styleElement = element as HTMLStyleElement;
-            const cssText = styleElement.textContent || '';
-            if (cssText.trim()) {
-              return {
-                content: `/* Inline styles */\n${cssText}`,
-                index
-              };
-            }
-          }
-        } catch (error) {
-          console.log(`❌ Failed to process CSS element: ${element.tagName}`);
-        }
-        return { content: '', index };
-      });
-
-      // Wait for all CSS to be fetched in parallel
-      const cssResults = await Promise.all(cssPromises);
-
-      // Sort by original order and filter out empty content
-      const cssContents = cssResults
-        .sort((a, b) => a.index - b.index)
-        .map(result => result.content)
-        .filter(content => content.length > 0);
-
-      return {
-        allCSS: cssContents.join('\n\n'),
-        baseUrl: window.location.href
-      };
-    });
-
-    // Process fonts in the CSS to use asset proxy
-    const fontProcessedCSS = rewriteAssetUrlsInCSS(allCSS, baseUrl, assetProxyBaseUrl || 'http://localhost:3000');
-
-    // Validate and minify CSS with Lightning CSS for security
-    const processedCSS = await validateAndProcessCSS(fontProcessedCSS);
-
-    // Get basic metadata and html/body attributes from the page
-    const pageData = await page.evaluate(() => {
-      const getMeta = (name: string) =>
-        document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute("content") || "";
-
-      const getPublishedTime = () => {
-        const metaTime = getMeta("article:published_time") || getMeta("article:published") || getMeta("datePublished") || getMeta("publish_date");
-        if (metaTime) return metaTime;
-
-        const timeElements = document.querySelectorAll("time[datetime]");
-        if (timeElements.length > 0) {
-          return timeElements[0].getAttribute("datetime") || "";
-        }
-
-        return "";
-      };
-
-      // Extract html and body attributes to preserve styling
-      const htmlAttrs = {
-        class: document.documentElement.className || '',
-        style: document.documentElement.getAttribute('style') || '',
-        lang: document.documentElement.getAttribute('lang') || '',
-      };
-
-      const bodyAttrs = {
-        class: document.body.className || '',
-        style: document.body.getAttribute('style') || '',
-      };
-
-      return {
-        metadata: {
-          title: getMeta("og:title") || document.title,
-          author: getMeta("author") || getMeta("article:author") || "",
-          publishedTime: getPublishedTime(),
-          domain: location.hostname.replace(/^www\./, ""),
-          description: getMeta("description") || getMeta("og:description") || "",
-          image: getMeta("og:image") || "",
-          url: location.href,
-        },
-        htmlAttrs,
-        bodyAttrs,
-      };
-    });
-
-    const pageMetadata = pageData.metadata;
-
-    let finalCSS = processedCSS || '';
-
-    // Check if there are any html/body transformations that need layer consistency
-    const hasHtmlBodyRules = finalCSS.includes(':where(.archive-mode-html)') || finalCSS.includes(':where(.archive-mode-body)');
-
-    if (hasHtmlBodyRules) {
-      finalCSS = finalCSS.replace(
-        /:where\(\.archive-mode-(html|body)\)\s*\{[^}]+\}/g,
-        (match) => `@layer utilities {\n  ${match}\n}`
-      );
-    }
-
     // Single JSDOM pass: strip JS, rewrite assets, extract text — no re-parsing
     const virtualConsole = new VirtualConsole();
     virtualConsole.on("error", () => {});
 
-    const dom = new JSDOM(fullHTMLContent, {
+    dom = new JSDOM(fullHTMLContent, {
       pretendToBeVisual: false,
       virtualConsole,
     });
@@ -463,47 +220,29 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
 
     // Note: link elements already removed by sanitizeDocument
 
+    // Recover declarative lazy images without executing the site's loader.
+    document.querySelectorAll('img, picture source').forEach(element => {
+      for (const name of element.tagName === 'IMG' ? ['src', 'srcset'] : ['srcset']) {
+        if (!element.getAttribute(name) && element.getAttribute(`data-${name}`)) {
+          element.setAttribute(name, element.getAttribute(`data-${name}`)!);
+        }
+      }
+    });
+
     // Convert image URLs to use asset proxy (both img[src] and source[srcset])
     const images = document.querySelectorAll('img[src]');
-    const sources = document.querySelectorAll('source[srcset]');
+    const sources = document.querySelectorAll('source[srcset], img[srcset]');
 
     // console.log(`🖼️ Found ${images.length} img elements and ${sources.length} source elements to process`);
 
     // Helper function to process a single URL
-    const processImageUrl = (url: string, element: Element, attributeName: string) => {
-      if (!url || url.startsWith('data:')) {
-        return url; // Keep data URLs as-is
-      }
-
+    const processImageUrl = (url: string) => {
+      if (/^data:image\/(?:png|jpeg|gif|webp|avif);/i.test(url)) return url;
       try {
-        // Convert to absolute URL first
-        const absoluteUrl = url.startsWith('http') ? url : new URL(url, baseUrl).href;
-
-        // Check if it's a same-origin image (don't proxy our own images)
-        const imageUrl = new URL(absoluteUrl);
-        const requestUrl = new URL(baseUrl);
-
-        if (imageUrl.origin === requestUrl.origin) {
-          // console.log(`ℹ️ Same-origin image, keeping direct: ${absoluteUrl}`);
-          return absoluteUrl;
-        }
-
-        // Skip processing very large images (check URL for size hints)
-        const urlLower = absoluteUrl.toLowerCase();
-        // Simple heuristic: if URL suggests very large image, skip proxying
-        if (urlLower.includes('4k') || urlLower.includes('8k') || urlLower.includes('fullsize') || urlLower.includes('original')) {
-          console.log(`⚠️ Potentially large image detected, using direct URL: ${absoluteUrl}`);
-          return absoluteUrl;
-        }
-
-        // Use asset proxy for external images
-        const proxiedUrl = `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        // console.log(`✅ Proxied external image: ${url} → ${proxiedUrl}`);
-        return proxiedUrl;
-      } catch (error) {
-        console.log(`❌ Invalid image URL: ${url} - ${error instanceof Error ? error.message : String(error)}`);
-        return url; // Return original on error
-      }
+        const absolute = new URL(url, baseUrl);
+        if (absolute.protocol !== 'http:' && absolute.protocol !== 'https:') return '';
+        return `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absolute.href)}`;
+      } catch { return ''; }
     };
 
     // Process img[src] attributes
@@ -512,7 +251,7 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       // console.log(`🖼️ img[${index + 1}]: ${src}`);
 
       if (src) {
-        const processedSrc = processImageUrl(src, img, 'src');
+        const processedSrc = processImageUrl(src);
         img.setAttribute('src', processedSrc);
       }
     });
@@ -523,79 +262,39 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
       // console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
 
       if (srcset) {
-        // Parse srcset format: "url1 w1, url2 w2, ..."
-        const processedSrcset = srcset
-          .split(',')
-          .map((srcItem: string) => {
-            const trimmed = srcItem.trim();
-            const parts = trimmed.split(/\s+/);
-            const url = parts[0];
-            const descriptor = parts.slice(1).join(' '); // width descriptor like "512w"
-
-            const processedUrl = processImageUrl(url, source, 'srcset');
-            return descriptor ? `${processedUrl} ${descriptor}` : processedUrl;
-          })
-          .join(', ');
-
-        source.setAttribute('srcset', processedSrcset);
-        // console.log(`🔄 Updated srcset: ${processedSrcset}`);
+        const processedSrcset = rewriteSrcset(srcset, processImageUrl);
+        if (processedSrcset) source.setAttribute('srcset', processedSrcset);
+        else source.removeAttribute('srcset');
       }
     });
 
-    // Process style attributes for background URLs (background-image, background, etc.)
-    const elementsWithStyle = document.querySelectorAll('[style*="background"]');
-    elementsWithStyle.forEach((element: Element, index: number) => {
-      const style = element.getAttribute('style');
-      if (style) {
-        // console.log(`🎨 Processing style[${index + 1}]: ${style}`);
-
-        // Match all background properties that contain url(...) patterns
-        // This handles: background-image, background, and shorthand properties
-        let updatedStyle = style.replace(
-          /(background(?:-image)?\s*:\s*)([^;]*url\([^)]+\)[^;]*)/gi,
-          (match: string, property: string, value: string) => {
-            // Process all url(...) patterns within this background property
-            const processedValue = value.replace(
-              /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,
-              (urlMatch: string, quote: string, url: string) => {
-                const processedUrl = processImageUrl(url, element, 'style');
-                return `url(${quote}${processedUrl}${quote})`;
-              }
-            );
-            return property + processedValue;
-          }
-        );
-
-        if (updatedStyle !== style) {
-          element.setAttribute('style', updatedStyle);
-          // console.log(`🔄 Updated style: ${updatedStyle}`);
-        }
-      }
+    // Parse all inline declarations, including cursor, mask and content URLs.
+    document.querySelectorAll('[style]').forEach((element: Element) => {
+      const style = element.getAttribute('style') || '';
+      try {
+        const wrapped = rewriteAssetUrlsInCSS(`x {${style}}`, baseUrl, assetProxyBaseUrl);
+        const declarations = wrapped.slice(wrapped.indexOf('{') + 1, wrapped.lastIndexOf('}')).trim();
+        element.setAttribute('style', declarations);
+      } catch { element.removeAttribute('style'); }
     });
 
-    // Convert relative link URLs to henry.ink routes
-    if (linkRewriteBaseUrl) {
-      const links = document.querySelectorAll('a[href]');
-      links.forEach((link: Element) => {
-        const href = link.getAttribute('href');
-        if (href &&
-          !href.startsWith('http') &&
-          !href.startsWith('#') &&
-          !href.startsWith('mailto:') &&
-          !href.startsWith('javascript:') &&
-          !href.startsWith('tel:')) {
-          try {
-            // Convert relative URL to absolute, then wrap with henry.ink
-            const absoluteUrl = new URL(href, baseUrl).href;
-            const henryInkUrl = `${linkRewriteBaseUrl}/${absoluteUrl}`;
-            link.setAttribute('href', henryInkUrl);
-          } catch (error) {
-            console.log(`❌ Invalid link URL: ${href}`);
-          }
-        }
-      });
-      // console.log(`🔗 Processed ${linkCount} relative links`);
-    }
+    // Resolve against the captured document base, which can differ from the
+    // requested URL after redirects or a source <base> element.
+    document.querySelectorAll('a[href]').forEach((link: Element) => {
+      const href = (link.getAttribute('href') || '').trim();
+      if (!href) return;
+      if (href.startsWith('#')) {
+        link.setAttribute('href', href);
+        return;
+      }
+      try {
+        const destination = new URL(href, baseUrl);
+        if (destination.protocol !== 'http:' && destination.protocol !== 'https:') return;
+        const relative = !/^[a-z][a-z0-9+.-]*:/i.test(href);
+        link.setAttribute('href', relative && linkRewriteBaseUrl
+          ? `${linkRewriteBaseUrl}/${destination.href}` : destination.href);
+      } catch { link.removeAttribute('href'); }
+    });
 
     // Remove inline style tags (CSS already extracted separately via Playwright)
     document.querySelectorAll('style').forEach((tag: Element) => tag.remove());
@@ -603,35 +302,27 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     // Extract text content server-side (saves a client-side DOMParser round-trip)
     const textContent = document.body?.textContent || '';
 
-    const cleanHTML = dom.serialize();
+    // JSDOM serialization discards legacy PUBLIC/SYSTEM identifiers.
+    const cleanHTML = READER_DOCTYPES[readerDocumentMode(fullHTMLContent)] + document.documentElement.outerHTML;
 
     const extractionTime = Date.now() - startTime;
     console.log(`📦 Archive: ${url} | ${extractionTime}ms`);
 
     const result = {
       html: cleanHTML,
-      css: finalCSS,
+      css: processedCSS || '',
       textContent,
       title: pageMetadata.title,
       author: pageMetadata.author || '',
       publishedTime: pageMetadata.publishedTime || '',
       domain: pageMetadata.domain,
       url: url,
+      resolvedUrl: pageMetadata.url,
       extractionTime,
       contentSize: cleanHTML.length,
-      htmlAttrs: pageData.htmlAttrs,
-      bodyAttrs: pageData.bodyAttrs
+      htmlAttrs: extractRootAttributes(document.documentElement),
+      bodyAttrs: extractRootAttributes(document.body),
     };
-
-    // Cache the result (evict oldest if at capacity)
-    if (archiveCache.size >= MAX_CACHE_SIZE) {
-      const oldest = archiveCache.keys().next().value;
-      if (oldest) archiveCache.delete(oldest);
-    }
-    archiveCache.set(url, {
-      result,
-      timestamp: Date.now()
-    });
 
     return result;
 
@@ -639,10 +330,6 @@ export async function createArchive(url: string, assetProxyBaseUrl?: string, lin
     console.error("❌ Error creating archive:", error);
     throw error;
   } finally {
-    // Clean up
-    try {
-      await page.close();
-      await context.close();
-    } catch { }
+    dom?.window.close();
   }
 }

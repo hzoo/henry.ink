@@ -7,6 +7,39 @@
 /* Define dark mode variant for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Reader controls stay outside the isolated source document. */
+.reader-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+}
+.reader-icon-button:hover { background: color-mix(in srgb, currentColor 7%, transparent); }
+.reader-icon-button:focus-visible, .note-record:focus-visible, .note-disclosure > summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.note-attribution { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 11px; color: #737783; }
+.note-attribution time { flex-shrink: 0; }
+.note-record { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; width: 40px; min-height: 40px; flex-shrink: 0; }
+.note-record:hover { color: var(--color-gray-900); }
+.dark .note-attribution, .dark .reader-notes .text-gray-500 { color: #9ca3af; }
+.dark .note-record:hover { color: white; }
+.note-disclosure > summary { list-style: none; }
+.note-disclosure > summary::-webkit-details-marker { display: none; }
+.note-disclosure[open] > summary .note-chevron { transform: rotate(90deg); }
+.saved-people { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 0; padding: 0 12px 8px; list-style: none; }
+.saved-person { display: flex; flex-wrap: wrap; flex: 0 1 auto; max-width: 100%; color: #737783; }
+.saved-person .note-record { margin-left: 0; }
+.saved-person .note-record-person { width: auto; min-width: 40px; gap: 6px; padding: 0 4px; font-size: 11px; }
+.note-record-person span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dark .saved-person { color: #9ca3af; }
+
 /* Restore browser defaults for archive content - override Tailwind Preflight */
 @layer base {
   /* Restore browser defaults for archive content */

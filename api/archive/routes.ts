@@ -1,339 +1,133 @@
-import { createArchive } from "./processor";
-import { isTrustedCDNDomain } from "./trusted-cdns";
-import { getCorsHeaders, optionsResponse } from "../cors";
-import { validateArchiveUrl, validateUrl } from "./url-validation";
-import { RateLimiter } from "../rate-limit";
+import { createArchive } from "@/api/archive/processor";
+import { getCorsHeaders, optionsResponse } from "@/api/cors";
+import { validateArchiveUrl } from "@/api/archive/url-validation";
+import { RateLimiter } from "@/api/rate-limit";
+import { ArchiveFetchError, fetchPublicResource, type PublicFetcher, type PublicResource } from "@/api/archive/public-fetch";
+import { MAX_ASSET_BYTES, validateAsset } from "@/api/archive/asset-validation";
 
-// 3 burst, 1 every 5s sustained — you're reading articles, not speed-running
 const archiveLimiter = new RateLimiter(3, 0.2);
-// 30 burst covers one page load of assets, then 5/sec trickle
 const assetLimiter = new RateLimiter(30, 5);
 
-// API Response Types (exported for frontend use)
 export interface ArchiveResponse {
-	html: string;
-	css?: string;
-	textContent: string;
-	title?: string;
-	htmlAttrs?: Record<string, string>;
-	bodyAttrs?: Record<string, string>;
+  resolvedUrl?: string;
+  html: string;
+  css?: string;
+  textContent: string;
+  title?: string;
+  htmlAttrs?: Record<string, string>;
+  bodyAttrs?: Record<string, string>;
 }
 
-// Simple in-memory store for tracking extracted domains (max 500 entries)
-const MAX_DOMAINS = 500;
-const extractedDomains = new Map<string, number>(); // domain -> timestamp
-const FIFTEEN_MINUTES = 15 * 60 * 1000;
-
-// Cleanup old domain entries every 15 minutes
-setInterval(() => {
+// Only exact assets referenced by a successful archive are permitted. This is
+// an abuse bound, not a replacement for destination validation on every fetch.
+const permittedAssets = new Map<string, number>();
+const ASSET_PERMISSION_TTL = 24 * 60 * 60 * 1000;
+const MAX_PERMITTED_ASSETS = 5000;
+function assetKey(url: string): string {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  return parsed.href;
+}
+export function registerArchiveAssets(archive: ArchiveResponse): void {
   const now = Date.now();
-  for (const [domain, timestamp] of extractedDomains.entries()) {
-    if (now - timestamp > FIFTEEN_MINUTES) {
-      extractedDomains.delete(domain);
+  for (const [url, expiry] of permittedAssets) if (expiry <= now) permittedAssets.delete(url);
+  const sources = [archive.html, archive.css || "", archive.htmlAttrs?.style || "", archive.bodyAttrs?.style || ""];
+  for (const source of sources) {
+    for (const match of source.matchAll(/\/api\/asset-proxy\?url=([^\s"'<>()[\]]+)/g)) {
+      try {
+        const key = assetKey(decodeURIComponent(match[1].split("&")[0]));
+        if (validateArchiveUrl(key)) continue;
+        permittedAssets.delete(key);
+        if (permittedAssets.size >= MAX_PERMITTED_ASSETS) {
+          const oldest = permittedAssets.keys().next().value;
+          if (oldest !== undefined) permittedAssets.delete(oldest);
+        }
+        permittedAssets.set(key, now + ASSET_PERMISSION_TTL);
+      } catch { }
     }
   }
-}, FIFTEEN_MINUTES);
+}
 
-function trackDomain(domain: string) {
-  // Evict oldest if at capacity
-  if (extractedDomains.size >= MAX_DOMAINS) {
-    const oldest = extractedDomains.keys().next().value;
-    if (oldest) extractedDomains.delete(oldest);
-  }
-  extractedDomains.set(domain, Date.now());
+function errorResponse(error: unknown, cors: Record<string, string>, retryAfter = 2): Response {
+  const known = error instanceof ArchiveFetchError;
+  return Response.json({ error: known ? error.message : "Upstream fetch failed" }, {
+    status: known ? error.status : 502,
+    headers: { ...cors, "Cache-Control": "no-store", ...(known && error.status === 429 ? { "Retry-After": String(retryAfter) } : {}) },
+  });
+}
+function clientIp(req: Request): string {
+  // These headers must be supplied by the trusted reverse proxy.
+  return req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || req.headers.get("CF-Connecting-IP") || "unknown";
 }
 
 export { optionsResponse as archiveOptionsRoute };
 
-export async function createArchiveRoute(req: Request) {
-  const reqOrigin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(reqOrigin);
-
-  // Rate limit by IP (X-Forwarded-For from reverse proxy, fallback to origin)
-  const clientIp = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
-    || req.headers.get('CF-Connecting-IP')
-    || 'unknown';
-  if (!archiveLimiter.consume(clientIp)) {
-    return Response.json({ error: 'Too many requests' }, {
-      status: 429,
-      headers: { ...corsHeaders, 'Retry-After': '5' }
-    });
-  }
-
+export async function createArchiveRoute(req: Request): Promise<Response> {
+  const origin = req.headers.get("Origin") || "";
+  const cors = getCorsHeaders(origin);
+  if (!archiveLimiter.consume(clientIp(req))) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors, 5);
   try {
-    // Parse URL from query params for GET request
     const requestUrl = new URL(req.url);
-    const url = requestUrl.searchParams.get('url');
-
-    if (!url) {
-      return Response.json({ error: "Missing url parameter" }, {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    // Validate URL: block private IPs, require domain name
-    const urlError = validateArchiveUrl(url);
-    if (urlError) {
-      return Response.json({ error: urlError }, { status: 403, headers: corsHeaders });
-    }
-
-    const parsedUrl = new URL(url);
-    const domain = parsedUrl.hostname.replace(/^www\./, '');
-    trackDomain(domain);
-
-    // Build asset proxy base URL from request origin
-    const assetProxyBaseUrl = requestUrl.hostname === 'api.henry.ink'
-      ? 'https://api.henry.ink'
-      : `${requestUrl.protocol}//${requestUrl.host}`;
-
-    // Auto-detect link rewrite base URL - only rewrite links if on henry.ink production
-    const linkRewriteBaseUrl = reqOrigin === 'https://henry.ink' ? 'https://henry.ink' : undefined;
-    
-    const archive = await createArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl);
+    const url = requestUrl.searchParams.get("url");
+    if (!url) return errorResponse(new ArchiveFetchError("Missing url parameter", 400), cors);
+    const error = validateArchiveUrl(url);
+    if (error) return errorResponse(new ArchiveFetchError(error, 403), cors);
+    const assetBase = requestUrl.hostname === "api.henry.ink" ? "https://api.henry.ink" : requestUrl.origin;
+    const linkBase = origin === "https://henry.ink" ? "https://henry.ink" : undefined;
+    const archive = await createArchive(url, assetBase, linkBase);
+    registerArchiveAssets(archive);
     return Response.json(archive, {
       headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=86400',
-        'Cloudflare-CDN-Cache-Control': 'max-age=86400, stale-if-error=604800',
-        'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:; style-src-elem 'self' 'unsafe-inline'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none';",
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY'
-      }
+        ...cors,
+        // Output varies by Origin, and proxy permissions are process-local.
+        Vary: "Origin",
+        "Cache-Control": "no-store",
+        "Cloudflare-CDN-Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
-  } catch (error) {
-    console.error("Archive creation error:", error);
-    return Response.json({ error: 'Failed to create archive' }, { 
-      status: 500,
-      headers: corsHeaders
-    });
-  }
+  } catch (error) { return errorResponse(error, cors); }
 }
 
-export async function assetProxyRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  const startTime = Date.now();
-
-  const clientIp = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
-    || req.headers.get('CF-Connecting-IP')
-    || 'unknown';
-  if (!assetLimiter.consume(clientIp)) {
-    return Response.json({ error: 'Too many requests' }, {
-      status: 429,
-      headers: { ...corsHeaders, 'Retry-After': '2' }
-    });
-  }
-
-  try {
-    const url = new URL(req.url);
-    const assetUrl = url.searchParams.get('url');
-    
-    if (!assetUrl) {
-      return Response.json({ error: "Missing asset URL parameter" }, { 
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    // Validate URL: HTTPS only, block private IPs
-    const urlError = validateUrl(assetUrl);
-    if (urlError) {
-      return Response.json({ error: urlError }, { status: 403, headers: corsHeaders });
-    }
-
-    const parsedUrl = new URL(assetUrl);
-
-    // Validate asset URL domain
-    const assetDomain = parsedUrl.hostname.replace(/^www\./, '');
-    
-    // Check if this domain was recently extracted (last 15 minutes)
-    const extractTime = extractedDomains.get(assetDomain);
-
-    // Also allow trusted CDNs
-    const isTrustedCDN = isTrustedCDNDomain(assetDomain);
-    
-    if (!isTrustedCDN && (!extractTime || (Date.now() - extractTime) > FIFTEEN_MINUTES)) {
-      return Response.json({ error: "Asset domain not recently extracted" }, { 
-        status: 403,
-        headers: corsHeaders
-      });
-    }
-
-    // Only proxy fonts and images — reject unknown types
-    const assetType = detectAssetType(assetUrl);
-    if (assetType === 'unknown') {
-      return Response.json({ error: "Only font and image assets can be proxied" }, {
-        status: 403, headers: corsHeaders
-      });
-    }
-    const acceptHeader = getAcceptHeaderForAssetType(assetType);
-
-    // Fetch the asset file with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-    
+export function createAssetProxyHandler(fetcher: PublicFetcher = fetchPublicResource) {
+  const pending = new Map<string, Promise<{ resource: PublicResource; contentType: string }>>();
+  return async (req: Request): Promise<Response> => {
+    const cors = getCorsHeaders(req.headers.get("Origin") || "");
+    if (!assetLimiter.consume(clientIp(req))) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors);
     try {
-      const response = await fetch(assetUrl, {
+      const input = new URL(req.url).searchParams.get("url");
+      if (!input) throw new ArchiveFetchError("Missing asset URL parameter", 400);
+      const error = validateArchiveUrl(input);
+      if (error) throw new ArchiveFetchError(error, 403);
+      const key = assetKey(input);
+      if ((permittedAssets.get(key) || 0) <= Date.now()) throw new ArchiveFetchError("Asset is not referenced by a recent archive", 403);
+      let job = pending.get(key);
+      if (!job) {
+        if (pending.size >= 8) throw new ArchiveFetchError("Too many asset downloads", 429);
+        job = fetcher(key, { allowHttp: true, maxBytes: MAX_ASSET_BYTES, timeoutMs: 5000, accept: "image/*,font/*,application/octet-stream;q=0.8" }).then(resource => {
+          if (resource.status < 200 || resource.status >= 300) throw new ArchiveFetchError("Asset upstream returned an error", 502);
+          return { resource, contentType: validateAsset(resource) };
+        });
+        pending.set(key, job);
+        void job.finally(() => { pending.delete(key); }).catch(() => {});
+      }
+      const { resource, contentType } = await job;
+      return new Response(Uint8Array.from(resource.body), {
         headers: {
-          'User-Agent': 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
-          'Accept': acceptHeader,
-          'Accept-Encoding': 'gzip, deflate, br',
-        },
-        signal: controller.signal,
-      });
-      
-      if (!response.ok) {
-        console.error(`Asset fetch failed: ${response.status} ${response.statusText}`);
-        return Response.json({ 
-          error: `Failed to fetch asset: ${response.status} ${response.statusText}` 
-        }, { 
-          status: response.status,
-          headers: corsHeaders
-        });
-      }
-
-      // Validate content type based on asset type
-      const contentType = response.headers.get('content-type') || '';
-      if (!isValidAssetType(assetUrl, contentType, assetType)) {
-        console.error(`Invalid asset content type: ${contentType} for URL: ${assetUrl}`);
-        return Response.json({ error: `Not a valid ${assetType} file` }, { 
-          status: 400,
-          headers: corsHeaders
-        });
-      }
-
-      // Check file size based on asset type
-      const contentLength = response.headers.get('content-length');
-      const maxSize = getMaxSizeForAssetType(assetType);
-      if (contentLength && parseInt(contentLength) > maxSize) {
-        return Response.json({ error: `${assetType} file too large` }, { 
-          status: 413,
-          headers: corsHeaders
-        });
-      }
-
-      // Get the asset data
-      const assetBuffer = await response.arrayBuffer();
-
-      // Return the asset with proper headers
-      return new Response(assetBuffer, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': contentType || getDefaultContentType(assetType),
-          'Cache-Control': 'public, max-age=31536000',
-          'X-Content-Type-Options': 'nosniff'
+          ...cors,
+          Vary: "Origin",
+          "Content-Type": contentType,
+          "Content-Length": String(resource.body.length),
+          "Cache-Control": "public, max-age=900",
+          "X-Content-Type-Options": "nosniff",
+          // SVG remains useful in <img>, but cannot run scripts when navigated
+          // to directly. These headers apply to every asset, including polyglots.
+          "Content-Security-Policy": "sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+          "Content-Disposition": "attachment",
         },
       });
-      
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      const duration = Date.now() - startTime;
-      
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error(`❌ Asset timeout: ${assetUrl} | ${duration}ms`);
-        return Response.json({ 
-          error: 'Asset fetch timeout - try original URL' 
-        }, { 
-          status: 408,
-          headers: corsHeaders
-        });
-      }
-      
-      console.error(`❌ Asset error: ${assetUrl} | ${duration}ms`, fetchError);
-      return Response.json({ 
-        error: 'Asset fetch failed' 
-      }, { 
-        status: 500,
-        headers: corsHeaders
-      });
-    }
-
-  } catch (error) {
-    console.error("Asset proxy error:", error);
-    return Response.json({ error: "Asset proxy error" }, {
-      status: 500,
-      headers: corsHeaders
-    });
-  }
+    } catch (error) { return errorResponse(error, cors); }
+  };
 }
 
-// Helper functions for asset type detection and validation
-function detectAssetType(url: string): 'font' | 'image' | 'unknown' {
-  const urlLower = url.toLowerCase();
-  
-  // Font detection
-  if (urlLower.includes('.woff') || urlLower.includes('.woff2') || 
-      urlLower.includes('.ttf') || urlLower.includes('.otf') || 
-      urlLower.includes('.eot')) {
-    return 'font';
-  }
-  
-  // Image detection
-  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || 
-      urlLower.includes('.png') || urlLower.includes('.gif') || 
-      urlLower.includes('.webp') || urlLower.includes('.svg') ||
-      urlLower.includes('.avif') || urlLower.includes('.bmp')) {
-    return 'image';
-  }
-  
-  return 'unknown';
-}
-
-function getAcceptHeaderForAssetType(assetType: string): string {
-  switch (assetType) {
-    case 'font':
-      return 'font/woff2,font/woff;q=0.8,*/*;q=0.1';
-    case 'image':
-      return 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
-    default:
-      return '*/*';
-  }
-}
-
-function isValidAssetType(url: string, contentType: string, assetType: string): boolean {
-  const urlLower = url.toLowerCase();
-  const contentTypeLower = contentType.toLowerCase();
-  
-  switch (assetType) {
-    case 'font':
-      return (contentTypeLower.includes('font/') ||
-              urlLower.includes('.woff') || urlLower.includes('.woff2') ||
-              urlLower.includes('.ttf') || urlLower.includes('.otf')) &&
-              !contentTypeLower.includes('image/');
-    
-    case 'image':
-      return contentTypeLower.includes('image/') ||
-             urlLower.includes('.jpg') || urlLower.includes('.jpeg') ||
-             urlLower.includes('.png') || urlLower.includes('.gif') ||
-             urlLower.includes('.webp') || urlLower.includes('.svg') ||
-             urlLower.includes('.avif') || urlLower.includes('.bmp');
-    
-    default:
-      return false; // Reject unknown types
-  }
-}
-
-function getMaxSizeForAssetType(assetType: string): number {
-  switch (assetType) {
-    case 'font':
-      return 5 * 1024 * 1024; // 5MB for fonts
-    case 'image':
-      return 10 * 1024 * 1024; // 10MB for images
-    default:
-      return 5 * 1024 * 1024; // 5MB default
-  }
-}
-
-function getDefaultContentType(assetType: string): string {
-  switch (assetType) {
-    case 'font':
-      return 'font/woff2';
-    case 'image':
-      return 'image/jpeg';
-    default:
-      return 'application/octet-stream';
-  }
-}
+export const assetProxyRoute = createAssetProxyHandler();

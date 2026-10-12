@@ -9,6 +9,7 @@ export function getCorsHeaders(origin?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Expose-Headers': 'Retry-After',
   };
   if (origin && CORS_ORIGINS.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;

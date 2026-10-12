@@ -1,36 +1,38 @@
-import { computed } from "@preact/signals";
 import { useQuery } from "@tanstack/react-query";
-import type { RefObject } from "preact";
+import type { RefObject, ComponentChildren } from "preact";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import { navigateToChannel } from "@/src/lib/arena-navigation";
 import type { ArenaMatch } from "@/src/lib/arena-types";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
   contentRef: RefObject<HTMLDivElement>;
   mode: 'md' | 'archive';
+  renderContent?: (html: string) => ComponentChildren;
 }
+
+const EMPTY_MATCHES: ArenaMatch[] = [];
 
 /**
  * Component that enhances HTML content with Arena channel links
  * Uses text matching instead of positions for accuracy
  */
-export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnhancedContentProps) {
+export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderContent }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
 
   // Use shared query with URL-based key (much smaller than content)
-  const { data: arenaMatches = [] } = useQuery({
+  const { data: arenaMatches = EMPTY_MATCHES } = useQuery({
     queryKey: arenaQueryKeys.matches(currentUrl.value || null),
     queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
     enabled: contentState.type === 'success' && !!contentState.content,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
-  // Compute enhanced content
-  const enhancedHtml = computed(() => {
+  const enhancedCache = useRef<{ html: string; matches: ArenaMatch[]; doc: Document; result: string } | null>(null);
+  const enhance = () => {
     if (!arenaMatches.length || typeof window === 'undefined') {
       return htmlContent;
     }
@@ -40,7 +42,7 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnh
     tempDiv.innerHTML = htmlContent;
 
     // Sort matches by length (longest first) to avoid partial replacements
-    const sortedMatches = [...arenaMatches].sort((a, b) => 
+    const sortedMatches = arenaMatches.filter(match => match.matchedText.trim().split(/\s+/).length > 1).sort((a, b) =>
       b.matchedText.length - a.matchedText.length
     );
 
@@ -191,11 +193,19 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnh
     }
 
     return tempDiv.innerHTML;
-  });
+  };
+  const doc = typeof document === 'undefined' ? null : document;
+  const cached = enhancedCache.current;
+  const enhancedHtml = cached?.html === htmlContent && cached.matches === arenaMatches && cached.doc === doc
+    ? cached.result : enhance();
+  if (doc && (!cached || cached.html !== htmlContent || cached.matches !== arenaMatches || cached.doc !== doc)) {
+    enhancedCache.current = { html: htmlContent, matches: arenaMatches, doc, result: enhancedHtml };
+  }
 
   // Add click handlers for arena channel links
   useEffect(() => {
-    if (!contentRef.current) return;
+    const element = contentRef.current;
+    if (!element) return;
 
     const handleChannelClick = (event: Event) => {
       const button = event.target as HTMLElement;
@@ -213,20 +223,21 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnh
       }
     };
 
-    contentRef.current.addEventListener('click', handleChannelClick);
+    element.addEventListener('click', handleChannelClick);
     
     return () => {
-      contentRef.current?.removeEventListener('click', handleChannelClick);
+      element.removeEventListener('click', handleChannelClick);
     };
-  }, [contentRef, enhancedHtml.value]);
+  }, [contentRef, enhancedHtml]);
 
   // Both modes now use regular rendering - CSS isolation handled at parent level
+  if (renderContent) return <>{renderContent(enhancedHtml)}</>;
   return (
     <div
       ref={contentRef}
       className={mode === 'archive' ? 'max-w-none' : 'prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words'}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
-      dangerouslySetInnerHTML={{ __html: enhancedHtml.value }}
+      dangerouslySetInnerHTML={{ __html: enhancedHtml }}
     />
   );
 }
