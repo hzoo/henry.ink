@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
+import { apiBase } from '@/src/lib/api-url';
 import { useLocation } from 'preact-iso';
 import { createReaderDocument, type ReaderDocumentMode } from '@/henry-ink/reader/document';
 import { InlineNotes } from '@/henry-ink/reader/InlineNotes';
@@ -65,7 +66,7 @@ export function ArchiveDocument(props: Props) {
       }, { signal: controller.signal });
     }, { signal: controller.signal });
     const documentUrl = URL.createObjectURL(new Blob([createReaderDocument({
-      ...props, assetOrigin: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+      ...props, assetOrigin: apiBase,
     })], { type: 'text/html' }));
     // srcdoc forces standards mode, even for legacy table-based documents.
     // A same-origin blob retains the doctype under the same sandbox and CSP.

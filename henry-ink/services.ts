@@ -1,4 +1,5 @@
 import { useSignalEffect } from "@preact/signals";
+import { apiUrl } from '@/src/lib/api-url';
 import { useLocation } from "preact-iso";
 import { contentStateSignal, contentModeSignal, contentRevision, type ContentMode } from "@/henry-ink/signals";
 import { archiveCache } from "@/henry-ink/reader/archive-cache";
@@ -55,10 +56,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 
 		try {
 			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
-			const transcriptUrl =
-				import.meta.env.VITE_YOUTUBE_TRANSCRIPT_URL ||
-				import.meta.env.VITE_YOUTUBE_WORKER_URL ||
-				'http://localhost:3000/api/youtube/transcript';
+			const transcriptUrl = apiUrl('/api/youtube/transcript');
 			const embed = await embedProvider.fetchContent(normalizedForProvider, {
 				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal })) as typeof fetch,
 				env: {

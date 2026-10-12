@@ -3,12 +3,13 @@
  */
 
 import type { ArenaApiResponse, ArenaMatch, ArenaChannelWithBlocks } from './arena-types';
+import { apiBase } from '@/src/lib/api-url';
 
 /**
  * Fetch Arena matches from the API
  */
 export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> {
-  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
+  const apiUrl = apiBase;
   
   const response = await fetch(`${apiUrl}/api/arena/enhance`, {
     method: 'POST',
@@ -52,7 +53,7 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
  * Fetch blocks for a specific Arena channel
  */
 export async function fetchChannelBlocks(slug: string, per: number = 24, page: number = 1): Promise<ArenaChannelWithBlocks | null> {
-  const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
+  const apiUrl = apiBase;
   
   const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
     method: 'POST',

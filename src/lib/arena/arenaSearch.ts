@@ -4,6 +4,7 @@
  */
 
 import type { ArenaSearchAPIResponse } from "@/api/arena/routes";
+import { apiBase } from '@/src/lib/api-url';
 
 export interface ArenaSearchResult {
   success: boolean;
@@ -27,7 +28,7 @@ export async function searchAndSaveArenaChannels(searchText: string): Promise<Ar
   try {
     console.log(`🔍 Searching Arena for: "${searchText}"`);
     
-    const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
+    const apiUrl = apiBase;
     const response = await fetch(`${apiUrl}/api/arena/search`, {
       method: 'POST',
       headers: {

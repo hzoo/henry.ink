@@ -1,4 +1,5 @@
 import type { EmbedProvider } from "@/henry-ink/embed/providers";
+import { apiUrl } from '@/src/lib/api-url';
 import { registerEmbedProvider } from "@/henry-ink/embed/providers";
 import type { YoutubeTranscriptResponse } from "@/src/lib/youtube-transcript-types";
 import type { YouTubeEmbed } from "@/henry-ink/signals";
@@ -24,7 +25,7 @@ export const youtubeEmbedProvider: EmbedProvider = {
       throw new Error('Invalid YouTube URL - could not extract video ID');
     }
 
-    const transcriptEndpoint = context.env.transcriptUrl || 'http://localhost:3000/api/youtube/transcript';
+    const transcriptEndpoint = context.env.transcriptUrl || apiUrl('/api/youtube/transcript');
     const response = await context.fetch(`${transcriptEndpoint}?${new URLSearchParams({ videoId, lang: 'en' })}`);
 
     if (!response.ok) {

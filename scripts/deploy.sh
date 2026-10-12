@@ -1,17 +1,17 @@
 #!/bin/bash
 # Deploy henry.ink API - pull, install, restart
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 echo "=> Pulling latest..."
-git pull
+git pull --ff-only
 
 echo "=> Installing dependencies..."
-bun install
+bun install --frozen-lockfile
 
 echo "=> Restarting API..."
-pm2 restart henry-ink-api
+pm2 restart henry-ink-api --update-env
 
 echo "=> Waiting for health check..."
 sleep 1

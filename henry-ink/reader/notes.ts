@@ -1,4 +1,5 @@
 import { signal, useSignalEffect } from '@preact/signals';
+import { apiBase } from '@/src/lib/api-url';
 import { currentUrl, isBlocked } from '@/src/lib/messaging';
 import { autoFetchEnabled } from '@/src/lib/settings';
 import type { AnnotationView } from '@/src/lib/annotations/margin';
@@ -24,7 +25,7 @@ export function useReaderNotes() {
       return;
     }
     readerNotes.value = { status: 'loading', url };
-    const base = import.meta.env.VITE_API_URL || '';
+    const base = apiBase;
     fetch(`${base}/api/annotations/margin?${new URLSearchParams({ url })}`, {
       signal: controller.signal, credentials: 'omit', cache: 'no-store',
     }).then(async response => {
