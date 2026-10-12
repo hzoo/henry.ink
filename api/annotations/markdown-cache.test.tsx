@@ -9,6 +9,7 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
   Object.assign(globalThis, { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage,
     AbortController: dom.window.AbortController });
   const { h, render, options } = await import('preact');
+  const previousAnimationFrame = options.requestAnimationFrame;
   options.requestAnimationFrame = callback => { setTimeout(callback, 0); };
   mock.module('preact-iso', () => ({ useLocation: () => ({ path: '/article' }) }));
   mock.module('@/henry-ink/services', () => ({ useUrlPathSyncer() {}, useContentFetcher() {} }));
@@ -55,6 +56,7 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
     expect(sanitize).toHaveBeenCalledTimes(2);
   } finally {
     render(null, mount);
+    options.requestAnimationFrame = previousAnimationFrame;
     sanitize.mockRestore();
     mock.restore();
     Object.assign(globalThis, prior);

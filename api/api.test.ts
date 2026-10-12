@@ -73,28 +73,3 @@ describe("rewriteAssetUrlsInCSS", () => {
     expect(result).toContain("use.typekit.net");
   });
 });
-
-describe("bounded map eviction", () => {
-  test("FIFO eviction when at capacity", () => {
-    const map = new Map<string, number>();
-    const MAX = 3;
-
-    function track(key: string) {
-      if (map.size >= MAX) {
-        const oldest = map.keys().next().value;
-        if (oldest) map.delete(oldest);
-      }
-      map.set(key, Date.now());
-    }
-
-    track("a");
-    track("b");
-    track("c");
-    expect(map.size).toBe(3);
-
-    track("d"); // should evict "a"
-    expect(map.has("a")).toBe(false);
-    expect(map.has("d")).toBe(true);
-    expect(map.size).toBe(3);
-  });
-});
