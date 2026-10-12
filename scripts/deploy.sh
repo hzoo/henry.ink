@@ -14,10 +14,12 @@ echo "=> Restarting API..."
 pm2 restart henry-ink-api --update-env
 
 echo "=> Waiting for health check..."
-sleep 1
-if curl -sf http://localhost:3000/api/health > /dev/null; then
-    echo "=> Healthy"
-else
-    echo "=> UNHEALTHY - check logs: pm2 logs henry-ink-api"
-    exit 1
-fi
+for attempt in {1..15}; do
+    if curl --max-time 2 -sf "http://127.0.0.1:${API_PORT:-3000}/api/health" > /dev/null; then
+        echo "=> Healthy"
+        exit 0
+    fi
+    sleep 1
+done
+echo "=> UNHEALTHY - check logs: pm2 logs henry-ink-api"
+exit 1
