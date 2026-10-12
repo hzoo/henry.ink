@@ -8,6 +8,7 @@ import {
 } from "@/demo/lib/oauth";
 import type { JSX } from "preact/jsx-runtime";
 import { sleep } from "@/src/lib/utils/sleep";
+import { ProviderLogo } from "@/src/components/ProviderLogo";
 
 const getStorageKey = (did: string) => `bskyUserHandle_${did}`;
 const getAvatarStorageKey = (did: string) => `bskyUserAvatar_${did}`;
@@ -177,12 +178,12 @@ export function LoginButton() {
 			) : (
 				<button
 					onClick={handleSignIn}
-					className="flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 transition-colors"
+					className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 disabled:opacity-50 transition-colors"
 					disabled={isLoadingSession.value}
 					aria-label="Sign in with Bluesky"
 				>
-					<span className="text-base">🦋</span>
-					Sign in
+					<ProviderLogo provider="Bluesky" />
+					<span className="hidden min-[360px]:inline">Sign in</span>
 				</button>
 			)}
 		</>

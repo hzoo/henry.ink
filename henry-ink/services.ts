@@ -1,6 +1,7 @@
 import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry-ink/signals";
+import { contentStateSignal, contentModeSignal, contentRevision, type ContentMode } from "@/henry-ink/signals";
+import { requestArchive } from "@/henry-ink/reader/archive-request";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
 import type { ArchiveResponse } from "@/api/archive/routes";
@@ -31,7 +32,7 @@ function normalizeUrl(input: string): string | null {
 	return null;
 }
 
-async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
+async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signal: AbortSignal) {
 	const normalizedUrl = normalizeUrl(inputUrl);
 
 	if (!normalizedUrl) {
@@ -64,20 +65,23 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 				import.meta.env.VITE_YOUTUBE_WORKER_URL ||
 				'http://localhost:3000/api/youtube/transcript';
 			const embed = await embedProvider.fetchContent(normalizedForProvider, {
-				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as typeof fetch,
+				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal })) as typeof fetch,
 				env: {
 					transcriptUrl,
 				},
 			});
 
+			if (signal.aborted) return;
 			contentStateSignal.value = {
 				type: 'success',
+				url: targetUrl,
 				content: embed.textContent,
 				title: embed.title,
 				mode: embedMode,
 				embed,
 			};
 		} catch (e: unknown) {
+			if (signal.aborted) return;
 			console.error("Embed fetch error:", e);
 			contentStateSignal.value = {
 				type: 'error',
@@ -101,7 +105,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		if (mode === 'md') {
 			// Original ji.na flow for markdown content
 			const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
-			const response = await fetch(`${jinaUrl}/${targetUrl}`);
+			const response = await fetch(`${jinaUrl}/${targetUrl}`, { signal });
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -124,34 +128,30 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 				// Ignore title extraction errors
 			}
 			
-			contentStateSignal.value = { type: "success", content, title, mode };
+			if (signal.aborted) return;
+			contentStateSignal.value = { type: "success", url: targetUrl, content, title, mode };
 		} else if (mode === 'archive') {
 			// Check client cache first
 			let archive = archiveClientCache.get(targetUrl);
 
 			if (!archive) {
 				const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-				const response = await fetch(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
-					method: 'GET',
+				archive = await requestArchive(`${apiUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, signal, () => {
+					if (!signal.aborted) contentStateSignal.value = { type: 'loading', mode, message: 'Article service is busy. Waiting to retry...' };
 				});
-
-				if (!response.ok) {
-					const errorText = await response.text();
-					throw new Error(
-						`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
-					);
-				}
-
-				archive = await response.json() as ArchiveResponse;
+				if (signal.aborted) return;
 				if (archiveClientCache.size >= MAX_CLIENT_CACHE) {
 					archiveClientCache.delete(archiveClientCache.keys().next().value!);
 				}
 				archiveClientCache.set(targetUrl, archive);
 			}
 
+			if (signal.aborted) return;
 			contentStateSignal.value = {
 				type: "success",
+				url: targetUrl,
 				content: archive.textContent,
+				resolvedUrl: archive.resolvedUrl,
 				title: archive.title,
 				mode,
 				html: archive.html,
@@ -161,6 +161,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 			};
 		}
 	} catch (e: unknown) {
+		if (signal.aborted) return;
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
 			type: "error",
@@ -206,14 +207,17 @@ export function useContentFetcher() {
 	useSignalEffect(() => {
 		const url = currentUrl.value;
 		const mode = contentModeSignal.value;
+		contentRevision.value;
+		const controller = new AbortController();
 		
 		if (url && isUrl(url)) {
-			fetchSimplifiedContent(url, mode);
+			fetchSimplifiedContent(url, mode, controller.signal);
 		} else {
 			// If targetUrl is cleared or invalid, reset to idle
 			if (!url) {
 				contentStateSignal.value = { type: "idle" };
 			}
 		}
+		return () => controller.abort();
 	});
 }

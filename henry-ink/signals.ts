@@ -31,11 +31,12 @@ export type EmbedContent = YouTubeEmbed;
 // Content loading state
 export type ContentState =
   | { type: 'idle' }
-  | { type: 'loading'; mode: ContentMode }
-  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
+  | { type: 'loading'; mode: ContentMode; message?: string }
+  | { type: 'success'; url: string; resolvedUrl?: string; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
   | { type: 'error'; message: string; mode: ContentMode };
 
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
+export const contentRevision = signal(0);
 
 // Content mode signal with localStorage persistence
 const getInitialContentMode = (): ContentMode => {
@@ -64,8 +65,8 @@ if (typeof window !== 'undefined') {
 }
 
 // Tab state for sidebar
-export type TabType = 'bluesky' | 'arena';
-export const activeTabSignal = signal<TabType>('bluesky');
+export type TabType = 'bluesky' | 'arena' | 'notes';
+export const activeTabSignal = signal<TabType>('notes');
 
 // Arena view mode with localStorage persistence
 export type ArenaViewMode = 'compact' | 'preview';

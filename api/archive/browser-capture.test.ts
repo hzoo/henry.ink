@@ -1,0 +1,171 @@
+import { afterAll, expect, test } from "bun:test";
+import { capturePage, closeArchiveBrowser } from "@/api/archive/browser-capture";
+import { flattenCapturedStylesheets } from "@/api/archive/captured-css";
+import { ArchiveFetchError, type PublicFetcher } from "@/api/archive/public-fetch";
+import { chromium } from "playwright";
+import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
+import { createArchiveService } from "@/api/archive/processor";
+
+const browserTest = test.skipIf(!process.env.ARCHIVE_BROWSER_TESTS);
+afterAll(async () => { if (process.env.ARCHIVE_BROWSER_TESTS) await closeArchiveBrowser(); });
+
+browserTest("browser downloads only HTML/CSS, never executes source scripts, and reuses redirected CSS", async () => {
+  const calls: string[] = [];
+  const fetcher: PublicFetcher = async url => {
+    calls.push(url);
+    if (url === "https://source.example/start") return {
+      url: "https://source.example/articles/post/", status: 200,
+      headers: new Headers({ "content-type": "text/html" }),
+      body: Buffer.from('<!doctype html><html><head><title>Static title</title><link rel="stylesheet" href="https://styles.example/old.css"></head><body><p>Static article</p><script>document.title="SOURCE SCRIPT EXECUTED";fetch("https://private.example/leak")</script><img src="slow.png"></body></html>'),
+    };
+    if (url === "https://styles.example/old.css") return {
+      url: "https://styles.example/theme/main.css", status: 200,
+      headers: new Headers({ "content-type": "text/css" }),
+      body: Buffer.from('p {color:blue;background:url(../bg.png)}'),
+    };
+    throw new Error("Unexpected network request: " + url);
+  };
+  const result = await capturePage("https://source.example/start", fetcher);
+  expect(result.pageData.metadata.title).toBe("Static title");
+  expect(result.pageData.baseUrl).toBe("https://source.example/articles/post/");
+  expect(result.cssSources[0].baseUrl).toBe("https://styles.example/theme/main.css");
+  expect(result.cssSources[0].content).toContain("color:blue");
+  expect(calls).toEqual(["https://source.example/start", "https://styles.example/old.css"]);
+});
+
+browserTest("browser forwards document validation failures", async () => {
+  const fetcher: PublicFetcher = async url => ({ url, status: 200, headers: new Headers({ "content-type": "application/pdf" }), body: Buffer.from("%PDF") });
+  await expect(capturePage("https://source.example/file", fetcher)).rejects.toMatchObject({ status: 415 });
+});
+
+function stylesheetFixture(sizes: number[]) {
+  const cssPrefix = 'p{color:blue}/*';
+  const sheets = sizes.map(bytes => Buffer.from(cssPrefix + 'x'.repeat(bytes - cssPrefix.length - 2) + '*/'));
+  const cssLimits: number[] = [];
+  const fetcher: PublicFetcher = async (url, options) => {
+    const stylesheet = new URL(url).pathname.match(/^\/(\d+)\.css$/);
+    let body: Buffer;
+    if (stylesheet) {
+      cssLimits.push(options.maxBytes);
+      body = sheets[Number(stylesheet[1])];
+    } else {
+      body = Buffer.from('<!doctype html><head>' + sizes.map((_, index) => `<link rel="stylesheet" href="/${index}.css">`).join('') + '</head><body><p>Article</p></body>');
+    }
+    if (body.length > options.maxBytes) throw new ArchiveFetchError("Resource too large", 413);
+    return { url, status: 200, headers: new Headers({ "content-type": stylesheet ? "text/css" : "text/html" }), body };
+  };
+  return { fetcher, cssLimits };
+}
+
+browserTest("browser accepts a 542655-byte stylesheet within the 2 MiB CSS budget", async () => {
+  const { fetcher, cssLimits } = stylesheetFixture([542_655]);
+  const result = await capturePage("https://source.example/large-stylesheet", fetcher);
+  expect(cssLimits).toEqual([2 * 1024 * 1024]);
+  expect(result.cssSources).toHaveLength(1);
+  expect(result.cssSources[0].content).toMatch(/color:\s*blue/);
+});
+
+browserTest("browser rejects individually allowed stylesheets exceeding the aggregate 2 MiB CSS budget", async () => {
+  const { fetcher, cssLimits } = stylesheetFixture([1024 * 1024, 1024 * 1024 + 1]);
+  await expect(capturePage("https://source.example/oversized-css-total", fetcher)).rejects.toMatchObject({
+    status: 413, message: "Page stylesheets too large",
+  });
+  expect(cssLimits).toEqual([2 * 1024 * 1024, 2 * 1024 * 1024]);
+});
+
+browserTest("capture flattens already downloaded imports without fetching fonts or executing scripts", async () => {
+  const calls: string[] = [];
+  const resources: Record<string, string> = {
+    "https://source.example/article": '<!doctype html><title>Static</title><link rel="stylesheet" href="/main.css"><script>document.title="Executed"</script><p>Article</p>',
+    "https://source.example/main.css": '@import "/child.css" layer(theme) supports(display:grid) screen; p{color:red}',
+    "https://source.example/child.css": '@import "/font.css"; p{background:url(/image.png)}',
+    "https://source.example/font.css": '@font-face{font-family:Test;src:url(./font.woff2)}',
+  };
+  const fetcher: PublicFetcher = async url => {
+    calls.push(url);
+    if (!(url in resources)) throw new Error("Unexpected fetch: " + url);
+    return { url, status: 200, headers: new Headers({ "content-type": url.endsWith(".css") ? "text/css" : "text/html" }), body: Buffer.from(resources[url]) };
+  };
+  const result = await capturePage("https://source.example/article", fetcher);
+  expect(result.pageData.metadata.title).toBe("Static");
+  expect(result.cssSources[0].content).not.toContain('@import');
+  expect(result.cssSources[0].content).toContain('https://source.example/font.woff2');
+  expect(result.cssSources[0].content).toContain('@layer theme');
+  expect(result.cssSources[0].content).toContain('@supports (display: grid)');
+  expect(calls).toEqual(Object.keys(resources));
+});
+
+browserTest("flattened conditional imports preserve the browser's named layer ordering", async () => {
+  const baseUrl = "https://source.example/main.css";
+  const childUrl = "https://source.example/child.css";
+  const css = '@import "child.css" layer(first) supports(unknown:unknown); @import "child.css" layer(second); @layer first{p{color:red}} @layer second{p{color:blue}}';
+  const child = { url: childUrl, status: 200, headers: new Headers({ "content-type": "text/css" }), body: Buffer.from('p{color:blue}') };
+  const [flattened] = await flattenCapturedStylesheets([{ content: css, baseUrl, media: "" }], new Map([[childUrl, child]]));
+  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  try {
+    const context = await browser.newContext({ javaScriptEnabled: false, serviceWorkers: "block" });
+    const page = await context.newPage();
+    await context.route("**/*", route => route.fulfill({ contentType: "text/css", body: child.body }));
+    await page.setContent(`<style>${css.replaceAll('"child.css"', `"${childUrl}"`)}</style><p>Article</p>`, { waitUntil: "load" });
+    const originalColor = await page.locator("p").evaluate(element => getComputedStyle(element).color);
+    await page.setContent(`<style>${flattened.content}</style><p>Article</p>`, { waitUntil: "load" });
+    expect(await page.locator("p").evaluate(element => getComputedStyle(element).color)).toBe(originalColor);
+  } finally { await browser.close(); }
+});
+
+browserTest("five concurrent archives use one real browser capture and one HTML download", async () => {
+  let downloads = 0;
+  let captures = 0;
+  const fetcher: PublicFetcher = async url => {
+    downloads++;
+    return { url, status: 200, headers: new Headers({ "content-type": "text/html" }), body: Buffer.from('<!doctype html><title>Article</title><p>Original text</p><img src="https://images.example/slow.png">') };
+  };
+  const service = createArchiveService(url => { captures++; return capturePage(url, fetcher); });
+  const results = await Promise.all(Array.from({ length: 5 }, () => service("https://source.example/article", "https://api.henry.ink")));
+  expect(captures).toBe(1);
+  expect(downloads).toBe(1);
+  expect(results).toHaveLength(5);
+  expect(results[0].textContent).toContain("Original text");
+});
+
+browserTest("browser aborts a page exceeding the resource count budget", async () => {
+  const { fetcher, cssLimits } = stylesheetFixture(Array.from({ length: 40 }, () => 100));
+  await expect(capturePage("https://source.example/many-stylesheets", fetcher)).rejects.toMatchObject({
+    status: 413, message: "Too many page resources",
+  });
+  // The routed HTML document counts toward the 40-resource limit.
+  expect(cssLimits).toHaveLength(39);
+});
+
+browserTest("proxied SVG still renders as an image and cannot execute in a document", async () => {
+  const asset = "https://assets.example/csp-test.svg";
+  registerArchiveAssets({ html: `/api/asset-proxy?url=${encodeURIComponent(asset)}`, textContent: "" });
+  const proxy = createAssetProxyHandler(async url => ({
+    url, status: 200, headers: new Headers({ "content-type": "image/svg+xml" }),
+    body: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/><script>globalThis.__sourceScriptExecuted=true</script></svg>'),
+  }));
+  const result = await proxy(new Request(`https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(asset)}`));
+  expect(result.status).toBe(200);
+  const body = Buffer.from(await result.arrayBuffer());
+  const headers = Object.fromEntries(result.headers);
+  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  try {
+    const page = await browser.newPage();
+    await page.route("**/*", async route => {
+      const url = route.request().url();
+      if (url.endsWith("/probe")) {
+        await route.fulfill({ contentType: "text/html", body: '<img id="image" src="/asset.svg"><iframe src="/inline.svg"></iframe>' });
+      } else {
+        const responseHeaders = { ...headers };
+        // Check CSP independently of attachment disposition on a navigable SVG.
+        if (url.endsWith("/inline.svg")) delete responseHeaders["content-disposition"];
+        await route.fulfill({ headers: responseHeaders, body });
+      }
+    });
+    await page.goto("https://fixture.example/probe", { waitUntil: "load" });
+    expect(await page.locator("#image").evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(12);
+    const frame = page.frames().find(frame => frame.url().endsWith("/inline.svg"));
+    expect(frame).toBeDefined();
+    expect(await frame!.evaluate(() => (globalThis as typeof globalThis & { __sourceScriptExecuted?: boolean }).__sourceScriptExecuted)).toBeUndefined();
+  } finally { await browser.close(); }
+});

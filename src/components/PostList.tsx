@@ -6,10 +6,12 @@ import { useEffect } from "preact/hooks";
 import { extractQuotesFromPosts } from "@/src/lib/highlights/extractQuotes";
 import {
 	extractedQuotes,
+	quotesUrl,
 	type QuoteHighlight,
 } from "@/src/lib/highlights/signals";
-import { showCommentDialog } from "@/src/lib/messaging";
+import { showCommentDialog, currentUrl } from "@/src/lib/messaging";
 import { Icon } from "@/src/components/Icon";
+import { useSignal } from '@preact/signals';
 
 export interface PostListProps {
 	posts: AppBskyFeedDefs.PostView[];
@@ -23,6 +25,9 @@ const filters: PostFilter[] = [
 ];
 
 export function PostList({ posts }: PostListProps) {
+	const url = currentUrl.value;
+	const visibleCount = useSignal(20);
+	useEffect(() => { visibleCount.value = 20; }, [url]);
 	// Extract quotes from posts when they change (only in website contexts, not extension)
 	useEffect(() => {
 		// Skip quote extraction in extension contexts
@@ -53,18 +58,21 @@ export function PostList({ posts }: PostListProps) {
 
 		// Update the signal with extracted quotes
 		extractedQuotes.value = highlights;
-	}, [posts]);
+		quotesUrl.value = url;
+	}, [posts, url]);
 
 	return (
 		<>
-			{posts.map((post: AppBskyFeedDefs.PostView) => (
+			{posts.slice(0, visibleCount.value).map((post: AppBskyFeedDefs.PostView) => (
 				<FullPost
 					key={post.cid}
 					postUri={post.uri}
+					initialPost={post}
 					filters={filters}
 					displayItems={["avatar", "handle"]}
 				/>
 			))}
+			{posts.length > visibleCount.value && <button className="p-4 text-sm underline" onClick={() => visibleCount.value += 20}>Show more discussions</button>}
 			
 			{/* Add comment section */}
 			<div className="p-4 mb-96">

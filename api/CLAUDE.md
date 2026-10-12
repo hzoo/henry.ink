@@ -1,18 +1,21 @@
 # API Services
 
 ## Overview
-Unified API server providing Arena, Archive, and Trails services through a single endpoint. Contains modular services for content enhancement, web page archiving, and AT Protocol trails/marks aggregation.
+Unified API server providing Archive, Arena, YouTube, and Margin annotation services. The server binds to `127.0.0.1` on port 3000 by default.
 
 ## Services
 
 ### Archive Service
-Creates secure archives of web pages by capturing the full HTML content and validating CSS with Lightning CSS. It strips JavaScript for security while preserving visual styling and fonts.
+Captures page HTML and CSS without executing source JavaScript, sanitizes the document, and processes CSS with Lightning CSS. Public destination validation, bounded downloads, and asset validation protect archive retrieval.
 
 ### Arena Service  
 Enhances content with Arena channel links using pattern matching and provides search/discovery capabilities for Arena channels.
 
-### Trails Service
-Read-only AppView for ink.henry.annotate.trail and ink.henry.annotate.mark records. Ingests data from AT Protocol firehose and provides fast aggregated queries. Record creation happens via AT Protocol RPC (not through this API).
+### YouTube Service
+Retrieves video transcripts and titles server-side, with a bounded in-memory cache.
+
+### Margin Annotation Service
+Reads existing annotations through Margin's anonymous targets endpoint. This is read-only discovery, not a local indexer or record-writing service.
 
 ## Development Commands
 
@@ -25,35 +28,33 @@ bun run api             # Start unified API server (port 3000)
 
 ### Archive Service
 
-#### POST `/api/archive`
+#### GET `/api/archive`
 Creates a secure archive of a web page.
 
-**Request:**
-```json
-{
-  "url": "https://example.com/article"
-}
-```
+**Query Parameters:**
+- `url` - Public HTTP(S) page URL (required)
 
 **Response:**
 ```json
 {
   "html": "archived HTML with security processing",
   "css": "processed and validated CSS",
+  "textContent": "page text",
   "title": "Page Title",
-  "author": "Author Name", 
-  "domain": "example.com",
-  "url": "source URL",
-  "extractionTime": 1500,
-  "contentSize": 45000
+  "htmlAttrs": { "lang": "en" },
+  "bodyAttrs": { "class": "article" }
 }
 ```
 
-#### GET `/api/font-proxy`
-Proxies non-Google fonts with validation.
+`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. Responses are not HTTP-cached; asset permissions are process-local.
+
+#### GET `/api/asset-proxy`
+Proxies validated image and font assets referenced by a recent successful archive. This is not an unrestricted URL proxy.
 
 **Query Parameters:**
-- `url` - Font URL to proxy
+- `url` - Exact referenced asset URL (required)
+
+Assets are checked by content, bounded in size, and returned with `nosniff` and a sandbox CSP.
 
 ### Arena Service
 
@@ -91,57 +92,43 @@ Fetches blocks for a specific Arena channel.
 }
 ```
 
-### Trails Service
+### YouTube Service
 
-#### GET `/api/trails`
-Lists trails with optional filtering.
-
-**Query Parameters:**
-- `author_did` - Filter by author DID
-- `search` - Search trail names/descriptions
-- `limit` - Results limit (default: 20)
-- `offset` - Pagination offset (default: 0)
-
-#### GET `/api/trails/:uri`
-Get specific trail with its marks.
+#### GET `/api/youtube/transcript`
+Retrieves a transcript and optional video title.
 
 **Query Parameters:**
-- `limit` - Marks limit (default: 50)
-- `offset` - Marks pagination offset (default: 0)
-
-#### GET `/api/trails/by-actor/:did`
-Get trails created by specific actor.
-
-#### GET `/api/trails/containing`
-Find trails containing a specific URI.
-
-**Query Parameters:**
-- `subject` - URI to search for (required)
-- `limit` - Results limit (default: 20)
-
-#### GET `/api/trails/search`
-Search trails by name or description.
-
-**Query Parameters:**
-- `q` - Search query (required, min 2 chars)
-- `limit` - Results limit (default: 20)
-
-#### GET `/api/stats`
-Get trails system statistics.
+- `videoId` - YouTube video ID or supported YouTube URL (required)
+- `lang` - Transcript language (default: `en`)
 
 **Response:**
 ```json
 {
-  "total_trails": 150,
-  "total_marks": 1200,
-  "total_authors": 45
+  "videoId": "video-id",
+  "title": "Video Title",
+  "transcript": [
+    { "text": "Caption text", "offset": 0, "duration": 2.5, "lang": "en" }
+  ]
 }
 ```
+
+### Margin Annotation Service
+
+#### GET `/api/annotations/margin`
+Reads annotations for a target URL from a fixed Margin upstream. No credentials are forwarded; redirects are blocked, responses are limited to 2 MiB, and an eight-second deadline covers body consumption. Responses are not cached.
+
+**Query Parameters:**
+- `url` - HTTP(S) target URL (required; passed as a query value, not fetched directly)
+- `offset` - Upstream pagination offset (default: `0`, maximum: `10000`)
+
+The response contains `items`, `skipped`, `via`, `target`, and `page`. Pages advance upstream by 50; `page.completeness` is always `unknown`. Record identity and unsupported selectors are preserved. Bodies remain untrusted text, not renderable markup. See [annotation interoperability](annotations/README.md) for the presentation contract.
 
 ### Health Checks
 
 #### GET `/api/health`
 Unified API health check.
+
+Reports `status`, `port`, and services `archive`, `arena`, `youtube`, and `annotations`. Global `OPTIONS` handling provides CORS preflight responses.
 
 ## Environment Variables
 
@@ -152,6 +139,5 @@ ARENA_AUTH_TOKEN=your_arena_auth_token
 
 # Database configuration
 ARENA_DB_PATH=./api/arena/data/channels.db  # Optional, defaults to this path
-TRAILS_DB_PATH=./api/trails/data/trails.db  # Optional, defaults to this path
 API_PORT=3000  # Optional, defaults to 3000
 ```

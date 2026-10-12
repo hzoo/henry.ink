@@ -21,6 +21,7 @@ import type { PostFilter } from "@/src/lib/postFilters";
 import { applyFilters } from "@/src/lib/postFilters";
 import type { Signal } from "@preact/signals-react";
 import { hasShownError } from "@/src/lib/signals";
+import type { AppBskyFeedDefs } from '@atcute/bluesky';
 
 export type DisplayableItem = "avatar" | "displayName" | "handle";
 
@@ -29,6 +30,7 @@ interface FullPostProps {
 	postUri?: string;
 	filters?: PostFilter[];
 	displayItems: DisplayableItem[];
+	initialPost?: AppBskyFeedDefs.PostView;
 }
 
 function CollapsePost({
@@ -37,7 +39,10 @@ function CollapsePost({
 	isExpanded: Signal<boolean>;
 }) {
 	return (
-		<span
+		<button
+			type="button"
+			aria-label={isExpanded.value ? 'Hide replies' : 'Load replies'}
+			aria-expanded={isExpanded.value}
 			className="font-mono flex items-center gap-0.5 text-xs pt-0.5"
 			onClick={() => (isExpanded.value = !isExpanded.value)}
 		>
@@ -46,7 +51,7 @@ function CollapsePost({
 			) : (
 				<Icon name="plusCircle" className="size-4" />
 			)}
-		</span>
+		</button>
 	);
 }
 
@@ -55,6 +60,7 @@ export function FullPost({
 	uri,
 	filters,
 	displayItems,
+	initialPost,
 }: FullPostProps) {
 	let finalPostUri: string | undefined;
 	if (initialPostUri) {
@@ -75,6 +81,7 @@ export function FullPost({
 		);
 	}
 
+	const isExpanded = useSignal(!initialPost);
 	const {
 		data: threadData,
 		isLoading,
@@ -85,17 +92,17 @@ export function FullPost({
 			return fetchProcessedThread(finalPostUri!);
 		},
 		staleTime: 1000 * 60,
+		enabled: !initialPost || isExpanded.value,
 	});
 
-	const post = threadData?.post;
+	const post = threadData?.post || initialPost;
 	const replies = threadData?.replies;
-	const isExpanded = useSignal(true);
 
-	if (isLoading) {
+	if (isLoading && !initialPost) {
 		return null;
 	}
 
-	if (error) {
+	if (error && !initialPost) {
 		if (!hasShownError.value) {
 			hasShownError.value = true;
 		} else {
@@ -224,6 +231,7 @@ export function FullPost({
 				filters={filters}
 				displayItems={displayItems}
 			/>
+			{error && initialPost && isExpanded.value && <p className="p-3 text-xs text-gray-500" role="status">Replies could not be loaded.</p>}
 		</article>
 	);
 }

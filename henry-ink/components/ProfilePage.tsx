@@ -1,50 +1,23 @@
 import { useEffect } from "preact/hooks";
-import { useComputed } from "@preact/signals";
 import { useRoute } from "preact-iso";
 import { useQuery } from "@tanstack/react-query";
-// Removed AppLayout to create centered layout like GitHub profile
 import { getProfile, getAuthorFeed } from "@/src/lib/bsky";
 import { filterProfilePosts } from "@/src/lib/profileFilters";
 import { ProfilePost } from "@/henry-ink/components/ProfilePost";
-import { TrailDetail } from "@/src/components/TrailDetail";
-import { ProfileTrails } from "@/src/components/ProfileTrails";
 import { ProfileHeader } from "@/src/components/ProfileHeader";
-import { useAtCute, atCuteState } from "@/demo/lib/oauth";
-import { 
-  updatePageTitle, 
-  setCurrentUser, 
-  currentUserDid
-} from "@/src/lib/trails-signals";
-
+import { useAtCute } from "@/demo/lib/oauth";
 
 export function ProfilePage() {
 	const routeInfo = useRoute();
 	const username = routeInfo.params?.username as string;
-	const rkey = routeInfo.params?.rkey as string;
-	const path = routeInfo.path;
 
-	useAtCute(); // Initialize OAuth for trail functionality
-
-	// Determine what we're showing based on the path
-	const isTrailsView = path.includes('/trails');
-	const isSpecificTrail = path.includes('/trail/') && rkey;
-
-	// Check if username is a DID or handle
-	const isDidFormat = useComputed(() => username?.startsWith('did:') || false);
+	useAtCute();
 
 	// Update page title reactively
 	useEffect(() => {
 		if (!username) return;
-		
-		if (isTrailsView) {
-			updatePageTitle(`${username} | henry.ink`);
-		} else if (isSpecificTrail) {
-			// Trail name will be updated by TrailDetail component when data loads
-			updatePageTitle(`${username} | henry.ink`);
-		} else {
-			updatePageTitle(`${username} | henry.ink`);
-		}
-	}, [username, isTrailsView, isSpecificTrail]);
+		document.title = `${username} | henry.ink`;
+	}, [username]);
 
 	// Fetch profile data
 	const profileQuery = useQuery({
@@ -52,15 +25,6 @@ export function ProfilePage() {
 		queryFn: () => getProfile(username),
 		enabled: !!username,
 	});
-
-	// Set current user in signals when profile loads
-	useEffect(() => {
-		if (profileQuery.data?.did) {
-			setCurrentUser(profileQuery.data.did, username);
-		} else if (isDidFormat.value && username) {
-			setCurrentUser(username, username);
-		}
-	}, [profileQuery.data, username]);
 
 	// Fetch author feed
 	const feedQuery = useQuery({
@@ -77,71 +41,6 @@ export function ProfilePage() {
 	const profile = profileQuery.data;
 	const isLoading = profileQuery.isLoading || feedQuery.isLoading;
 	const error = profileQuery.error || feedQuery.error;
-
-	// For trail routes, redirect to main profile since trails are now shown there
-	if (isTrailsView) {
-		// Use window.location for redirect
-		useEffect(() => {
-			if (username) {
-				window.location.href = `/profile/${username}`;
-			}
-		}, [username]);
-		
-		return (
-			<div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full mx-auto mb-4"></div>
-					<p className="text-gray-600 dark:text-gray-400">Redirecting to profile...</p>
-				</div>
-			</div>
-		);
-	}
-
-	if (isSpecificTrail) {
-		// Use signal-based current user DID
-		const trailUri = useComputed(() => 
-			currentUserDid.value ? `at://${currentUserDid.value}/ink.henry.annotate.trail/${rkey}` : null
-		);
-		
-		// Don't render until we have the DID
-		if (!trailUri.value) {
-			return (
-				<div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
-					<div className="text-center">
-						<div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full mx-auto mb-4"></div>
-						<p className="text-gray-600 dark:text-gray-400">Loading trail...</p>
-					</div>
-				</div>
-			);
-		}
-		
-		return (
-			<div className="min-h-screen bg-white dark:bg-gray-900">
-				<div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-					<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-						<div className="flex items-center gap-3">
-							<a
-								href={`/profile/${username}`}
-								className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1"
-							>
-								<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-								</svg>
-								Back to Profile
-							</a>
-						</div>
-					</div>
-				</div>
-				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-					<TrailDetail 
-						trailUri={trailUri.value}
-						session={atCuteState.value}
-						username={username}
-					/>
-				</div>
-			</div>
-		);
-	}
 
 	// Regular profile view - centered layout like GitHub
 	return (
@@ -200,13 +99,7 @@ export function ProfilePage() {
 						{/* Profile Header */}
 						<ProfileHeader 
 							profile={profile}
-							username={username}
 						/>
-
-						{/* Trails Section */}
-						{currentUserDid.value && (
-							<ProfileTrails />
-						)}
 
 						{/* Posts Section */}
 						<div className="mb-3 sm:mb-4">
