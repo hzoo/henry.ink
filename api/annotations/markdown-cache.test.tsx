@@ -1,4 +1,4 @@
-import { expect, mock, test } from 'bun:test';
+import { expect, mock, spyOn, test } from 'bun:test';
 import { JSDOM } from 'jsdom';
 
 test('MarkdownSite sanitizes once for unchanged content and invalidates for new content', async () => {
@@ -21,14 +21,8 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
     ['@/henry-ink/components/ArchiveDocument', 'ArchiveDocument'],
     ['@/henry-ink/components/YouTubePlayer', 'YouTubePlayer'],
   ]) mock.module(path, () => ({ [name]: () => null }));
-  const DOMPurify = (await import('dompurify')).default;
-  const originalSanitize = DOMPurify.sanitize;
-  const boundSanitize = originalSanitize ?? DOMPurify(dom.window).sanitize;
-  let sanitizations = 0;
-  DOMPurify.sanitize = ((...args: Parameters<typeof boundSanitize>) => {
-    sanitizations++;
-    return boundSanitize(...args);
-  }) as typeof DOMPurify.sanitize;
+  const readable = await import('@/henry-ink/reader/readable');
+  const sanitize = spyOn(readable, 'sanitizeReadableHtml');
   const { contentStateSignal, contentModeSignal } = await import('@/henry-ink/signals');
   const { currentUrl } = await import('@/src/lib/messaging');
   const { MarkdownSite } = await import('@/henry-ink/components/MarkdownSite');
@@ -38,22 +32,30 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
   try {
     currentUrl.value = url;
     contentModeSignal.value = 'md';
-    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'First **passage**' };
+    const first = '<p style="color:red" class="fixed"><strong>First passage</strong></p><script>evil()</script><link rel="stylesheet" href="https://evil.test/style.css">';
+    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Plaintext for Arena, not rendering', html: first };
     render(h(MarkdownSite, {}), mount);
     await settle();
-    expect(sanitizations).toBe(1);
+    expect(sanitize).toHaveBeenCalledTimes(1);
     expect(mount.querySelector('#output')?.textContent?.trim()).toBe('First passage');
-    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'First **passage**' };
+    expect(mount.querySelector('#output')?.innerHTML).toBe('<p><strong>First passage</strong></p>');
+    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Changed plaintext', html: first };
     await settle();
-    expect(sanitizations).toBe(1);
-    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Second **passage**' };
+    expect(sanitize).toHaveBeenCalledTimes(1);
+    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Second passage', html: '<p>Second <strong>passage</strong></p>' };
     await settle();
-    expect(sanitizations).toBe(2);
+    expect(sanitize).toHaveBeenCalledTimes(2);
     expect(mount.querySelector('#output')?.textContent?.trim()).toBe('Second passage');
+    contentStateSignal.value = { type: 'success', url, mode: 'archive', content: 'Old mode', html: '<style>body{display:none}</style><p>Old mode</p>' };
+    await settle();
+    expect(mount.querySelector('#output')).toBeNull();
+    contentStateSignal.value = { type: 'success', url: 'https://old.example/', mode: 'md', content: 'Old URL', html: '<p>Old URL</p>' };
+    await settle();
+    expect(mount.querySelector('#output')).toBeNull();
+    expect(sanitize).toHaveBeenCalledTimes(2);
   } finally {
     render(null, mount);
-    if (originalSanitize) DOMPurify.sanitize = originalSanitize;
-    else delete (DOMPurify as { sanitize?: typeof boundSanitize }).sanitize;
+    sanitize.mockRestore();
     mock.restore();
     Object.assign(globalThis, prior);
     dom.window.close();

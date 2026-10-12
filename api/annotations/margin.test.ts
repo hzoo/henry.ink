@@ -1,6 +1,15 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { decodeMarginTargets } from '@/src/lib/annotations/margin';
-import { marginAnnotationsRoute } from '@/api/annotations/routes';
+import { createMarginAnnotationsHandler } from '@/api/annotations/routes';
+import { RateLimiter } from '@/api/rate-limit';
+
+const limiters: RateLimiter[] = [];
+afterEach(() => { for (const limiter of limiters.splice(0)) limiter.close(); });
+function marginAnnotationsRoute(req: Request, fetcher?: Parameters<typeof createMarginAnnotationsHandler>[0]) {
+  const limiter = new RateLimiter(30, 5);
+  limiters.push(limiter);
+  return createMarginAnnotationsHandler(fetcher, { limiter })(req);
+}
 
 const did = 'did:plc:yqzkauibhx455nyffbcs57ty';
 const note = {

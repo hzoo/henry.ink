@@ -15,6 +15,16 @@ test("leaves a sheet without imports and its outer media unchanged", async () =>
   expect(await flatten(source)).toEqual({ content: source, baseUrl, media: "print" });
 });
 
+test("escaped imports still bundle while import text in comments and strings stays untouched", async () => {
+  const source = '/* @import "not-a-sheet.css" */ p{--label:"@import";color:blue}';
+  expect((await flatten(source)).content).toBe(source);
+  const url = 'https://source.example/css/child.css';
+  const { content } = await flatten('@\\69mport "child.css"; .root{color:red}', new Map([[url, sheet(url, '.child{color:blue}')]]));
+  expect(content).toContain('.child');
+  expect(content).toContain('.root');
+  expect(content).not.toContain('@import');
+});
+
 test("rebases nested fonts and images against each final import URL", async () => {
   const sheets = new Map([
     ["https://source.example/css/old.css", sheet("https://cdn.example/theme/imported.css", '@import "nested.css"; .child{background:url(../image.png)}')],

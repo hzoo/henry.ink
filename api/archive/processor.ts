@@ -2,7 +2,7 @@ import { JSDOM, VirtualConsole } from "jsdom";
 import { transform } from "lightningcss";
 import { isTrustedCDN } from "@/api/archive/trusted-cdns";
 import { capturePage } from "@/api/archive/browser-capture";
-import { archiveCacheKey, SnapshotCache } from "@/api/archive/snapshot-cache";
+import { archiveCacheKey, SnapshotCache, type CacheOptions } from "@/api/archive/snapshot-cache";
 import { rewriteSrcset } from "@/api/archive/srcset";
 import { readerDocumentMode, READER_DOCTYPES } from "@/src/lib/archive-document-mode";
 import { validatedEmbeddedFont } from "@/api/archive/asset-validation";
@@ -84,6 +84,7 @@ export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBa
   try {
     return transform({
       filename: 'assets.css', code: Buffer.from(css), errorRecovery: true,
+      targets: { chrome: 109 << 16, firefox: 128 << 16, safari: 18 << 16 },
       visitor: {
         Rule: { import() { return []; } },
         Url(value) {
@@ -102,47 +103,6 @@ export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBa
       },
     }).code.toString();
   } catch { return ''; }
-}
-
-// Isolation belongs to the sandboxed reader document, not source CSS selectors.
-export async function validateAndProcessCSS(css: string): Promise<string | null> {
-  if (!css.trim()) {
-    return null;
-  }
-
-  const MAX_CSS_SIZE = 2 * 1024 * 1024;
-  const cssBytes = Buffer.byteLength(css);
-  if (cssBytes > MAX_CSS_SIZE) {
-    console.log(`CSS too large (${Math.round(cssBytes / 1024 / 1024)}MB), rejecting`);
-    return null;
-  }
-
-  try {
-    // Synchronous parsing is bounded by input size, not by a Promise timer.
-    const result = transform({
-        filename: 'archive.css',
-        code: Buffer.from(css),
-        minify: false,
-        targets: {
-          chrome: 109 << 16,
-          firefox: 128 << 16,
-          safari: 18 << 16,
-        },
-        unusedSymbols: [],
-        errorRecovery: true, // Continue processing even if some CSS is invalid
-        visitor: {
-          Rule: {
-            import() { return []; },
-          }
-        }
-      });
-
-    return result.code.toString();
-
-  } catch (error) {
-    console.log(`❌ CSS failed: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  }
 }
 
 function extractRootAttributes(element: Element): Record<string, string> {
@@ -170,20 +130,41 @@ interface ArchiveResult {
   bodyAttrs: Record<string, string>;
 }
 
-export function createArchiveService(capture: typeof capturePage = capturePage) {
+function isArchiveResult(value: unknown): value is ArchiveResult {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  return ['html', 'css', 'textContent', 'title', 'author', 'publishedTime', 'domain', 'url', 'resolvedUrl']
+    .every(key => typeof result[key] === 'string')
+    && ['extractionTime', 'contentSize'].every(key => typeof result[key] === 'number' && Number.isFinite(result[key]))
+    && ['htmlAttrs', 'bodyAttrs'].every(key => {
+      const attrs = result[key];
+      return attrs !== null && typeof attrs === 'object' && !Array.isArray(attrs)
+        && Object.values(attrs).every(value => typeof value === 'string');
+    });
+}
+
+export function createArchiveService(capture: typeof capturePage = capturePage, options: Partial<CacheOptions<ArchiveResult>> = {}) {
   const cache = new SnapshotCache<ArchiveResult>({
     maxEntries: 50, maxBytes: 32 * 1024 * 1024, ttlMs: 15 * 60 * 1000,
     concurrency: 2, maxPending: 8,
     size: result => Buffer.byteLength(JSON.stringify(result)),
+    ...options,
   });
-  return async (url: string, assetProxyBaseUrl = 'http://localhost:3000', linkRewriteBaseUrl?: string): Promise<ArchiveResult> => {
+  return async (url: string, assetProxyBaseUrl = 'http://localhost:3000', linkRewriteBaseUrl?: string, admitCapture?: () => void): Promise<ArchiveResult> => {
     const result = await cache.getOrCreate(archiveCacheKey(url, assetProxyBaseUrl, linkRewriteBaseUrl),
-      () => processArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl, capture));
+      () => processArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl, capture), admitCapture);
     return result.url === url ? result : { ...result, url };
   };
 }
 
-export const createArchive = createArchiveService();
+export const createArchive = createArchiveService(capturePage, {
+  staleWhileRevalidateMs: (24 * 60 - 15) * 60 * 1000,
+  refreshCooldownMs: 60_000,
+  persistence: {
+    path: process.env.ARCHIVE_CACHE_PATH || 'archive-snapshots.db',
+    maxEntries: 200, maxBytes: 128 * 1024 * 1024, validate: isArchiveResult,
+  },
+});
 
 async function processArchive(url: string, assetProxyBaseUrl: string, linkRewriteBaseUrl: string | undefined, capture: typeof capturePage): Promise<ArchiveResult> {
   const startTime = Date.now();
@@ -191,10 +172,12 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
   const baseUrl = pageData.baseUrl;
   const pageMetadata = pageData.metadata;
   const allCSS = cssSources.map(source => {
-    const css = rewriteAssetUrlsInCSS(source.content, source.baseUrl, assetProxyBaseUrl);
-    return source.media ? `@media ${source.media} {\n${css}\n}` : css;
+    const css = source.media ? `@media ${source.media} {\n${source.content}\n}` : source.content;
+    return rewriteAssetUrlsInCSS(css, source.baseUrl, assetProxyBaseUrl);
   }).join('\n');
-  const processedCSS = await validateAndProcessCSS(allCSS);
+  // Each sheet was already parsed, validated and target-transformed while
+  // rewriting URLs. Keep source order without parsing the joined CSS again.
+  const processedCSS = Buffer.byteLength(allCSS) <= 2 * 1024 * 1024 ? allCSS : '';
   let dom: JSDOM | undefined;
   try {
     // Single JSDOM pass: strip JS, rewrite assets, extract text — no re-parsing
@@ -209,14 +192,6 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
 
     // Sanitize in-place (was previously a separate parse+serialize cycle)
     sanitizeDocument(document);
-
-    // Add viewport meta if not present
-    if (!document.querySelector('meta[name="viewport"]')) {
-      const viewport = document.createElement('meta');
-      viewport.setAttribute('name', 'viewport');
-      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-      document.head.appendChild(viewport);
-    }
 
     // Note: link elements already removed by sanitizeDocument
 

@@ -1,4 +1,4 @@
-import { JSDOM } from "jsdom";
+import { SaxesParser } from "saxes";
 import { ArchiveFetchError, type PublicResource } from "@/api/archive/public-fetch";
 
 const IMAGE_LIMIT = 10 * 1024 * 1024;
@@ -37,14 +37,26 @@ export function validateAsset(resource: PublicResource): string {
     if (resource.body.length > 1024 * 1024) throw new ArchiveFetchError("SVG too large", 413);
     const text = resource.body.toString();
     if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new ArchiveFetchError("SVG declarations are not allowed", 415);
-    let dom: JSDOM | undefined;
     try {
-      dom = new JSDOM(text, { contentType: "image/svg+xml" });
-      const root = dom.window.document.documentElement;
-      if (root.localName !== "svg" || root.namespaceURI !== "http://www.w3.org/2000/svg") throw new Error("Not SVG");
+      // Validate XML without allocating a DOM or walking deep ancestor chains.
+      const parser = new SaxesParser({ xmlns: true, position: false });
+      let depth = 0;
+      let nodes = 0;
+      let attributes = 0;
+      parser.on('opentagstart', () => {
+        if (++depth > 64 || ++nodes > 10_000) throw new Error('SVG complexity limit');
+        attributes = 0;
+      });
+      parser.on('attribute', () => {
+        if (++attributes > 128) throw new Error('SVG attribute limit');
+      });
+      parser.on('opentag', tag => {
+        if (nodes === 1 && (tag.local !== 'svg' || tag.uri !== 'http://www.w3.org/2000/svg')) throw new Error('Not SVG');
+      });
+      parser.on('closetag', () => { depth--; });
+      parser.write(text).close();
       return declared;
     } catch { throw new ArchiveFetchError("Invalid SVG", 415); }
-    finally { dom?.window.close(); }
   }
   const detected = detectFormat(resource.body);
   if (!detected) throw new ArchiveFetchError("Unsupported asset bytes", 415);
@@ -53,7 +65,12 @@ export function validateAsset(resource: PublicResource): string {
     "application/font-woff": "font/woff", "application/x-font-woff": "font/woff",
     "application/x-font-ttf": "font/ttf", "application/x-font-opentype": "font/otf",
   };
-  if (declared && declared !== "application/octet-stream" && (aliases[declared] || declared) !== detected) {
+  const canonical = aliases[declared] || declared;
+  // Some sites serve OpenType under a WOFF MIME type. Only cross-normalize
+  // recognized font formats; HTML and image/font mismatches still fail closed.
+  const mislabeledFont = ["font/woff", "font/woff2", "font/ttf", "font/otf"].includes(canonical)
+    && detected.startsWith("font/");
+  if (declared && declared !== "application/octet-stream" && canonical !== detected && !mislabeledFont) {
     throw new ArchiveFetchError("Asset content type does not match bytes", 415);
   }
   if (resource.body.length > (detected.startsWith("font/") ? FONT_LIMIT : IMAGE_LIMIT)) {

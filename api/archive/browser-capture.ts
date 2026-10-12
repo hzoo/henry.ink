@@ -23,14 +23,80 @@ const MAX_CSS_BYTES = 2 * 1024 * 1024;
 const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 const MAX_REQUESTS = 40;
 const TIMEOUT_MS = 12_000;
+const MAX_NETWORK_CONCURRENCY = 4;
+
+export function createCaptureDownloader(fetcher: PublicFetcher, controller: AbortController) {
+  const signal = controller.signal;
+  let active = 0;
+  let totalBytes = 0;
+  let cssBytes = 0;
+  const waiting: Array<{ resolve: () => void; reject: (reason: unknown) => void }> = [];
+  const listeners = new AbortController();
+  signal.addEventListener("abort", () => {
+    for (const waiter of waiting.splice(0)) waiter.reject(signal.reason);
+    listeners.abort();
+  }, { once: true, signal: listeners.signal });
+
+  function acquire(): Promise<void> {
+    signal.throwIfAborted();
+    if (active < MAX_NETWORK_CONCURRENCY) {
+      active++;
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => waiting.push({ resolve, reject }));
+  }
+
+  function release() {
+    const next = waiting.shift();
+    // Transfer the reserved slot directly so a new caller cannot steal it.
+    if (next) next.resolve();
+    else active--;
+  }
+
+  return async (url: string, kind: "document" | "stylesheet"): Promise<PublicResource> => {
+    await acquire();
+    const maxBytes = kind === "document" ? MAX_PAGE_BYTES : MAX_CSS_BYTES;
+    let reportedBytes = 0;
+    const onBytes = (bytes: number) => {
+      signal.throwIfAborted();
+      reportedBytes += bytes;
+      totalBytes += bytes;
+      if (kind === "stylesheet") cssBytes += bytes;
+      let error: ArchiveFetchError | undefined;
+      if (reportedBytes > maxBytes) error = new ArchiveFetchError("Resource too large", 413);
+      else if (totalBytes > MAX_PAGE_BYTES + MAX_CSS_BYTES) error = new ArchiveFetchError("Page resources too large", 413);
+      else if (cssBytes > MAX_CSS_BYTES) error = new ArchiveFetchError("Page stylesheets too large", 413);
+      if (error) {
+        controller.abort(error);
+        throw error;
+      }
+    };
+    try {
+      signal.throwIfAborted();
+      const resource = await fetcher(url, {
+        allowHttp: true, maxBytes, timeoutMs: TIMEOUT_MS, signal, onBytes,
+        accept: kind === "document" ? "text/html,application/xhtml+xml" : "text/css",
+      });
+      signal.throwIfAborted();
+      // Test/custom fetchers may report no chunks (or only part of the body).
+      // Charge the remainder, never double-count bytes reported during reading.
+      if (resource.body.length > reportedBytes) onBytes(resource.body.length - reportedBytes);
+      return resource;
+    } catch (error) {
+      if (error instanceof ArchiveFetchError && error.status === 413) controller.abort(error);
+      throw signal.aborted ? signal.reason : error;
+    } finally {
+      release();
+    }
+  };
+}
 
 export async function capturePage(url: string, fetcher: PublicFetcher = fetchPublicResource) {
   let context: BrowserContext | undefined;
   const controller = new AbortController();
+  const download = createCaptureDownloader(fetcher, controller);
   const sheets = new Map<string, PublicResource>();
   const downloaded = new Map<string, PublicResource>();
-  let cssBytes = 0;
-  let totalBytes = 0;
   let requests = 0;
   let fatal: Error | undefined;
   let timer: ReturnType<typeof setTimeout>;
@@ -45,14 +111,10 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
   const capture = async () => {
     // Resolve HTTP redirects before Chromium navigates. Playwright routing may
     // only intercept the first request of a browser redirect chain.
-    const initial = await fetcher(url, {
-      allowHttp: true, maxBytes: MAX_PAGE_BYTES, timeoutMs: TIMEOUT_MS,
-      signal: controller.signal, accept: "text/html,application/xhtml+xml",
-    });
+    const initial = await download(url, "document");
     const initialMime = initial.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
     if (initialMime !== "text/html" && initialMime !== "application/xhtml+xml") throw new ArchiveFetchError("URL did not return an HTML document", 415);
     if (initial.status < 200 || initial.status >= 300) throw new ArchiveFetchError("Page upstream returned an error");
-    totalBytes = initial.body.length;
     downloaded.set(initial.url, initial);
     const browser = await getBrowser();
     controller.signal.throwIfAborted();
@@ -80,15 +142,7 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
         if (++requests > MAX_REQUESTS) throw new ArchiveFetchError("Too many page resources", 413);
         let resource = downloaded.get(request.url());
         if (!resource) {
-          resource = await fetcher(request.url(), {
-            allowHttp: true,
-            maxBytes: kind === "document" ? MAX_PAGE_BYTES : MAX_CSS_BYTES,
-            timeoutMs: TIMEOUT_MS,
-            signal: controller.signal,
-            accept: kind === "document" ? "text/html,application/xhtml+xml" : "text/css",
-          });
-          totalBytes += resource.body.length;
-          if (totalBytes > MAX_PAGE_BYTES + MAX_CSS_BYTES) throw new ArchiveFetchError("Page resources too large", 413);
+          resource = await download(request.url(), kind);
           downloaded.set(request.url(), resource);
           downloaded.set(resource.url, resource);
         }
@@ -99,8 +153,6 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
         if (kind === "document" && (resource.status < 200 || resource.status >= 300)) throw new ArchiveFetchError("Page upstream returned an error");
         if (kind === "stylesheet") {
           if (resource.status !== 200 || mime !== "text/css") { await route.abort(); return; }
-          if (!sheets.has(resource.url)) cssBytes += resource.body.length;
-          if (cssBytes > MAX_CSS_BYTES) throw new ArchiveFetchError("Page stylesheets too large", 413);
           sheets.set(request.url(), resource);
           sheets.set(resource.url, resource);
         }

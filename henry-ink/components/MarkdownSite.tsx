@@ -1,6 +1,4 @@
 import { useLocation } from "preact-iso";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
 import { useRef } from "preact/hooks";
 import { signal, useSignalEffect } from "@preact/signals";
 
@@ -12,6 +10,7 @@ import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavi
 import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
 import { ArchiveDocument } from "@/henry-ink/components/ArchiveDocument";
 import { sanitizeReaderHtml, readerDocumentMode } from "@/henry-ink/reader/document";
+import { sanitizeReadableHtml } from "@/henry-ink/reader/readable";
 import { useReaderNotes } from "@/henry-ink/reader/notes";
 import { currentUrl } from "@/src/lib/messaging";
 import { YouTubePlayer } from "@/henry-ink/components/YouTubePlayer";
@@ -133,7 +132,7 @@ export function MarkdownSite() {
 		if (cached?.mode === mode && cached.source === source && cached.doc === document) return cached.html;
 		const html = mode === 'archive'
 			? sanitizeReaderHtml(source, document, true)
-			: DOMPurify.sanitize(marked.parse(source) as string);
+			: sanitizeReadableHtml(source, document);
 		renderedHtml.current = { mode, source, doc: document, html };
 		return html;
 	};
@@ -206,10 +205,12 @@ export function MarkdownSite() {
 				</div>
 			)}
 
-			{contentState.type === "success" && contentState.url === currentUrl.value && (
+			{contentState.type === "success" && contentState.url === currentUrl.value && contentState.mode === contentMode && (
 				<>
 					{/* Content - conditional width based on mode */}
-					<div className={contentMode === 'archive' ? 'flex-1 min-h-0 flex flex-col' : 'max-w-4xl mx-auto'}>
+					<div className={contentMode === 'archive' ? 'flex-1 min-h-0 flex flex-col' : contentMode === 'md'
+						? 'w-full min-w-0 max-w-4xl mx-auto px-4 sm:px-6 [overflow-wrap:anywhere] [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_pre]:max-w-full [&_pre]:overflow-x-auto'
+						: 'max-w-4xl mx-auto'}>
 						{contentMode === 'embed' && embedContent ? (
 							embedContent.provider === 'youtube' ? (
 								<YouTubePlayer
@@ -234,7 +235,7 @@ export function MarkdownSite() {
 									/>
 						) : (
 							<ArenaEnhancedContent
-									htmlContent={prepareHtml('md', contentState.content)}
+									htmlContent={prepareHtml('md', contentState.html || '')}
 								contentRef={contentRef}
 								mode="md"
 							/>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createArchiveService, rewriteAssetUrlsInCSS, validateAndProcessCSS } from "@/api/archive/processor";
+import { createArchiveService, rewriteAssetUrlsInCSS } from "@/api/archive/processor";
 import type { capturePage } from "@/api/archive/browser-capture";
 
 const fixture: Awaited<ReturnType<typeof capturePage>> = {
@@ -15,6 +15,15 @@ const fixture: Awaited<ReturnType<typeof capturePage>> = {
 };
 
 describe("archive processing", () => {
+  test('parses untrusted outer media conditions within the URL validation pass', async () => {
+    const service = createArchiveService(async () => ({ ...fixture,
+      cssSources: [{ content: 'p{color:red}', baseUrl: 'https://styles.example/main.css',
+        media: 'screen {} body{background:url(javascript:evil)} @media screen' }],
+    }));
+    const result = await service('https://example.com/media');
+    expect(result.css).not.toContain('javascript:');
+    expect(result.css).toContain('color: red');
+  });
   test('returns the observed final URL separately from requested URL and document base', async () => {
     const resolvedUrl = 'https://example.com/article/';
     const service = createArchiveService(async () => ({ ...fixture,
@@ -77,7 +86,7 @@ describe("archive processing", () => {
       html.dark body#article > main .copy { font-family: Georgia !important; }
       :where(.caption) { font-family: monospace; }
     `;
-    const processed = await validateAndProcessCSS(css);
+    const processed = rewriteAssetUrlsInCSS(css, 'https://example.com', 'https://api.henry.ink');
     expect(processed).not.toBeNull();
     expect(processed).toContain(":root {");
     expect(processed).toContain("html {");
@@ -174,7 +183,6 @@ describe("archive processing", () => {
     expect(rewritten).not.toContain("javascript:");
     const oversized = `/*${"\u00e9".repeat(1024 * 1024)}*/`;
     expect(oversized.length).toBeLessThan(2 * 1024 * 1024);
-    expect(await validateAndProcessCSS(oversized)).toBeNull();
     expect(rewriteAssetUrlsInCSS(oversized, "https://example.com", "https://api.henry.ink")).toBe("");
   });
 
@@ -215,7 +223,6 @@ describe("archive processing", () => {
     expect(rewritten).not.toContain("@import");
     expect(rewritten).not.toContain("global.css");
     expect(rewritten).toContain("asset-proxy");
-    expect(await validateAndProcessCSS(css)).not.toContain("@import");
   });
 
   test("relative links use the final redirected document base without requiring a rewrite host", async () => {

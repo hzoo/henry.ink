@@ -33,4 +33,5 @@ dist-npm
 
 channels.db*
 trails.db*
+archive-snapshots.db*
 .wrangler

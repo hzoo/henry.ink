@@ -39,43 +39,47 @@ export async function flattenCapturedStylesheets(
     let rootHasImports = false;
     let rootAccepted = false;
     try {
-      const bundled = await bundleAsync({
+      const read = (filename: string): string => {
+        const node = nodes.get(filename);
+        if (!node) return "";
+        const bytes = Buffer.byteLength(node.content);
+        if (inputBytes + bytes > MAX_BYTES) return "";
+        inputBytes += bytes;
+        let namespace = false;
+        let hasImports = false;
+        let prepared;
+        try { prepared = transform({
+          filename,
+          code: Buffer.from(node.content),
+          errorRecovery: true,
+          visitor: {
+            StyleSheet(sheet) { namespace = sheet.rules.some(rule => rule.type === "namespace"); },
+            Rule: {
+              import() {
+                hasImports = true;
+                // A namespace is sheet-local; merging it could change selectors.
+                if (namespace) return [];
+              },
+            },
+            Url(value) {
+              if (value.url.startsWith("#") || value.url.startsWith("data:")) return value;
+              return { ...value, url: httpUrl(value.url, node.baseUrl) || "about:blank" };
+            },
+          },
+        }); } catch { return ""; }
+        if (filename === root) {
+          rootHasImports = hasImports || prepared.warnings.length > 0;
+          rootAccepted = true;
+        } else if (namespace) return "";
+        return prepared.code.toString();
+      };
+      // Parse once to discover real imports (including escaped at-keywords).
+      // Most sheets need no bundle; reuse preparation when imports do exist.
+      const preparedRoot = read(root);
+      const bundled = rootHasImports ? await bundleAsync({
         filename: root,
         resolver: {
-          read(filename) {
-            const node = nodes.get(filename);
-            if (!node) return "";
-            const bytes = Buffer.byteLength(node.content);
-            if (inputBytes + bytes > MAX_BYTES) return "";
-            inputBytes += bytes;
-            let namespace = false;
-            let hasImports = false;
-            let prepared;
-            try { prepared = transform({
-              filename,
-              code: Buffer.from(node.content),
-              errorRecovery: true,
-              visitor: {
-                StyleSheet(sheet) { namespace = sheet.rules.some(rule => rule.type === "namespace"); },
-                Rule: {
-                  import() {
-                    hasImports = true;
-                    // A namespace is sheet-local; merging it could change selectors.
-                    if (namespace) return [];
-                  },
-                },
-                Url(value) {
-                  if (value.url.startsWith("#") || value.url.startsWith("data:")) return value;
-                  return { ...value, url: httpUrl(value.url, node.baseUrl) || "about:blank" };
-                },
-              },
-            }); } catch { return ""; }
-            if (filename === root) {
-              rootHasImports = hasImports || prepared.warnings.length > 0;
-              rootAccepted = true;
-            } else if (namespace) return "";
-            return prepared.code.toString();
-          },
+          read: filename => filename === root ? preparedRoot : read(filename),
           resolve(specifier, filename) {
             const parent = nodes.get(filename);
             if (!parent || parent.depth >= MAX_DEPTH || expansions >= MAX_EXPANSIONS) return omit();
@@ -91,8 +95,8 @@ export async function flattenCapturedStylesheets(
             return child;
           },
         },
-      });
-      const content = rootAccepted ? (rootHasImports ? bundled.code.toString() : source.content) : "";
+      }) : undefined;
+      const content = rootAccepted ? (bundled ? bundled.code.toString() : source.content) : "";
       const bytes = Buffer.byteLength(content);
       if (outputBytes + bytes > MAX_BYTES) result.push({ ...source, content: "" });
       else {

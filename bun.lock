@@ -12,6 +12,7 @@
         "@atcute/lexicons": "^1.1.1",
         "@atcute/oauth-browser-client": "^1.0.26",
         "@atcute/tid": "^1.0.2",
+        "@mozilla/readability": "^0.6.0",
         "@preact/signals": "^2.3.1",
         "@preact/signals-react": "^3.3.0",
         "@tailwindcss/typography": "^0.5.16",
@@ -42,6 +43,7 @@
         "lightningcss": "^1.30.1",
         "modern-ahocorasick": "^2.0.4",
         "playwright": "^1.40.0",
+        "saxes": "6.0.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -247,6 +249,8 @@
     "@microsoft/tsdoc": ["@microsoft/tsdoc@0.15.1", "", {}, "sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw=="],
 
     "@microsoft/tsdoc-config": ["@microsoft/tsdoc-config@0.17.1", "", { "dependencies": { "@microsoft/tsdoc": "0.15.1", "ajv": "~8.12.0", "jju": "~1.4.0", "resolve": "~1.22.2" } }, "sha512-UtjIFe0C6oYgTnad4q1QP4qXwLhe6tIpNTRStJ2RZEPIkqQPREAwE5spzVxsdn9UaEMUqhh0AqSx3X4nWAKXWw=="],
+
+    "@mozilla/readability": ["@mozilla/readability@0.6.0", "", {}, "sha512-juG5VWh4qAivzTAeMzvY9xs9HY5rAcr2E4I7tiSSCokRFi7XIZCAu92ZkSTsIj1OPceCifL3cpfteP3pDT9/QQ=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 
