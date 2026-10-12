@@ -16,6 +16,16 @@ export function extractYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+function transcriptErrorMessage(status: number, code?: unknown): string {
+  if (code === 'youtube_blocked') return 'YouTube is blocking transcript requests. Try again later.';
+  if (code === 'upstream_timeout') return 'The transcript request timed out. Try again.';
+  if (code === 'video_unavailable') return 'This video is unavailable.';
+  if (code === 'language_unavailable') return 'No English transcript is available for this video.';
+  if (status === 404 || code === 'transcript_unavailable') return 'No transcript is available for this video.';
+  if (status === 429) return 'Transcript requests are limited. Try again later.';
+  return 'The transcript could not be loaded. You can still watch the video.';
+}
+
 export const youtubeEmbedProvider: EmbedProvider = {
   id: 'youtube',
   matches: isYouTubeUrl,
@@ -26,17 +36,16 @@ export const youtubeEmbedProvider: EmbedProvider = {
     }
 
     const transcriptEndpoint = context.env.transcriptUrl || apiUrl('/api/youtube/transcript');
-    const response = await context.fetch(`${transcriptEndpoint}?${new URLSearchParams({ videoId, lang: 'en' })}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`YouTube transcript error: ${response.status} ${response.statusText}. ${errorText}`);
+    let response: Response;
+    try {
+      response = await context.fetch(`${transcriptEndpoint}?${new URLSearchParams({ videoId, lang: 'en' })}`);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
+      throw new Error('The transcript service could not be reached. Try again.');
     }
-
-    const youtubeData = await response.json() as YoutubeTranscriptResponse;
-
-    if (youtubeData.error) {
-      throw new Error(youtubeData.error);
+    const youtubeData = await response.json().catch(() => null) as YoutubeTranscriptResponse | null;
+    if (!response.ok || !youtubeData || youtubeData.error || !Array.isArray(youtubeData.transcript)) {
+      throw new Error(transcriptErrorMessage(response.status, youtubeData?.errorCode));
     }
 
     const textContent = youtubeData.transcript

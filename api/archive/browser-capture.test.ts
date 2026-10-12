@@ -1,8 +1,8 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, expect, spyOn, test } from "bun:test";
 import { capturePage, closeArchiveBrowser, createCaptureDownloader } from "@/api/archive/browser-capture";
 import { flattenCapturedStylesheets } from "@/api/archive/captured-css";
 import { ArchiveFetchError, type PublicFetcher, type PublicFetchOptions, type PublicResource } from "@/api/archive/public-fetch";
-import { chromium } from "playwright";
+import { chromium, type Browser } from "playwright";
 import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
 import { createArchiveService } from "@/api/archive/processor";
 
@@ -11,6 +11,57 @@ afterAll(async () => { if (process.env.ARCHIVE_BROWSER_TESTS) await closeArchive
 
 const resource = (url: string, bytes = 10): PublicResource => ({
   url, status: 200, headers: new Headers({ "content-type": "text/css" }), body: Buffer.alloc(bytes),
+});
+
+test("cold browser startup overlaps document fetching without creating a context before validation", async () => {
+  await closeArchiveBrowser();
+  const launched = Promise.withResolvers<Browser>();
+  const downloaded = Promise.withResolvers<PublicResource>();
+  const fetching = Promise.withResolvers<void>();
+  let contexts = 0;
+  const browser = {
+    on() {},
+    async close() {},
+    async newContext() { contexts++; throw new Error("Reached browser context"); },
+  } as unknown as Browser;
+  const launch = spyOn(chromium, "launch").mockReturnValue(launched.promise);
+  const url = "https://source.example/overlap";
+  const document = { ...resource(url), headers: new Headers({ "content-type": "text/html" }) };
+  const result = capturePage(url, async () => {
+    fetching.resolve();
+    return downloaded.promise;
+  }).catch(error => error);
+  try {
+    await fetching.promise;
+    expect(launch).toHaveBeenCalledTimes(1);
+    launched.resolve(browser);
+    await Promise.resolve();
+    expect(contexts).toBe(0);
+    downloaded.resolve(document);
+    expect(await result).toMatchObject({ message: "Reached browser context" });
+    expect(contexts).toBe(1);
+  } finally {
+    launched.resolve(browser);
+    downloaded.resolve(document);
+    await result;
+    await closeArchiveBrowser();
+    launch.mockRestore();
+  }
+});
+
+test("document rejection still wins over an overlapping browser launch failure", async () => {
+  await closeArchiveBrowser();
+  const launch = spyOn(chromium, "launch").mockRejectedValue(new Error("Chrome unavailable"));
+  try {
+    await expect(capturePage("https://source.example/file", async url => {
+      await Bun.sleep(0);
+      return { ...resource(url), headers: new Headers({ "content-type": "application/pdf" }) };
+    })).rejects.toMatchObject({ status: 415 });
+    expect(launch).toHaveBeenCalledTimes(1);
+  } finally {
+    await closeArchiveBrowser();
+    launch.mockRestore();
+  }
 });
 
 test("capture admits at most four network downloads from a 39-stylesheet burst", async () => {

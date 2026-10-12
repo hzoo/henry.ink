@@ -1,55 +1,15 @@
 import type { YoutubeTranscriptResponse, TranscriptResponse } from "@/src/lib/youtube-transcript-types";
 import { getCorsHeaders, optionsResponse } from '@/api/cors';
+import { TranscriptError, upstreamError } from '@/api/youtube/errors';
+import { checkPlayability, parseTranscript, playerField } from '@/api/youtube/parsing';
 import {
   CAPTIONS_MAX_BYTES, fetchText, REQUEST_TIMEOUT_MS, WATCH_MAX_BYTES,
   type Fetcher,
 } from '@/api/youtube/upstream';
 
-class YoutubeTranscriptError extends Error {
-  constructor(message: string) {
-    super(`[YoutubeTranscript] 🚨 ${message}`);
-  }
-}
-
-class YoutubeTranscriptTooManyRequestError extends YoutubeTranscriptError {
+class EmptyTranscriptError extends TranscriptError {
   constructor() {
-    super(
-      'YouTube is receiving too many requests from this IP and now requires solving a captcha to continue'
-    );
-  }
-}
-
-class YoutubeTranscriptVideoUnavailableError extends YoutubeTranscriptError {
-  constructor(videoId: string) {
-    super(`The video is no longer available (${videoId})`);
-  }
-}
-
-class YoutubeTranscriptDisabledError extends YoutubeTranscriptError {
-  constructor(videoId: string) {
-    super(`Transcript is disabled on this video (${videoId})`);
-  }
-}
-
-class YoutubeTranscriptNotAvailableError extends YoutubeTranscriptError {
-  constructor(videoId: string) {
-    super(`No transcripts are available for this video (${videoId})`);
-  }
-}
-
-class YoutubeTranscriptNotAvailableLanguageError extends YoutubeTranscriptError {
-  constructor(lang: string, availableLangs: string[], videoId: string) {
-    super(
-      `No transcripts are available in ${lang} this video (${videoId}). Available languages: ${availableLangs.join(
-        ', '
-      )}`
-    );
-  }
-}
-
-class YoutubeTranscriptEmptyError extends YoutubeTranscriptError {
-  constructor(videoId: string, method: string) {
-    super(`The transcript file URL returns an empty response using ${method} (${videoId})`);
+    super('transcript_unavailable', 404, 'YouTube did not provide transcript text for this video.');
   }
 }
 
@@ -77,18 +37,17 @@ function retrieveVideoId(input: string): string | undefined {
 }
 
 function validateCaptionUrl(input: string): string {
-  const url = new URL(input);
+  let url: URL;
+  try { url = new URL(input); } catch { throw upstreamError(); }
   const allowed = (['www.youtube.com', 'youtube.com'].includes(url.hostname) && url.pathname === '/api/timedtext') ||
     (url.hostname === 'video.google.com' && url.pathname === '/timedtext');
   if (!allowed || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) {
-    throw new Error('Invalid YouTube caption URL');
+    throw upstreamError();
   }
   return url.href;
 }
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36,gzip(gfe)';
-const RE_XML_TRANSCRIPT =
-  /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
 
 class YoutubeTranscript {
   constructor(private fetcher: Fetcher, private signal: AbortSignal) {}
@@ -109,7 +68,7 @@ class YoutubeTranscript {
     try {
       return { title, transcript: await this.fetchTranscriptWithHtmlScraping(videoPageBody, videoId, config) };
     } catch (e) {
-      if (e instanceof YoutubeTranscriptEmptyError) {
+      if (e instanceof EmptyTranscriptError) {
         return { title, transcript: await this.fetchTranscriptWithInnerTube(videoId, config) };
       } else {
         throw e;
@@ -118,27 +77,11 @@ class YoutubeTranscript {
   }
 
   private async fetchTranscriptWithHtmlScraping(videoPageBody: string, videoId: string, config?: { lang?: string }) {
-    const splittedHTML = videoPageBody.split('"captions":');
-
-    if (splittedHTML.length <= 1) {
-      if (videoPageBody.includes('class="g-recaptcha"')) {
-        throw new YoutubeTranscriptTooManyRequestError();
-      }
-      if (!videoPageBody.includes('"playabilityStatus":')) {
-        throw new YoutubeTranscriptVideoUnavailableError(videoId);
-      }
-      throw new YoutubeTranscriptDisabledError(videoId);
-    }
-
-    const captions = (() => {
-      try {
-        return JSON.parse(
-          splittedHTML[1].split(',"videoDetails')[0].replace('\n', '')
-        );
-      } catch (e) {
-        return undefined;
-      }
-    })()?.['playerCaptionsTracklistRenderer'];
+    const playability = playerField(videoPageBody, 'playabilityStatus');
+    checkPlayability(playability, videoPageBody);
+    const captionData = playerField(videoPageBody, 'captions');
+    if (captionData === undefined && playability?.status !== 'OK') throw upstreamError();
+    const captions = captionData?.playerCaptionsTracklistRenderer;
 
     const processedTranscript = await this.processTranscriptFromCaptions(
       captions,
@@ -147,7 +90,7 @@ class YoutubeTranscript {
     );
 
     if (!processedTranscript.length) {
-      throw new YoutubeTranscriptEmptyError(videoId, 'HTML scraping');
+      throw new EmptyTranscriptError();
     }
 
     return processedTranscript;
@@ -182,7 +125,11 @@ class YoutubeTranscript {
       options, CAPTIONS_MAX_BYTES, this.signal, this.fetcher,
     );
 
-    const json = JSON.parse(innerTubeApiBody);
+    let json;
+    try { json = JSON.parse(innerTubeApiBody); } catch { throw upstreamError(); }
+    if (!json || typeof json !== 'object') throw upstreamError();
+    checkPlayability(json.playabilityStatus);
+    if (!json.captions && json.playabilityStatus?.status !== 'OK') throw upstreamError();
     const captions = json?.captions?.playerCaptionsTracklistRenderer;
 
     const processedTranscript = await this.processTranscriptFromCaptions(
@@ -192,7 +139,7 @@ class YoutubeTranscript {
     );
 
     if (!processedTranscript.length) {
-      throw new YoutubeTranscriptEmptyError(videoId, 'InnerTube API');
+      throw new EmptyTranscriptError();
     }
 
     return processedTranscript;
@@ -204,13 +151,15 @@ class YoutubeTranscript {
     config?: { lang?: string }
   ): Promise<TranscriptResponse[]> {
     if (!captions) {
-      throw new YoutubeTranscriptDisabledError(videoId);
+      throw new TranscriptError('transcript_unavailable', 404, 'YouTube does not list captions for this video.');
     }
 
-    if (!Array.isArray(captions.captionTracks) || !captions.captionTracks.length ||
-        !captions.captionTracks.every((track: any) => track &&
+    if (captions.captionTracks === undefined || (Array.isArray(captions.captionTracks) && !captions.captionTracks.length)) {
+      throw new TranscriptError('transcript_unavailable', 404, 'YouTube does not list captions for this video.');
+    }
+    if (!Array.isArray(captions.captionTracks) || !captions.captionTracks.every((track: any) => track &&
           typeof track.languageCode === 'string' && typeof track.baseUrl === 'string')) {
-      throw new YoutubeTranscriptNotAvailableError(videoId);
+      throw upstreamError();
     }
 
     if (
@@ -219,11 +168,7 @@ class YoutubeTranscript {
         (track: any) => track.languageCode === config?.lang
       )
     ) {
-      throw new YoutubeTranscriptNotAvailableLanguageError(
-        config?.lang,
-        captions.captionTracks.map((track: any) => track.languageCode),
-        videoId
-      );
+      throw new TranscriptError('language_unavailable', 404, 'YouTube does not list captions in the requested language.');
     }
 
     const transcriptURL = (
@@ -240,18 +185,8 @@ class YoutubeTranscript {
         'User-Agent': USER_AGENT,
       },
     }, CAPTIONS_MAX_BYTES, this.signal, this.fetcher);
-    const results = [...transcriptBody.matchAll(RE_XML_TRANSCRIPT)];
     const languageCode = config?.lang ?? captions.captionTracks[0]?.languageCode;
-
-    return results.map((result) => {
-      const duration = Number(result[2]);
-      const offset = Number(result[1]);
-      if (!result[1].trim() || !result[2].trim() || !Number.isFinite(duration) ||
-          !Number.isFinite(offset) || duration < 0 || offset < 0) {
-        throw new Error('Invalid YouTube caption timing');
-      }
-      return { text: result[3], duration, offset, lang: languageCode };
-    });
+    return parseTranscript(transcriptBody, languageCode);
   }
 }
 
@@ -275,13 +210,6 @@ const MAX_CACHE_SIZE = 200;
 const inMemoryCache = new Map<string, { data: YoutubeTranscriptResponse; expires: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-function cleanTranscript(transcript: TranscriptResponse[]): TranscriptResponse[] {
-  return transcript.map((item) => ({
-    ...item,
-    text: item.text.replace(/&amp;/g, '&').replace(/&#39;/g, "'")
-  }));
-}
-
 async function fetchTranscriptData(videoId: string, lang: string, signal: AbortSignal, fetcher: Fetcher): Promise<YoutubeTranscriptResponse> {
   signal.throwIfAborted();
   const cacheKey = `${videoId}:${lang}`;
@@ -293,12 +221,11 @@ async function fetchTranscriptData(videoId: string, lang: string, signal: AbortS
 
   const { transcript, title } = await new YoutubeTranscript(fetcher, signal).fetchTranscript(videoId, { lang });
   signal.throwIfAborted();
-  const cleanedTranscript = cleanTranscript(transcript);
 
   const response: YoutubeTranscriptResponse = {
     videoId,
     title,
-    transcript: cleanedTranscript,
+    transcript,
   };
 
   // Remove expired entries on writes; no process-wide cleanup timer is needed.
@@ -360,17 +287,23 @@ export async function youtubeTranscriptRoute(req: Request, fetcher: Fetcher = fe
       },
     });
   } catch (error) {
-    console.error('YouTube transcript error:', error);
-    console.error('Details:', error instanceof Error ? error.message : error);
+    const failure = controller.signal.aborted
+      ? new TranscriptError('upstream_timeout', 504, 'YouTube took too long to return a transcript.')
+      : req.signal.aborted
+        ? new TranscriptError('request_cancelled', 408, 'The transcript request was cancelled.')
+        : error instanceof TranscriptError ? error : undefined;
+    // Never log upstream bodies or signed caption URLs.
+    console.error('YouTube transcript request failed:', identifier, failure?.code ?? 'internal_error');
     const response: YoutubeTranscriptResponse = {
       videoId,
       transcript: [],
-      error: 'Failed to fetch transcript',
+      error: failure?.message ?? 'Failed to fetch transcript',
+      ...(failure && { errorCode: failure.code }),
     };
 
     return new Response(JSON.stringify(response), {
-      status: 500,
-      headers,
+      status: failure?.status ?? 500,
+      headers: { ...headers, 'Cache-Control': 'no-store' },
     });
   } finally {
     clearTimeout(timer);

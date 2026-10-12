@@ -109,6 +109,10 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
     }, TIMEOUT_MS);
   });
   const capture = async () => {
+    // Browser startup and the checked document fetch are independent. Observe
+    // launch failures even when document validation exits before awaiting it.
+    const browserReady = getBrowser();
+    void browserReady.catch(() => {});
     // Resolve HTTP redirects before Chromium navigates. Playwright routing may
     // only intercept the first request of a browser redirect chain.
     const initial = await download(url, "document");
@@ -116,7 +120,7 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
     if (initialMime !== "text/html" && initialMime !== "application/xhtml+xml") throw new ArchiveFetchError("URL did not return an HTML document", 415);
     if (initial.status < 200 || initial.status >= 300) throw new ArchiveFetchError("Page upstream returned an error");
     downloaded.set(initial.url, initial);
-    const browser = await getBrowser();
+    const browser = await browserReady;
     controller.signal.throwIfAborted();
     context = await browser.newContext({
       ...devices["Desktop Chrome"],

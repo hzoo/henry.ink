@@ -1,14 +1,16 @@
 import { useRef, useEffect } from "preact/hooks";
-import { signal, useSignal, useComputed } from "@preact/signals";
+import { useSignal, useComputed } from "@preact/signals";
 import type { TranscriptItem } from "@/henry-ink/signals";
+import { ReaderError, ReaderLoading } from '@/henry-ink/components/ReaderStatus';
 
 interface YouTubePlayerProps {
 	videoId: string;
 	title?: string;
-	transcript: TranscriptItem[];
+	transcriptState: { type: 'loading' } | { type: 'error'; message: string } | { type: 'ready'; items: TranscriptItem[] };
+	onRetry: () => void;
 }
 
-const currentTime = signal(0);
+const EMPTY_TRANSCRIPT: TranscriptItem[] = [];
 const ALLOWED_ORIGINS = new Set([
 	'https://www.youtube.com',
 	'https://www.youtube-nocookie.com',
@@ -34,7 +36,9 @@ function findCurrentSegment(transcript: TranscriptItem[], currentTimeValue: numb
 	return currentIndex;
 }
 
-export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps) {
+export function YouTubePlayer({ videoId, title, transcriptState, onRetry }: YouTubePlayerProps) {
+	const transcript = transcriptState.type === 'ready' ? transcriptState.items : EMPTY_TRANSCRIPT;
+	const currentTime = useSignal(0);
 	const playerRef = useRef<HTMLIFrameElement>(null);
 	const transcriptRef = useRef<HTMLDivElement>(null);
 	const searchQuery = useSignal("");
@@ -49,7 +53,7 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 	const postToPlayer = (payload: Record<string, unknown>) => {
 		const frameWindow = playerRef.current?.contentWindow;
 		if (!frameWindow) return;
-		frameWindow.postMessage(JSON.stringify(payload), '*');
+		frameWindow.postMessage(JSON.stringify(payload), 'https://www.youtube-nocookie.com');
 	};
 
 	const sendPlayerCommand = (func: string, args: unknown[] = []) => {
@@ -102,7 +106,7 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 	// Listen to video time updates via postMessage API
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
-			if (!ALLOWED_ORIGINS.has(event.origin)) return;
+			if (!ALLOWED_ORIGINS.has(event.origin) || event.source !== playerRef.current?.contentWindow) return;
 
 			let data: any = event.data;
 			if (typeof data === 'string') {
@@ -136,9 +140,10 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 			}
 		};
 
-		window.addEventListener('message', handleMessage);
+		const controller = new AbortController();
+		window.addEventListener('message', handleMessage, { signal: controller.signal });
 		return () => {
-			window.removeEventListener('message', handleMessage);
+			controller.abort();
 			stopProgressUpdates();
 		};
 	}, [videoId]);
@@ -185,10 +190,10 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 	const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
 	return (
-			<div className="max-w-4xl mx-auto space-y-6">
+			<div className="w-full min-w-0 max-w-4xl mx-auto space-y-3 p-3 sm:p-4">
 				{/* Video Player */}
 				<div className="relative">
-					<div className="aspect-video rounded-xl overflow-hidden shadow-lg bg-gray-100 dark:bg-gray-800">
+					<div className="aspect-video rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
 						<iframe
 							ref={playerRef}
 							src={embedUrl}
@@ -208,17 +213,16 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 				)}
 			</div>
 
-			{/* Transcript Section */}
-			<div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
+			{transcriptState.type === 'loading' && <ReaderLoading label="Loading transcript" />}
+			{transcriptState.type === 'error' && <ReaderError message={transcriptState.message} source={`https://www.youtube.com/watch?v=${videoId}`} onRetry={onRetry} />}
+			{transcriptState.type === 'ready' && !transcript.length && <p class="px-4 py-3 text-sm text-slate-500">No transcript is available for this video.</p>}
+			{transcriptState.type === 'ready' && transcript.length > 0 && <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
 				{/* Transcript Header */}
-				<div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+				<div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1 border-b border-gray-200 dark:border-gray-700">
 					<div className="flex items-center gap-3">
-						<h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+						<h2 className="text-sm font-medium text-gray-900 dark:text-gray-100">
 							Transcript
 						</h2>
-						<span className="text-sm text-gray-500 dark:text-gray-400">
-							{transcript.length} segments
-						</span>
 					</div>
 
 					<div className="flex items-center gap-2">
@@ -304,7 +308,7 @@ export function YouTubePlayer({ videoId, title, transcript }: YouTubePlayerProps
 						</div>
 					)}
 				</div>
-			</div>
+			</div>}
 		</div>
 	);
 }

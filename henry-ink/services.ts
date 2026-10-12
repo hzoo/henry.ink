@@ -50,6 +50,7 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 		// Force embed mode for embed URLs
 		if (contentModeSignal.value !== embedMode) {
 			contentModeSignal.value = embedMode;
+			return; // Let the new mode start one request, not an aborted duplicate.
 		}
 
 		contentStateSignal.value = { type: 'loading', mode: embedMode };

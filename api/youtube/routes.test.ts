@@ -121,17 +121,28 @@ test('missing title stays optional without additional network work', async () =>
 });
 
 test('unavailable and malformed captions stop after the watch request', async () => {
-  for (const html of ['<div class="g-recaptcha">', '<html>Unavailable</html>',
-    '"playabilityStatus":{}', '"captions":invalid,"videoDetails":{}',
-    ...[null, {}, { captionTracks: [] }, { captionTracks: [null] },
-      { captionTracks: [{ languageCode: 'fr', baseUrl: captionUrl }] },
-    ].map(renderer => `"captions":${JSON.stringify({ playerCaptionsTracklistRenderer: renderer })},"videoDetails":{}`)]) {
+  const cases: [string, number, string][] = [
+    ['<div class="g-recaptcha">', 503, 'youtube_blocked'],
+    ['<html>Unavailable</html>', 502, 'upstream_error'],
+    ['"playabilityStatus":{}', 502, 'upstream_error'],
+    ['"playabilityStatus":{"status":"OK"}', 404, 'transcript_unavailable'],
+    ['"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm you’re not a bot"}', 503, 'youtube_blocked'],
+    ['"playabilityStatus":{"status":"ERROR","reason":"Video unavailable"}', 404, 'video_unavailable'],
+    ['"captions":invalid,"videoDetails":{}', 502, 'upstream_error'],
+    ...[null, {}, { captionTracks: [] }].map(renderer => [
+      `"captions":${JSON.stringify({ playerCaptionsTracklistRenderer: renderer })},"videoDetails":{}`,
+      404, 'transcript_unavailable',
+    ] as [string, number, string]),
+    ['"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[null]}}', 502, 'upstream_error'],
+    [watchHtml.replace('"languageCode":"en"', '"languageCode":"fr"'), 404, 'language_unavailable'],
+  ];
+  for (const [html, status, errorCode] of cases) {
     const { calls, fetcher } = upstream(false, () => new Response(html));
     const id = nextId();
     const response = await youtubeTranscriptRoute(request(id), fetcher);
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ videoId: id, transcript: [], error: 'Failed to fetch transcript' });
-    expect(response.headers.has('cache-control')).toBe(false);
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ videoId: id, transcript: [], errorCode });
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(calls).toHaveLength(1);
   }
 });
@@ -143,7 +154,7 @@ test('unsafe caption destinations never reach the network', async () => {
     'file:///etc/passwd', 'not a URL']) {
     const { calls, fetcher } = upstream(false, (_url, _options, call) => call === 1 ?
       new Response(watchHtml.replace(captionUrl, destination)) : undefined);
-    expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(500);
+    expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(502);
     expect(calls).toHaveLength(1);
   }
 });
@@ -156,7 +167,10 @@ test('upstream HTTP errors and redirects do not trigger retries or enter the cac
       const bad = upstream(true, (_url, _options, call) => call === stage ? new Response(
         new ReadableStream({ cancel() { cancelled = true; } }), { status },
       ) : undefined);
-      expect((await youtubeTranscriptRoute(request(id), bad.fetcher)).status).toBe(500);
+      const response = await youtubeTranscriptRoute(request(id), bad.fetcher);
+      expect(response.status).toBe(status === 429 ? 429 : status === 403 ? 503 : 502);
+      expect((await response.json()).errorCode).toBe([403, 429].includes(status) ? 'youtube_blocked' : 'upstream_error');
+      expect(response.headers.get('cache-control')).toBe('no-store');
       expect(cancelled).toBe(true);
       expect(bad.calls).toHaveLength(stage);
       const good = upstream();
@@ -169,7 +183,9 @@ test('upstream HTTP errors and redirects do not trigger retries or enter the cac
 test('both caption methods empty means failure after at most four requests', async () => {
   const { calls, fetcher } = upstream(false, url => url === captionUrl ? new Response('') : undefined);
   const id = nextId();
-  expect((await youtubeTranscriptRoute(request(id), fetcher)).status).toBe(500);
+  const response = await youtubeTranscriptRoute(request(id), fetcher);
+  expect(response.status).toBe(404);
+  expect((await response.json()).errorCode).toBe('transcript_unavailable');
   expect(calls).toHaveLength(4);
   const good = upstream();
   expect((await youtubeTranscriptRoute(request(id), good.fetcher)).status).toBe(200);
@@ -179,8 +195,8 @@ test('both caption methods empty means failure after at most four requests', asy
 test('invalid timing is a failure, not a cached transcript with null numbers', async () => {
   for (const value of ['NaN', 'Infinity', '-1', '', '1oops']) {
     const { calls, fetcher } = upstream(false, url => url === captionUrl ?
-      new Response(`<text start="${value}" dur="2">Bad</text>`) : undefined);
-    expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(500);
+      new Response(`<transcript><text start="${value}" dur="2">Bad</text></transcript>`) : undefined);
+    expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(502);
     expect(calls).toHaveLength(2);
   }
 });
@@ -197,7 +213,7 @@ test('every stage enforces declared and streamed decoded-byte limits and cancels
           cancel() { cancelled = true; },
         }), { headers: declared ? { 'Content-Length': String(limit + 1) } : {} });
       });
-      expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(500);
+      expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(502);
       expect(calls).toHaveLength(stage);
       expect(cancelled).toBe(true);
     }
@@ -213,14 +229,15 @@ test('caller cancellation stops a stalled body and never caches partial results'
       pull() { controller.abort(); }, cancel() { cancelled = true; },
     }, { highWaterMark: 0 })) : undefined);
   const response = await youtubeTranscriptRoute(new Request(request(id), { signal: controller.signal }), fetcher);
-  expect(response.status).toBe(500);
+  expect(response.status).toBe(408);
+  expect((await response.json()).errorCode).toBe('request_cancelled');
   expect(cancelled).toBe(true);
   expect(calls).toHaveLength(2);
   const good = upstream();
   expect((await youtubeTranscriptRoute(request(id), good.fetcher)).status).toBe(200);
   expect(good.calls).toHaveLength(2);
   const preAborted = await youtubeTranscriptRoute(new Request(request(nextId()), { signal: controller.signal }), good.fetcher);
-  expect(preAborted.status).toBe(500);
+  expect(preAborted.status).toBe(408);
   expect(good.calls).toHaveLength(2);
 });
 
@@ -238,10 +255,58 @@ test('the shared 15-second deadline cancels a stalled body and is cleared', asyn
   const { fetcher } = upstream(false, () => new Response(new ReadableStream({
     pull() { expire?.(); }, cancel() { cancelled = true; },
   }, { highWaterMark: 0 })));
-  expect((await youtubeTranscriptRoute(request(nextId()), fetcher)).status).toBe(500);
+  const response = await youtubeTranscriptRoute(request(nextId()), fetcher);
+  expect(response.status).toBe(504);
+  expect((await response.json()).errorCode).toBe('upstream_timeout');
   expect(cancelled).toBe(true);
   expect(timeout).toHaveBeenCalledTimes(1);
   expect(clear).toHaveBeenCalledTimes(1);
+});
+
+test('caption extraction tolerates property order, whitespace, and braces inside strings', async () => {
+  const data = { ...captions, label: 'literal } and "quotes"' };
+  const html = `<script>var ytInitialPlayerResponse = ${JSON.stringify({
+    videoDetails: {}, captions: data, unrelated: { nested: true },
+  }, null, 2)};</script>`;
+  const { calls, fetcher } = upstream(false, (_url, _options, call) => call === 1 ? new Response(html) : undefined);
+  const response = await youtubeTranscriptRoute(request(nextId()), fetcher);
+  expect(response.status).toBe(200);
+  expect((await response.json()).transcript[0].text).toBe("Tom & Jerry's");
+  expect(calls).toHaveLength(2);
+});
+
+test('fallback player refusal is reported as blocked, never as missing captions', async () => {
+  const { calls, fetcher } = upstream(true, (_url, _options, call) => call === 3 ? Response.json({
+    playabilityStatus: { status: 'LOGIN_REQUIRED', reason: "Sign in to confirm you're not a bot" },
+  }) : undefined);
+  const response = await youtubeTranscriptRoute(request(nextId()), fetcher);
+  expect(response.status).toBe(503);
+  expect((await response.json()).errorCode).toBe('youtube_blocked');
+  expect(calls).toHaveLength(3);
+});
+
+test('malformed fallback JSON is an upstream error', async () => {
+  const { calls, fetcher } = upstream(true, (_url, _options, call) => call === 3 ? new Response('{broken') : undefined);
+  const response = await youtubeTranscriptRoute(request(nextId()), fetcher);
+  expect(response.status).toBe(502);
+  expect((await response.json()).errorCode).toBe('upstream_error');
+  expect(calls).toHaveLength(3);
+});
+
+test('network failures and broken streams do not leak signed URLs', async () => {
+  for (const streamFailure of [false, true]) {
+    const privateMessage = 'https://www.youtube.com/api/timedtext?signature=private';
+    const fetcher: Fetcher = async () => {
+      if (!streamFailure) throw new Error(privateMessage);
+      return new Response(new ReadableStream({ start(controller) { controller.error(new Error(privateMessage)); } }));
+    };
+    const response = await youtubeTranscriptRoute(request(nextId()), fetcher);
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.errorCode).toBe('upstream_error');
+    expect(body.error).not.toContain('signature');
+    expect(JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls)).not.toContain('signature');
+  }
 });
 
 test('language cache keys are separate and expiry forces a new two-call capture', async () => {
