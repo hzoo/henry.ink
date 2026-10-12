@@ -14,7 +14,7 @@ echo "=> Verifying before restart..."
 bun run verify
 
 echo "=> Restarting API..."
-pm2 restart henry-ink-api --update-env
+pm2 restart henry-ink-api
 
 echo "=> Waiting for health check..."
 for attempt in {1..15}; do
