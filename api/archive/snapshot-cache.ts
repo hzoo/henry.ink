@@ -160,7 +160,7 @@ export class SnapshotCache<T> {
 }
 
 /** Bump version whenever capture, sanitization, or rewriting semantics change. */
-export function archiveCacheKey(url: string, assetBase: string, linkBase?: string, version = "archive-v3"): string {
+export function archiveCacheKey(url: string, assetBase: string, linkBase?: string, version = "archive-v4"): string {
   const parsed = new URL(url);
   parsed.hash = "";
   return JSON.stringify([version, parsed.href, assetBase, linkBase || ""]);

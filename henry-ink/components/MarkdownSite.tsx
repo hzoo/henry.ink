@@ -145,10 +145,7 @@ export function MarkdownSite() {
 		<div className="flex-1 h-full min-h-0 flex flex-col min-w-0">
 			{!videoId && contentState.type === 'loading' && <ReaderLoading key={`${currentUrl.value}:${contentMode}:${contentRevision.value}`} label={contentState.message} />}
 			{!videoId && contentState.type === 'error' && <ReaderError message={contentState.message} source={currentUrl.value} onRetry={() => contentRevision.value++} />}
-			{videoId && <YouTubePlayer key={videoId} videoId={videoId} title={embedContent?.title}
-				transcriptState={embedContent ? { type: 'ready', items: embedContent.transcript }
-					: contentState.type === 'error' ? { type: 'error', message: contentState.message } : { type: 'loading' }}
-				onRetry={() => contentRevision.value++} />}
+			{videoId && <YouTubePlayer key={videoId} videoId={videoId} title={embedContent?.title} />}
 
 			{!videoId && contentState.type === "success" && contentState.url === currentUrl.value && contentState.mode === contentMode && (
 				<>

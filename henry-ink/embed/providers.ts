@@ -1,17 +1,10 @@
 import type { EmbedContent, EmbedProviderId } from "@/henry-ink/signals";
 
-export interface EmbedProviderContext {
-  fetch: typeof fetch;
-  env: {
-    transcriptUrl?: string;
-  };
-}
-
 export interface EmbedProvider {
   id: EmbedProviderId;
   matches: (url: string) => boolean;
   normalize?: (url: string) => string;
-  fetchContent: (url: string, context: EmbedProviderContext) => Promise<EmbedContent>;
+  createContent: (url: string) => EmbedContent;
 }
 
 const providers: EmbedProvider[] = [];

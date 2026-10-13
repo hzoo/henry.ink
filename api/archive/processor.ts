@@ -6,6 +6,7 @@ import { archiveCacheKey, SnapshotCache, type CacheOptions } from "@/api/archive
 import { rewriteSrcset } from "@/api/archive/srcset";
 import { readerDocumentMode, READER_DOCTYPES } from "@/src/lib/archive-document-mode";
 import { validatedEmbeddedFont } from "@/api/archive/asset-validation";
+import { validatedEmbeddedSvg } from "@/api/archive/embedded-svg";
 
 // Dangerous URI schemes — allow data:image/ for inline images, block everything else
 // Block data:image/svg+xml specifically (SVGs can contain scripts)
@@ -89,7 +90,7 @@ export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBa
         Rule: { import() { return []; } },
         Url(value) {
           if (value.url.startsWith('#') || /^data:image\/(?:png|jpeg|gif|webp|avif);/i.test(value.url)) return value;
-          if (/^data:/i.test(value.url)) return { ...value, url: validatedEmbeddedFont(value.url) || 'about:blank' };
+          if (/^data:/i.test(value.url)) return { ...value, url: validatedEmbeddedSvg(value.url) || validatedEmbeddedFont(value.url) || 'about:blank' };
           try {
             const absolute = new URL(value.url, baseUrl);
             if (absolute.protocol !== 'https:' && absolute.protocol !== 'http:') return { ...value, url: 'about:blank' };

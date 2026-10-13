@@ -1,5 +1,4 @@
 import { useSignalEffect } from "@preact/signals";
-import { apiUrl } from '@/src/lib/api-url';
 import { useLocation } from "preact-iso";
 import { contentStateSignal, contentModeSignal, contentRevision, type ContentMode } from "@/henry-ink/signals";
 import { archiveCache } from "@/henry-ink/reader/archive-cache";
@@ -50,26 +49,18 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 		// Force embed mode for embed URLs
 		if (contentModeSignal.value !== embedMode) {
 			contentModeSignal.value = embedMode;
-			return; // Let the new mode start one request, not an aborted duplicate.
+			return; // Render the embed after its mode transition.
 		}
-
-		contentStateSignal.value = { type: 'loading', mode: embedMode };
 
 		try {
 			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
-			const transcriptUrl = apiUrl('/api/youtube/transcript');
-			const embed = await embedProvider.fetchContent(normalizedForProvider, {
-				fetch: ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal })) as typeof fetch,
-				env: {
-					transcriptUrl,
-				},
-			});
+			const embed = embedProvider.createContent(normalizedForProvider);
 
 			if (signal.aborted) return;
 			contentStateSignal.value = {
 				type: 'success',
 				url: targetUrl,
-				content: embed.textContent,
+				content: '',
 				title: embed.title,
 				mode: embedMode,
 				embed,
