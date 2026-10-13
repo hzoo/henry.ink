@@ -66,11 +66,13 @@ export function validateAsset(resource: PublicResource): string {
     "application/x-font-ttf": "font/ttf", "application/x-font-opentype": "font/otf",
   };
   const canonical = aliases[declared] || declared;
-  // Some sites serve OpenType under a WOFF MIME type. Only cross-normalize
-  // recognized font formats; HTML and image/font mismatches still fail closed.
+  // Normalize known passive formats within their family; mislabeled JPEG/PNG
+  // assets are common. HTML, SVG and image/font mismatches still fail closed.
   const mislabeledFont = ["font/woff", "font/woff2", "font/ttf", "font/otf"].includes(canonical)
     && detected.startsWith("font/");
-  if (declared && declared !== "application/octet-stream" && canonical !== detected && !mislabeledFont) {
+  const rasterTypes = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"];
+  const mislabeledRaster = rasterTypes.includes(canonical) && rasterTypes.includes(detected);
+  if (declared && declared !== "application/octet-stream" && canonical !== detected && !mislabeledFont && !mislabeledRaster) {
     throw new ArchiveFetchError("Asset content type does not match bytes", 415);
   }
   if (resource.body.length > (detected.startsWith("font/") ? FONT_LIMIT : IMAGE_LIMIT)) {

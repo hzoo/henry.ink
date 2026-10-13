@@ -8,6 +8,8 @@ export interface CacheOptions<T> {
   concurrency: number;
   maxPending: number;
   size: (value: T) => number;
+  /** Successful values may be delivered without retaining them in either tier. */
+  shouldCache?: (value: T) => boolean;
   /** Additional time after ttlMs during which stale results may be served. Defaults to 0. */
   staleWhileRevalidateMs?: number;
   /** Delay after a failed background refresh. Defaults to 30 seconds; never extends expiry. */
@@ -134,6 +136,9 @@ export class SnapshotCache<T> {
       const freshUntil = this.now() + this.options.ttlMs;
       const entry = { value, freshUntil, expires: freshUntil + this.staleMs, retryAt: 0 };
       this.remove(key);
+      try {
+        if (this.options.shouldCache?.(value) === false) return value;
+      } catch { return value; }
       try {
         this.remember(key, { ...entry, bytes: this.measure(value) });
       } catch { /* Cache bookkeeping must not discard a successful capture. */ }
