@@ -42,6 +42,20 @@ describe("archive processing", () => {
     expect(css).toContain('about:blank');
     expect(css).not.toContain('data:text/html');
   });
+  test('allows passive SVG only through CSS URLs while keeping active SVG blocked', async () => {
+    const safe = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30"><path stroke="rgba(255,255,255,0.55)" d="M4 7h22M4 15h22M4 23h22"/></svg>')}`;
+    const unsafe = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" onload="evil()"/>').toString('base64')}`;
+    const css = rewriteAssetUrlsInCSS(`.icon{background:url("${safe}")} .bad{background:url("${unsafe}")}`, 'https://example.com', 'http://localhost:3000');
+    expect(css).toContain('data:image/svg+xml;base64,');
+    expect(css).toContain('about:blank');
+    expect(css).not.toContain(unsafe);
+    const service = createArchiveService(async () => ({ ...fixture,
+      fullHTMLContent: `<img src="${safe}"><p style="background:url('${safe}')">Icon</p>`,
+    }));
+    const result = await service('https://example.com/icon');
+    expect(result.html).not.toMatch(/src="data:image\/svg/);
+    expect(result.html).toContain('data:image/svg+xml;base64,');
+  });
   test('retains limited-quirks document mode through server serialization', async () => {
     const service = createArchiveService(async () => ({ ...fixture,
       fullHTMLContent: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><p>Legacy article</p>',

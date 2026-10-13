@@ -38,9 +38,6 @@ try {
       page.setDefaultTimeout(8000);
       const failures: string[] = [];
       const requests: string[] = [];
-      let releaseTranscript!: () => void;
-      let transcriptMode: 'ready' | 'pending' | 'error' = 'ready';
-      let transcriptGate: Promise<void> = Promise.resolve();
       page.on('pageerror', error => failures.push(error.message));
       const quote = fixture.paragraphs.at(-1)!;
       const note: AnnotationView = {
@@ -66,13 +63,6 @@ try {
           if (url.pathname === '/api/archive' && url.searchParams.get('url') === fixture.url) return json(archive);
           if (url.pathname === '/api/annotations/margin') return json({ items: [note], skipped: 0 });
           if (url.pathname === '/api/arena/enhance') return json({ matches: [] });
-          if (url.pathname === '/api/youtube/transcript') {
-            if (transcriptMode === 'pending') await transcriptGate;
-            if (transcriptMode === 'error') return route.fulfill({ status: 500,
-              json: { videoId: url.searchParams.get('videoId'), transcript: [], error: 'Failed to fetch transcript: private upstream details' },
-              headers: { 'Access-Control-Allow-Origin': '*' } });
-            return json({ videoId: url.searchParams.get('videoId'), title: 'Transcript fixture', transcript: [{ text: 'A transcript from the configured API.', offset: 0, duration: 5 }] });
-          }
         }
         if (url.origin === new URL(worker).origin && url.pathname === new URL(worker).pathname) return json({ posts: [] });
         if (url.origin === 'https://www.youtube-nocookie.com' && route.request().resourceType() === 'document') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Offline player</title>' });
@@ -138,34 +128,35 @@ try {
         for (const paragraph of fixture.paragraphs) assert(textParagraphs.some(text => text.replace(/\s+/g, ' ').trim() === paragraph), `Text mode lost paragraph: ${paragraph}`);
         assert.equal(requests.filter(url => new URL(url).pathname === '/api/archive').length, 1, 'Text mode must reuse the archive');
         await page.screenshot({ path: `test-results/${fixture.id}-${width}-text.png` });
-        await page.goto(`${origin}/https://www.youtube.com/watch?v=abcdefghijk`);
-        await page.getByText('A transcript from the configured API.', { exact: true }).waitFor();
-        assert(requests.some(url => url.startsWith(`${api}/api/youtube/transcript?`)), 'Transcript must use the configured production API');
-        assert.equal(requests.filter(url => new URL(url).pathname === '/api/youtube/transcript').length, 1, 'Switching into embed mode must not fetch twice');
-        assert.equal(await page.getByRole('status').filter({ hasText: 'Loading transcript' }).count(), 0);
-        transcriptMode = 'pending';
-        transcriptGate = new Promise(resolve => { releaseTranscript = resolve; });
+        await page.getByRole('button', { name: 'Original', exact: true }).click();
+        await page.frameLocator('iframe[title]').locator('p').filter({ hasText: quote }).first().waitFor();
+        const restoredFrame = page.locator('iframe[title]');
+        const restoredSrc = await restoredFrame.getAttribute('src');
+        assert(restoredSrc?.startsWith('blob:'), 'Returning to original mode must initialize the article frame');
+        await page.setViewportSize({ width: width === 390 ? 1280 : 390, height: 900 });
+        await page.frameLocator('iframe[title]').locator('p').filter({ hasText: quote }).first().waitFor();
+        assert.equal(await restoredFrame.getAttribute('src'), restoredSrc, 'Resizing must preserve the article document');
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Reader chrome overflows after resizing');
+        await page.setViewportSize({ width, height: 900 });
+        assert.equal(requests.filter(url => new URL(url).pathname === '/api/archive').length, 1, 'Mode switching and resizing must reuse the archive');
         await page.goto(`${origin}/https://www.youtube.com/watch?v=H4LosXgKX4g`);
         const player = page.locator('iframe[src*="youtube-nocookie.com/embed/H4LosXgKX4g"]');
         await player.waitFor();
-        const playerElement = await player.elementHandle();
-        assert.equal(await page.getByRole('status').filter({ hasText: 'Loading transcript' }).count(), 0, 'Loading text must not appear immediately');
-        await page.getByRole('status').filter({ hasText: 'Loading transcript' }).waitFor();
-        await page.screenshot({ path: `test-results/${fixture.id}-${width}-transcript-loading.png` });
-        transcriptMode = 'error';
-        releaseTranscript();
-        await page.getByRole('alert').filter({ hasText: 'The transcript could not be loaded.' }).waitFor();
-        assert.equal(await playerElement!.evaluate(el => el.isConnected), true, 'Transcript failure must not replace the video');
-        assert(!(await page.locator('body').innerText()).includes('private upstream details'), 'Do not expose upstream bodies');
-        assert.equal(await page.getByRole('button', { name: 'Copy', exact: true }).count(), 0, 'Unavailable transcripts have no dead controls');
-        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Video/error layout overflows mobile');
-        await page.screenshot({ path: `test-results/${fixture.id}-${width}-transcript-error.png` });
-        transcriptMode = 'ready';
-        await page.getByRole('button', { name: 'Try again', exact: true }).click();
-        await page.getByText('A transcript from the configured API.', { exact: true }).waitFor();
-        assert.equal(await playerElement!.evaluate(el => el.isConnected), true, 'Retry must preserve the player and playback');
+        // Allow delayed effects/loaders to run: opening a video must stay quiet.
+        await page.waitForTimeout(800);
+        assert.equal(requests.filter(url => new URL(url).pathname === '/api/youtube/transcript').length, 0, 'Video must not request an automatic transcript');
+        assert.equal(await page.getByRole('status').filter({ hasText: /transcript/i }).count(), 0);
+        assert.equal(await page.getByRole('alert').count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Try again', exact: true }).count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Copy', exact: true }).count(), 0);
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Video layout overflows mobile');
+        await page.screenshot({ path: `test-results/${fixture.id}-${width}-video.png` });
+        await page.reload();
+        await player.waitFor();
+        await page.waitForTimeout(800);
+        assert.equal(requests.filter(url => new URL(url).pathname === '/api/youtube/transcript').length, 0, 'Reload must not request an automatic transcript');
         assert.deepEqual(failures, []);
-        console.info(`PASS ${fixture.name} ${width}px: article, highlight, jump, text reuse, delayed transcript, non-blocking failure/retry`);
+        console.info(`PASS ${fixture.name} ${width}px: article, highlight, jump, text reuse, video without transcript requests`);
       } catch (error) {
         await page.screenshot({ path: `test-results/${fixture.id}-${width}-failure.png` }).catch(() => {});
         throw new Error(`${fixture.name} ${width}px: ${String(error)}\n${failures.join('\n')}`, { cause: error });

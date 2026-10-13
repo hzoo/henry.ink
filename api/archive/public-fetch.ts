@@ -2,9 +2,13 @@ import { request as httpRequest, type IncomingMessage, type RequestOptions } fro
 import { request as httpsRequest } from "node:https";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import type { LookupFunction } from "node:net";
+import { devices } from "playwright";
 import {
   resolveAddresses, resolvePublicAddress, validateArchiveUrl, validateUrl, type ResolveAddresses,
 } from "@/api/archive/url-validation";
+
+// Font providers negotiate variable fonts from the browser UA, not just Accept.
+export const ARCHIVE_USER_AGENT = `${devices["Desktop Chrome"].userAgent} HenryInk/1.0 (+https://henry.ink)`;
 
 export class ArchiveFetchError extends Error {
   constructor(message: string, public readonly status = 502) { super(message); }
@@ -142,7 +146,7 @@ export function createPublicFetcher(
           signal,
           maxHeaderSize: 32 * 1024,
           headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; HenryInk/1.0; +https://henry.ink)",
+            "User-Agent": ARCHIVE_USER_AGENT,
             Accept: options.accept || "*/*",
             "Accept-Encoding": "gzip, deflate, br",
           },

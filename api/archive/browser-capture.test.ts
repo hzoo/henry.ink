@@ -1,8 +1,10 @@
 import { afterAll, expect, spyOn, test } from "bun:test";
 import { capturePage, closeArchiveBrowser, createCaptureDownloader } from "@/api/archive/browser-capture";
 import { flattenCapturedStylesheets } from "@/api/archive/captured-css";
-import { ArchiveFetchError, type PublicFetcher, type PublicFetchOptions, type PublicResource } from "@/api/archive/public-fetch";
+import { ARCHIVE_USER_AGENT, ArchiveFetchError, createPublicFetcher, type PublicFetcher, type PublicFetchOptions, type PublicResource } from "@/api/archive/public-fetch";
 import { chromium, type Browser } from "playwright";
+import { Readable } from "node:stream";
+import type { IncomingMessage } from "node:http";
 import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
 import { createArchiveService } from "@/api/archive/processor";
 
@@ -22,7 +24,13 @@ test("cold browser startup overlaps document fetching without creating a context
   const browser = {
     on() {},
     async close() {},
-    async newContext() { contexts++; throw new Error("Reached browser context"); },
+    async newContext(options: { userAgent: string; javaScriptEnabled: boolean; serviceWorkers: string }) {
+      expect(options.userAgent).toBe(ARCHIVE_USER_AGENT);
+      expect(options.javaScriptEnabled).toBe(false);
+      expect(options.serviceWorkers).toBe("block");
+      contexts++;
+      throw new Error("Reached browser context");
+    },
   } as unknown as Browser;
   const launch = spyOn(chromium, "launch").mockReturnValue(launched.promise);
   const url = "https://source.example/overlap";
@@ -233,23 +241,27 @@ browserTest("browser rejects individually allowed stylesheets exceeding the aggr
   expect(cssLimits).toEqual([2 * 1024 * 1024, 2 * 1024 * 1024]);
 });
 
-browserTest("capture flattens already downloaded imports without fetching fonts or executing scripts", async () => {
+browserTest("capture propagates the modern UA through nested CSS imports without fetching fonts or executing scripts", async () => {
   const calls: string[] = [];
   const resources: Record<string, string> = {
     "https://source.example/article": '<!doctype html><title>Static</title><link rel="stylesheet" href="/main.css"><script>document.title="Executed"</script><p>Article</p>',
     "https://source.example/main.css": '@import "/child.css" layer(theme) supports(display:grid) screen; p{color:red}',
     "https://source.example/child.css": '@import "/font.css"; p{background:url(/image.png)}',
-    "https://source.example/font.css": '@font-face{font-family:Test;src:url(./font.woff2)}',
+    "https://source.example/font.css": '@font-face{font-family:Test;font-weight:100 900;src:url(./font.woff2) format("woff2")}',
   };
-  const fetcher: PublicFetcher = async url => {
-    calls.push(url);
-    if (!(url in resources)) throw new Error("Unexpected fetch: " + url);
-    return { url, status: 200, headers: new Headers({ "content-type": url.endsWith(".css") ? "text/css" : "text/html" }), body: Buffer.from(resources[url]) };
-  };
+  const fetcher = createPublicFetcher(async () => [{ address: "93.184.216.34", family: 4 }], async (url, options) => {
+    calls.push(url.href);
+    expect((options.headers as Record<string, string>)["User-Agent"]).toBe(ARCHIVE_USER_AGENT);
+    if (!(url.href in resources)) throw new Error("Unexpected fetch: " + url.href);
+    return Object.assign(Readable.from([Buffer.from(resources[url.href])]), {
+      statusCode: 200, headers: { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" },
+    }) as unknown as IncomingMessage;
+  });
   const result = await capturePage("https://source.example/article", fetcher);
   expect(result.pageData.metadata.title).toBe("Static");
   expect(result.cssSources[0].content).not.toContain('@import');
   expect(result.cssSources[0].content).toContain('https://source.example/font.woff2');
+  expect(result.cssSources[0].content).toContain('font-weight: 100 900');
   expect(result.cssSources[0].content).toContain('@layer theme');
   expect(result.cssSources[0].content).toContain('@supports (display: grid)');
   expect(calls).toEqual(Object.keys(resources));

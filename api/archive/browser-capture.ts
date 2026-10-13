@@ -1,6 +1,6 @@
 import { chromium, devices, type Browser, type BrowserContext } from "playwright";
 import { flattenCapturedStylesheets } from "@/api/archive/captured-css";
-import { ArchiveFetchError, fetchPublicResource, type PublicFetcher, type PublicResource } from "@/api/archive/public-fetch";
+import { ARCHIVE_USER_AGENT, ArchiveFetchError, fetchPublicResource, type PublicFetcher, type PublicResource } from "@/api/archive/public-fetch";
 
 let browserPromise: Promise<Browser> | undefined;
 async function getBrowser(): Promise<Browser> {
@@ -124,6 +124,7 @@ export async function capturePage(url: string, fetcher: PublicFetcher = fetchPub
     controller.signal.throwIfAborted();
     context = await browser.newContext({
       ...devices["Desktop Chrome"],
+      userAgent: ARCHIVE_USER_AGENT,
       javaScriptEnabled: false,
       serviceWorkers: "block",
     });

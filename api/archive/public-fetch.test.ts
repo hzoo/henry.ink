@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { PassThrough, Readable } from "node:stream";
 import { gzipSync } from "node:zlib";
 import type { IncomingMessage } from "node:http";
-import { ArchiveFetchError, createPublicFetcher } from "@/api/archive/public-fetch";
+import { ARCHIVE_USER_AGENT, ArchiveFetchError, createPublicFetcher } from "@/api/archive/public-fetch";
 import { isPublicAddress, resolvePublicAddress, validateArchiveUrl, validateUrl } from "@/api/archive/url-validation";
 
 const publicDns = async () => [{ address: "93.184.216.34", family: 4 }];
@@ -35,6 +35,29 @@ describe("public destination policy", () => {
 });
 
 describe("bounded public transport", () => {
+  test("uses the same modern, identified browser UA for documents, CSS and redirects", async () => {
+    expect(ARCHIVE_USER_AGENT).toMatch(/Chrome\/\d+\.\d+\.\d+\.\d+/);
+    expect(ARCHIVE_USER_AGENT).toContain("AppleWebKit/");
+    expect(ARCHIVE_USER_AGENT).toContain("HenryInk/1.0 (+https://henry.ink)");
+    const requests: string[] = [];
+    const fetcher = createPublicFetcher(publicDns, async (url, config) => {
+      const headers = config.headers as Record<string, string>;
+      expect(headers["User-Agent"]).toBe(ARCHIVE_USER_AGENT);
+      expect(headers.Accept).toBe(url.pathname === "/article" ? "text/html,application/xhtml+xml" : "text/css");
+      expect(headers.Cookie).toBeUndefined();
+      expect(headers.Authorization).toBeUndefined();
+      requests.push(url.href);
+      return url.pathname === "/font.css"
+        ? response("", { location: "https://fonts.example/variable.css" }, 302)
+        : response("ok");
+    });
+    await fetcher("https://source.example/article", { ...options, accept: "text/html,application/xhtml+xml" });
+    await fetcher("https://source.example/font.css", { ...options, accept: "text/css" });
+    expect(requests).toEqual([
+      "https://source.example/article", "https://source.example/font.css", "https://fonts.example/variable.css",
+    ]);
+  });
+
   test("pins lookup while keeping the hostname and disables connection reuse", async () => {
     let lookups = 0;
     const fetcher = createPublicFetcher(async () => {

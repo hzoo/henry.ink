@@ -1,38 +1,33 @@
 import { expect, test } from 'bun:test';
-import { youtubeEmbedProvider } from '@/henry-ink/embed/youtube';
+import { extractYouTubeVideoId, isYouTubeUrl, youtubeEmbedProvider } from '@/henry-ink/embed/youtube';
 
-const url = 'https://www.youtube.com/watch?v=H4LosXgKX4g';
-const load = (response: Response) => youtubeEmbedProvider.fetchContent(url, {
-  fetch: Object.assign(async () => response, { preconnect: fetch.preconnect }), env: { transcriptUrl: 'https://api.example/api/youtube/transcript' },
+const id = 'H4LosXgKX4g';
+
+test('YouTube embeds are constructed synchronously without transcript content or transport', () => {
+  const url = `https://www.youtube.com/watch?v=${id}`;
+  expect(youtubeEmbedProvider.createContent(url)).toEqual({ provider: 'youtube', originalUrl: url, videoId: id });
 });
 
-test('transcript errors show stable actionable copy, never upstream bodies', async () => {
-  for (const [status, errorCode, message] of [
-    [503, 'youtube_blocked', 'YouTube is blocking transcript requests. Try again later.'],
-    [504, 'upstream_timeout', 'The transcript request timed out. Try again.'],
-    [404, 'transcript_unavailable', 'No transcript is available for this video.'],
-    [404, 'language_unavailable', 'No English transcript is available for this video.'],
-    [404, 'video_unavailable', 'This video is unavailable.'],
-    [429, undefined, 'Transcript requests are limited. Try again later.'],
-    [500, undefined, 'The transcript could not be loaded. You can still watch the video.'],
-  ] as const) {
-    await expect(load(Response.json({ error: 'private upstream details', errorCode }, { status }))).rejects.toThrow(message);
+test('supported YouTube URLs retain the exact video ID', () => {
+  for (const url of [
+    `https://www.youtube.com/watch?v=${id}&t=30`, `https://youtu.be/${id}?t=30`,
+    `https://m.youtube.com/watch?v=${id}`, `https://music.youtube.com/watch?v=${id}`,
+    `https://youtube.com/shorts/${id}`, `https://youtube.com/live/${id}`,
+    `https://youtube.com/embed/${id}`,
+  ]) {
+    expect(extractYouTubeVideoId(url)).toBe(id);
+    expect(isYouTubeUrl(url)).toBe(true);
   }
 });
 
-test('malformed responses and network failures do not leak implementation errors', async () => {
-  for (const body of ['Bad Gateway from upstream', 'null', '{}']) {
-    await expect(load(new Response(body))).rejects.toThrow('The transcript could not be loaded.');
+test('lookalike domains and malformed video URLs are not treated as embeds', () => {
+  for (const url of [
+    `https://notyoutube.com/watch?v=${id}`, `https://youtube.com.evil.test/watch?v=${id}`,
+    `https://example.com/youtube.com/watch?v=${id}`, `https://youtube.com@evil.test/watch?v=${id}`,
+    `https://youtube.com/watch?v=${id}extra`, 'https://youtube.com/watch?v=short',
+    `ftp://youtube.com/watch?v=${id}`, 'not a URL',
+  ]) {
+    expect(isYouTubeUrl(url)).toBe(false);
+    expect(() => youtubeEmbedProvider.createContent(url)).toThrow('Invalid YouTube video URL');
   }
-  await expect(youtubeEmbedProvider.fetchContent(url, {
-    fetch: Object.assign(async () => { throw new TypeError('internal host unavailable'); }, { preconnect: fetch.preconnect }), env: {},
-  })).rejects.toThrow('The transcript service could not be reached. Try again.');
-});
-
-test('successful transcript remains available to reading and highlighting', async () => {
-  const result = await load(Response.json({ videoId: 'H4LosXgKX4g', title: 'Fixture',
-    transcript: [{ text: 'Hello world', offset: 0, duration: 2 }] }));
-  expect(result.textContent).toBe('Hello world');
-  expect(result.transcript).toHaveLength(1);
-  expect(result.title).toBe('Fixture');
 });

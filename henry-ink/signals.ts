@@ -3,14 +3,6 @@ import { signal } from "@preact/signals";
 // Content mode types
 export type ContentMode = 'md' | 'archive' | 'embed';
 
-// YouTube transcript data
-export interface TranscriptItem {
-  text: string;
-  duration: number;
-  offset: number;
-  lang?: string;
-}
-
 export type EmbedProviderId = 'youtube';
 
 export interface EmbedBase {
@@ -22,8 +14,6 @@ export interface EmbedBase {
 export interface YouTubeEmbed extends EmbedBase {
   provider: 'youtube';
   videoId: string;
-  transcript: TranscriptItem[];
-  textContent: string;
 }
 
 export type EmbedContent = YouTubeEmbed;

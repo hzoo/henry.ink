@@ -1,69 +1,33 @@
-import type { EmbedProvider } from "@/henry-ink/embed/providers";
-import { apiUrl } from '@/src/lib/api-url';
-import { registerEmbedProvider } from "@/henry-ink/embed/providers";
-import type { YoutubeTranscriptResponse } from "@/src/lib/youtube-transcript-types";
-import type { YouTubeEmbed } from "@/henry-ink/signals";
+import type { EmbedProvider } from '@/henry-ink/embed/providers';
+import { registerEmbedProvider } from '@/henry-ink/embed/providers';
 
-const RE_YOUTUBE =
-  /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/embed\/)([^"&?\/\s]{11})/i;
+export function extractYouTubeVideoId(input: string): string | null {
+  try {
+    const url = new URL(input);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.port) return null;
+    let id: string | null = null;
+    if (url.hostname === 'youtu.be') id = url.pathname.match(/^\/([\w-]{11})\/?$/)?.[1] ?? null;
+    else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(url.hostname)) {
+      id = url.pathname === '/watch' ? url.searchParams.get('v')
+        : url.pathname.match(/^\/(?:embed|shorts|live|v|e)\/([\w-]{11})\/?$/)?.[1] ?? null;
+    }
+    return id && /^[\w-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 export function isYouTubeUrl(url: string): boolean {
-  return RE_YOUTUBE.test(url);
-}
-
-export function extractYouTubeVideoId(url: string): string | null {
-  const match = url.match(RE_YOUTUBE);
-  return match ? match[1] : null;
-}
-
-function transcriptErrorMessage(status: number, code?: unknown): string {
-  if (code === 'youtube_blocked') return 'YouTube is blocking transcript requests. Try again later.';
-  if (code === 'upstream_timeout') return 'The transcript request timed out. Try again.';
-  if (code === 'video_unavailable') return 'This video is unavailable.';
-  if (code === 'language_unavailable') return 'No English transcript is available for this video.';
-  if (status === 404 || code === 'transcript_unavailable') return 'No transcript is available for this video.';
-  if (status === 429) return 'Transcript requests are limited. Try again later.';
-  return 'The transcript could not be loaded. You can still watch the video.';
+  return extractYouTubeVideoId(url) !== null;
 }
 
 export const youtubeEmbedProvider: EmbedProvider = {
   id: 'youtube',
   matches: isYouTubeUrl,
-  fetchContent: async (url, context) => {
+  createContent(url) {
     const videoId = extractYouTubeVideoId(url);
-    if (!videoId) {
-      throw new Error('Invalid YouTube URL - could not extract video ID');
-    }
-
-    const transcriptEndpoint = context.env.transcriptUrl || apiUrl('/api/youtube/transcript');
-    let response: Response;
-    try {
-      response = await context.fetch(`${transcriptEndpoint}?${new URLSearchParams({ videoId, lang: 'en' })}`);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') throw error;
-      throw new Error('The transcript service could not be reached. Try again.');
-    }
-    const youtubeData = await response.json().catch(() => null) as YoutubeTranscriptResponse | null;
-    if (!response.ok || !youtubeData || youtubeData.error || !Array.isArray(youtubeData.transcript)) {
-      throw new Error(transcriptErrorMessage(response.status, youtubeData?.errorCode));
-    }
-
-    const textContent = youtubeData.transcript
-      .map((item) => item.text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const embed: YouTubeEmbed = {
-      provider: 'youtube',
-      originalUrl: url,
-      videoId: youtubeData.videoId,
-      title: youtubeData.title || `YouTube Video ${videoId}`,
-      transcript: youtubeData.transcript,
-      textContent,
-    };
-
-    return embed;
+    if (!videoId) throw new Error('Invalid YouTube video URL');
+    return { provider: 'youtube', originalUrl: url, videoId };
   },
 };
 
