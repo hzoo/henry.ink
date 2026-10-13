@@ -3,8 +3,8 @@
  * Main orchestration for enhancing content with Arena channel links
  */
 
-import type { ChannelStorage } from './channel-storage.ts';
-import type { ChannelPatternMatcher, MatchResult } from './pattern-matcher.ts';
+import type { ChannelStorage } from '@/api/arena/channel-storage';
+import type { ChannelPatternMatcher, MatchResult } from '@/api/arena/pattern-matcher';
 
 export interface EnhancementOptions {
   maxLinksPerChannel?: number;
@@ -18,7 +18,7 @@ export interface EnhancementResult {
 export class LinkEnhancer {
   private storage: ChannelStorage;
   private matcher: ChannelPatternMatcher;
-  private isInitialized = false;
+  private patternVersion?: string;
 
   constructor(
     storage: ChannelStorage,
@@ -32,23 +32,18 @@ export class LinkEnhancer {
    * Initialize the enhancer by building pattern matcher
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-    
-    // Get patterns from storage and build matcher
-    const patterns = this.storage.getChannelPatterns();
-    this.matcher.buildFromPatterns(patterns, this.storage.normalizeForMatching.bind(this.storage));
-    
-    this.isInitialized = true;
+    await this.refreshPatterns();
   }
 
   /**
-   * Force refresh patterns from database (invalidate cache)
+   * Refresh only when stored channel data has changed.
    */
   async refreshPatterns(): Promise<void> {
-    // Get fresh patterns from storage and rebuild matcher
+    const version = this.storage.getPatternVersion();
+    if (version === this.patternVersion) return;
     const patterns = this.storage.getChannelPatterns();
     this.matcher.buildFromPatterns(patterns, this.storage.normalizeForMatching.bind(this.storage));
-    // console.log(`✅ Refreshed ${patterns.length} channel patterns`);
+    this.patternVersion = version;
   }
 
   /**
@@ -91,12 +86,6 @@ export class LinkEnhancer {
     for (const match of sortedMatches) {
       const currentCount = channelCounts.get(match.slug) || 0;
       if (currentCount >= maxLinksPerChannel) {
-        continue;
-      }
-
-      // Verify channel exists in storage
-      const channel = this.storage.getChannelBySlug(match.slug);
-      if (!channel) {
         continue;
       }
 

@@ -1,5 +1,5 @@
 import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
-import { extractedQuotes } from "@/src/lib/highlights/signals";
+import { extractedQuotes, showReaderAnchor } from "@/src/lib/highlights/signals";
 import { Icon } from "@/src/components/Icon";
 
 interface QuoteIndicatorProps {
@@ -28,6 +28,7 @@ export function QuoteIndicator({ postUri }: QuoteIndicatorProps) {
 		const postQuote = quotes.find((quote) => quote.postUri === postUri);
 
 		if (postQuote) {
+			if (showReaderAnchor(postQuote.id)) return;
 			// Find the highlight element in the page
 			const highlightElement = document.querySelector(
 				`[data-highlight-id="${postQuote.id}"]`,

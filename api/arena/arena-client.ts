@@ -1,21 +1,17 @@
 /**
- * Arena.na GraphQL API client
- * Fetches channels with filtering and pagination
+ * Arena integration client
+ * Handles fetching and normalizing channel data for the matcher and sidebar.
  */
 
 import type { 
   ArenaChannel, 
   GraphQLRawChannel,
-  GraphQLSearchResponse, 
-  GraphQLChannelResponse, 
+  ArenaGraphQLSearchData,
   RESTChannelResponse,
   RESTContent
 } from './arena-api-types';
 import type { ArenaBlock } from '../../src/lib/arena-types';
-
-// Arena API tokens
-const APP_TOKEN = process.env.ARENA_APP_TOKEN;
-const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
+import { arenaFetchJson, arenaGraphql } from './arena-api';
 
 export interface FetchChannelsOptions {
   per?: number;
@@ -34,8 +30,6 @@ export interface FetchChannelsResult {
   hasMore: boolean;
   totalFetched: number;
 }
-
-const ARENA_GRAPHQL_ENDPOINT = 'https://api.are.na/graphql';
 
 const CHANNELS_QUERY = `
   query Channels($per: Int!, $page: Int!, $q: String!) {
@@ -65,15 +59,7 @@ const CHANNELS_QUERY = `
     }
   }
 `;
-
-
 export class ArenaClient {
-  private readonly endpoint: string;
-
-  constructor(endpoint: string = ARENA_GRAPHQL_ENDPOINT) {
-    this.endpoint = endpoint;
-  }
-
   async fetchChannels(options: FetchChannelsOptions = {}): Promise<FetchChannelsResult> {
     const {
       per = 100,
@@ -82,19 +68,6 @@ export class ArenaClient {
       onProgress
     } = options;
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    
-    if (APP_TOKEN) {
-      headers['x-app-token'] = APP_TOKEN;
-    }
-    
-    if (AUTH_TOKEN) {
-      headers['x-auth-token'] = AUTH_TOKEN;
-    }
-
     const requestBody = {
       query: CHANNELS_QUERY,
       variables: { per, page, q: "*" }
@@ -102,40 +75,12 @@ export class ArenaClient {
 
     console.log(`🔍 Arena API Request - Page ${page}:`);
     console.log(`   Variables:`, JSON.stringify(requestBody.variables));
-    const authHeaders = Object.keys(headers).filter(k => k.startsWith('x-')).map(k => k).join(', ');
-    if (authHeaders) {
-      console.log(`   Auth: ${authHeaders}`);
-    }
+    const data = await arenaGraphql<ArenaGraphQLSearchData>(
+      requestBody.query,
+      requestBody.variables,
+    );
 
-    const response = await fetch(this.endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      console.error(`❌ Arena API Error Details:`);
-      console.error(`   Status: ${response.status} ${response.statusText}`);
-      console.error(`   Headers:`, Object.fromEntries(response.headers.entries()));
-      
-      // Try to get response body for more details
-      try {
-        const errorText = await response.text();
-        console.error(`   Response body:`, errorText);
-      } catch {
-        console.error(`   Could not read response body`);
-      }
-      
-      throw new Error(`Arena API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json() as GraphQLSearchResponse;
-    
-    if (data.errors) {
-      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
-    }
-
-    const allChannels = data.data?.ssearch || [];
+    const allChannels = data.ssearch || [];
     
     
     // Filter channels with minimum content count  
@@ -256,28 +201,7 @@ export class ArenaClient {
       // Use REST API V2 to get channel with contents
       const restUrl = `https://api.are.na/v2/channels/${slug}?per=${per}&page=${page}`;
       
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-      };
-      
-      if (APP_TOKEN) {
-        headers['x-app-token'] = APP_TOKEN;
-      }
-      
-      if (AUTH_TOKEN) {
-        headers['x-auth-token'] = AUTH_TOKEN;
-      }
-
-      const response = await fetch(restUrl, {
-        method: 'GET',
-        headers
-      });
-
-      if (!response.ok) {
-        throw new Error(`Arena REST API error: ${response.status}`);
-      }
-
-      const channelData = await response.json() as RESTChannelResponse;
+      const channelData = await arenaFetchJson<RESTChannelResponse>(restUrl);
       
       if (!channelData || !channelData.contents) {
         return null;
@@ -428,33 +352,12 @@ export class ArenaClient {
     `;
 
     try {
-      // Use token from top level
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-      
-      if (APP_TOKEN) {
-        headers['x-app-token'] = APP_TOKEN;
-      }
+      const data = await arenaGraphql<{ channel?: GraphQLRawChannel }>(
+        CHANNEL_QUERY,
+        { id },
+      );
 
-      const response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          query: CHANNEL_QUERY,
-          variables: { id }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Arena API error: ${response.status}`);
-      }
-
-      const data = await response.json() as GraphQLChannelResponse;
-      
-      const rawChannel = data.data?.channel;
+      const rawChannel = data.channel;
       if (!rawChannel) return null;
       
       // Normalize raw GraphQL response to ArenaChannel format

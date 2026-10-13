@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { arenaQueryKeys, formatRelativeTime } from "@/src/lib/arena-api";
+import { apiBase } from '@/src/lib/api-url';
 import { navigateToChannelList } from "@/src/lib/arena-navigation";
 import type { ArenaMatch, ArenaBlock } from "@/src/lib/arena-types";
 import type { ArenaChannelBlocksResponse } from "@/api/arena/routes";
@@ -32,7 +33,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
     } : undefined,
     persister: undefined, // Disable persistence for infinite queries
     queryFn: async ({ pageParam = 1 }) => {
-      const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
+      const apiUrl = apiBase;
       
       const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
         method: 'POST',

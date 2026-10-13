@@ -1,9 +1,11 @@
 import { useSignalEffect } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { contentStateSignal, contentModeSignal, type ContentMode } from "@/henry-ink/signals";
+import { contentStateSignal, contentModeSignal, contentRevision, type ContentMode } from "@/henry-ink/signals";
+import { archiveCache } from "@/henry-ink/reader/archive-cache";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
-import type { ArchiveResponse } from "@/api/archive/routes";
+import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
+import "@/henry-ink/embed/youtube";
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -11,7 +13,7 @@ function isUrl(input: string): boolean {
 	if (input.startsWith('http://') || input.startsWith('https://')) {
 		return true;
 	}
-	
+
 	// Contains a dot and looks domain-like
 	// Basic check: has dot, no spaces, reasonable domain pattern
 	return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(\/.*)?$/.test(input.trim());
@@ -25,9 +27,9 @@ function normalizeUrl(input: string): string | null {
 	return null;
 }
 
-async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
+async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signal: AbortSignal) {
 	const normalizedUrl = normalizeUrl(inputUrl);
-	
+
 	if (!normalizedUrl) {
 		contentStateSignal.value = {
 			type: "error",
@@ -36,78 +38,72 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode) {
 		};
 		return;
 	}
-	
+
 	const targetUrl = normalizedUrl;
 
-	contentStateSignal.value = { type: "loading", mode };
+	// Handle third-party embeds (YouTube, Vimeo, etc.) separately
+	const embedProvider = resolveEmbedProvider(targetUrl);
+	if (embedProvider) {
+		const embedMode: ContentMode = 'embed';
 
-	try {
-		if (mode === 'md') {
-			// Original ji.na flow for markdown content
-			const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
-			const response = await fetch(`${jinaUrl}/${targetUrl}`);
+		// Force embed mode for embed URLs
+		if (contentModeSignal.value !== embedMode) {
+			contentModeSignal.value = embedMode;
+			return; // Render the embed after its mode transition.
+		}
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Worker error: ${response.status} ${response.statusText}. ${errorText}`,
-				);
-			}
-			const content = await response.text();
-			
-			// Extract title from the content (look for first h1 or title tag)
-			let title = '';
-			try {
-				const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
-								   content.match(/^#\s+(.+)$/m) ||
-								   content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-				if (titleMatch) {
-					title = titleMatch[1].trim();
-				}
-			} catch (e) {
-				// Ignore title extraction errors
-			}
-			
-			contentStateSignal.value = { type: "success", content, title, mode };
-		} else if (mode === 'archive') {
-			// New archive service flow for full HTML content
-			const archiveUrl = import.meta.env.VITE_ARCHIVE_URL || 'http://localhost:3000';
-			const response = await fetch(`${archiveUrl}/api/archive?${new URLSearchParams({ url: targetUrl })}`, {
-				method: 'GET',
-			});
+		try {
+			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
+			const embed = embedProvider.createContent(normalizedForProvider);
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(
-					`Archive error: ${response.status} ${response.statusText}. ${errorText}`,
-				);
-			}
-
-			const archive = await response.json() as ArchiveResponse;
-			
-			// Extract text content from HTML for Arena matching
-			let textContent = '';
-			try {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(archive.html, 'text/html');
-				textContent = doc.body?.textContent || '';
-			} catch (e) {
-				console.warn('Failed to extract text from archive HTML:', e);
-				textContent = archive.html; // Fallback to raw HTML
-			}
-			
-			contentStateSignal.value = { 
-				type: "success", 
-				content: textContent, // Text content for Arena enhancement
-				title: archive.title,
-				mode,
-				html: archive.html, // Store full HTML for direct rendering
-				css: archive.css, // Store CSS for injection
-				htmlAttrs: archive.htmlAttrs,
-				bodyAttrs: archive.bodyAttrs
+			if (signal.aborted) return;
+			contentStateSignal.value = {
+				type: 'success',
+				url: targetUrl,
+				content: '',
+				title: embed.title,
+				mode: embedMode,
+				embed,
+			};
+		} catch (e: unknown) {
+			if (signal.aborted) return;
+			console.error("Embed fetch error:", e);
+			contentStateSignal.value = {
+				type: 'error',
+				message: e instanceof Error ? e.message : 'An unexpected error occurred while fetching embedded content.',
+				mode: embedMode,
 			};
 		}
+		return;
+	}
+
+	// Regular content fetching for non-embed URLs
+	// Reset mode to archive if currently in embed mode (user switched from YouTube to regular page)
+	if (mode === 'embed') {
+		contentModeSignal.value = 'archive';
+		return; // Will re-trigger with correct mode
+	}
+
+	contentStateSignal.value = { type: "loading", mode };
+	try {
+		const archive = await archiveCache.read(targetUrl, mode, signal, () => {
+			if (!signal.aborted) contentStateSignal.value = { type: 'loading', mode, message: 'Article service is busy. Waiting to retry...' };
+		});
+		if (signal.aborted) return;
+		contentStateSignal.value = {
+			type: "success",
+			url: targetUrl,
+			content: archive.textContent,
+			resolvedUrl: archive.resolvedUrl,
+			title: archive.title,
+			mode,
+			html: archive.html,
+			css: archive.css,
+			htmlAttrs: archive.htmlAttrs,
+			bodyAttrs: archive.bodyAttrs
+		};
 	} catch (e: unknown) {
+		if (signal.aborted) return;
 		console.error("Fetch error:", e);
 		contentStateSignal.value = {
 			type: "error",
@@ -122,7 +118,7 @@ export function useUrlPathSyncer() {
 	const location = useLocation();
 
 	useEffect(() => {
-		const currentPath = location.path;
+		const currentPath = location.url; // Use full URL with query parameters
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
 			const potentialUrl = currentPath.substring(1); // Remove leading '/'
 			const normalizedUrl = normalizeUrl(potentialUrl);
@@ -145,7 +141,7 @@ export function useUrlPathSyncer() {
 				currentUrl.value = "";
 			}
 		}
-	}, [location.path]);
+	}, [location.url]);
 }
 
 // Effect to fetch content when currentUrl or mode changes
@@ -153,14 +149,17 @@ export function useContentFetcher() {
 	useSignalEffect(() => {
 		const url = currentUrl.value;
 		const mode = contentModeSignal.value;
+		contentRevision.value;
+		const controller = new AbortController();
 		
 		if (url && isUrl(url)) {
-			fetchSimplifiedContent(url, mode);
+			fetchSimplifiedContent(url, mode, controller.signal);
 		} else {
 			// If targetUrl is cleared or invalid, reset to idle
 			if (!url) {
 				contentStateSignal.value = { type: "idle" };
 			}
 		}
+		return () => controller.abort();
 	});
 }
