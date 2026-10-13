@@ -41,6 +41,22 @@ afterEach(() => {
 });
 
 describe("snapshot cache", () => {
+  test("uncacheable successes are delivered but retained in neither memory nor persistence", async () => {
+    for (const shouldCache of [() => false, () => { throw new Error("Invalid policy"); }]) {
+      const disk = persistence();
+      const subject = cache({ persistence: disk, shouldCache });
+      let calls = 0;
+      const create = async () => { calls++; return "asset"; };
+      expect(await subject.getOrCreate("asset", create)).toBe("asset");
+      expect(await subject.getOrCreate("asset", create)).toBe("asset");
+      expect(calls).toBe(2);
+      subject.close();
+      const reopened = cache({ persistence: disk });
+      expect(await reopened.getOrCreate("asset", create)).toBe("asset");
+      expect(calls).toBe(3);
+    }
+  });
+
   test('rejected admission cannot occupy active or queued capture slots', async () => {
     const subject = cache({ maxPending: 8 });
     const blocked = deferred<string>();
