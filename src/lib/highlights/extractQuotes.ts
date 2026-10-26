@@ -6,12 +6,15 @@ import type { AppBskyFeedDefs } from "@atcute/bluesky";
  * Also supports "Name: 'quote'" format
  */
 export function extractQuotes(post: AppBskyFeedDefs.PostView): string[] {
-	const record = post.record as any;
-	const text = record?.text || "";
+	const record = post.record;
+	if (!record || typeof record !== 'object') return [];
+	const text = 'text' in record && typeof record.text === 'string' ? record.text : '';
+	const annotation = '_annotation' in record ? record._annotation : undefined;
+	const annotatedQuote = annotation && typeof annotation === 'object' && 'quote' in annotation ? annotation.quote : undefined;
 	
 	// First check if we have the original quote stored in _annotation
-	if (record?._annotation?.quote) {
-		return [record._annotation.quote];
+	if (typeof annotatedQuote === 'string' && annotatedQuote) {
+		return [annotatedQuote];
 	}
 	
 	if (!text) {

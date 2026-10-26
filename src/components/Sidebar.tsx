@@ -1,7 +1,5 @@
-import { useSignal, useSignalEffect } from "@preact/signals-react/runtime";
 import {
 	currentUrl,
-	currentDomain,
 	isAllowed,
 	isSearchableUrl,
 	isBlocked,
@@ -17,8 +15,8 @@ import { searchBskyPosts } from "@/src/lib/bsky";
 import { FirstTimePopup } from "@/src/components/FirstTimePopup";
 import { QuotePopup } from "./QuotePopup";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "preact/hooks";
-import { useAtCute } from "@/demo/lib/oauth";
+import { useEffect } from "preact/hooks";
+import { atCuteState, useAtCute } from "@/demo/lib/oauth";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 // Constants for error handling
@@ -28,10 +26,9 @@ const AUTH_ERROR_LINK =
 	"https://github.com/hzoo/extension-annotation-sidebar/issues/8";
 
 function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
-	const userDismissedError = useSignal(false);
-	const prevQueryKey = useRef(currentUrl.value);
-	const prevErrorInstance = useRef<unknown>(null);
-
+	const url = currentUrl.value;
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 	// Check if we're on the auto-allow domain
 	const isAllowedWithOverride =
 		autoAllowDomain && window.location.hostname === autoAllowDomain
@@ -41,14 +38,16 @@ function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 	const {
 		data: fetchedPostsData,
 		isLoading: queryIsLoading,
+		isFetching,
 		isError: queryIsError,
 		error: queryError,
 		dataUpdatedAt,
+		refetch,
 	} = useQuery<AppBskyFeedDefs.PostView[] | undefined>({
-		queryKey: ["posts", currentUrl.value],
+		queryKey: ["posts", url, state?.session.info.sub ?? null],
 		queryFn: async ({ signal }) => {
-			if (!currentUrl.value) return [];
-			return (await searchBskyPosts(currentUrl.value, { signal })) || [];
+			if (!url) return [];
+			return (await searchBskyPosts(url, { signal, rpc })) || [];
 		},
 		enabled:
 			isSearchableUrl.value && autoFetchEnabled.value && isAllowedWithOverride,
@@ -60,22 +59,14 @@ function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 		cacheTimeAgo.value = dataUpdatedAt || null;
 	}, [dataUpdatedAt]);
 
-	useSignalEffect(() => {
-		const currentKey = currentUrl.value;
-		if (currentKey !== prevQueryKey.current) {
-			userDismissedError.value = false;
-		} else if (queryIsError && queryError !== prevErrorInstance.current) {
-			userDismissedError.value = false;
-		}
-		prevQueryKey.current = currentKey;
-		prevErrorInstance.current = queryError;
-	});
+	const handleSearch = () => {
+		if (isSearchableUrl.peek() && !isBlocked.peek()) void refetch();
+	};
 
 	return (
 		<div className="flex-1 overflow-y-auto">
-			{queryIsLoading ? (
-				<LoadingItemList />
-			) : queryIsError && !userDismissedError.value ? (
+			{isBlocked.value ? <EmptyList autoAllowDomain={autoAllowDomain} onSearch={handleSearch} /> : <>
+			{queryIsError && <div role="alert">
 				<ErrorMessage
 					message={
 						queryError?.message?.startsWith(MY_AUTH_ERROR_MESSAGE)
@@ -85,15 +76,16 @@ function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 								} as ErrorState)
 							: ((queryError?.message || "Failed to fetch posts") as string)
 					}
-					onDismiss={() => (userDismissedError.value = true)}
 				/>
-			) : !fetchedPostsData ||
-				fetchedPostsData.length === 0 ||
-				isBlocked.value ? (
-				<EmptyList autoAllowDomain={autoAllowDomain} />
-			) : (
+				<button type="button" disabled={isFetching} onClick={handleSearch}
+					className="mx-3 mb-3 min-h-10 rounded px-3 text-sm underline focus-visible:outline-2 focus-visible:outline-gray-500 disabled:opacity-50">Try again</button>
+			</div>}
+			{queryIsLoading ? (
+				<LoadingItemList />
+			) : fetchedPostsData?.length ? (
 				<PostList posts={fetchedPostsData} />
-			)}
+			) : !queryIsError && <EmptyList autoAllowDomain={autoAllowDomain} onSearch={handleSearch} />}
+			</>}
 		</div>
 	);
 }

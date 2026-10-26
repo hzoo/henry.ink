@@ -66,15 +66,6 @@ export class ChannelStorage {
       // Column already exists, ignore error
     }
 
-    // Metadata table for sync tracking
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-
     // Create indexes for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_channels_contents ON channels(contents_count) WHERE contents_count > 0;
@@ -141,70 +132,12 @@ export class ChannelStorage {
     });
 
     if (transaction() > 0) this.revision++;
-
-    // Update sync metadata
-    this.db.prepare(`
-      INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
-      VALUES ('last_sync', ?, ?)
-    `).run(now, now);
   }
 
   getPatternVersion(): string {
     // data_version catches commits from other connections, including sync jobs.
     const { data_version } = this.db.query('PRAGMA data_version').get() as { data_version: number };
     return `${this.revision}:${data_version}`;
-  }
-
-  /**
-   * Save sync progress to a metadata table
-   */
-  saveSyncProgress(apiType: string = 'graphql', page: number, totalChannels: number, timestamp: string = new Date().toISOString()): void {
-    const insert = this.db.prepare(`
-      INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
-      VALUES (?, ?, ?)
-    `);
-
-    insert.run(`${apiType}_sync_page`, page.toString(), timestamp);
-    insert.run(`${apiType}_sync_total_channels`, totalChannels.toString(), timestamp);
-    
-    console.log(`📊 ${apiType.toUpperCase()} Progress saved: page ${page}, ${totalChannels} channels total`);
-  }
-
-  /**
-   * Clear sync progress (for fresh start)
-   */
-  clearSyncProgress(): void {
-    this.db.prepare(`DELETE FROM sync_metadata WHERE key IN ('sync_page', 'sync_total_channels')`).run();
-    console.log('🗑️ Cleared sync progress - starting fresh');
-  }
-
-  /**
-   * Get the last sync progress for specific API type
-   */
-  getLastSyncProgress(apiType: string = 'graphql'): { page: number; totalChannels: number; timestamp: string } | null {
-    try {
-      const pageQuery = this.db.prepare(`
-        SELECT value, updated_at FROM sync_metadata WHERE key = ?
-      `);
-      const totalQuery = this.db.prepare(`
-        SELECT value FROM sync_metadata WHERE key = ?
-      `);
-      
-      const pageResult = pageQuery.get(`${apiType}_sync_page`) as any;
-      const totalResult = totalQuery.get(`${apiType}_sync_total_channels`) as any;
-      
-      if (pageResult && totalResult) {
-        return {
-          page: parseInt(pageResult.value),
-          totalChannels: parseInt(totalResult.value),
-          timestamp: pageResult.updated_at
-        };
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
   }
 
   /**
@@ -374,43 +307,6 @@ export class ChannelStorage {
   }
 
   /**
-   * Debug normalization: show examples of how text gets normalized
-   * Useful for understanding why patterns might not match
-   */
-  debugNormalization(sampleTexts: string[] = []): void {
-    // Use provided samples or get some from our channel titles
-    let textsToTest = sampleTexts;
-    
-    if (textsToTest.length === 0) {
-      // Get a sample of channel titles for testing
-      const sampleChannels = this.db.prepare(`
-        SELECT title FROM channels 
-        WHERE contents_count >= 3 
-        ORDER BY contents_count DESC 
-        LIMIT 20
-      `).all() as { title: string }[];
-      
-      textsToTest = sampleChannels.map(c => c.title);
-    }
-    
-    console.group('🔍 Normalization Debug');
-    console.log('Examples of text normalization:');
-    
-    for (const text of textsToTest.slice(0, 10)) {
-      const normalized = this.normalizeForMatching(text);
-      const cleaned = this.cleanChannelTitle(text);
-      
-      console.log(`  "${text}"`);
-      console.log(`    → normalized: "${normalized}"`);
-      console.log(`    → cleaned: [${cleaned.join(', ')}]`);
-      console.log('');
-    }
-    
-    console.groupEnd();
-  }
-
-
-  /**
    * Get channel info by slug for link generation
    */
   getChannelBySlug(slug: string): StoredChannel | null {
@@ -419,21 +315,6 @@ export class ChannelStorage {
     `;
     
     return this.db.prepare(query).get(slug) as StoredChannel | null;
-  }
-
-  /**
-   * Get channels by multiple slugs efficiently
-   */
-  getChannelsBySlug(slugs: string[]): StoredChannel[] {
-    if (slugs.length === 0) return [];
-    
-    const placeholders = slugs.map(() => '?').join(',');
-    const query = `
-      SELECT * FROM channels 
-      WHERE slug IN (${placeholders}) AND contents_count >= 3
-    `;
-    
-    return this.db.prepare(query).all(...slugs) as StoredChannel[];
   }
 
   /**

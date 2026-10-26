@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify';
 import type { ArchiveResponse } from '@/api/archive/routes';
+import { textAnchorId } from '@/henry-ink/reader/fragments';
 
 export interface ReadableArticle {
   html: string;
@@ -16,14 +17,11 @@ const tags = ['a', 'abbr', 'article', 'aside', 'b', 'bdi', 'bdo', 'blockquote', 
   'small', 'span', 'strong', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'tfoot',
   'th', 'thead', 'time', 'tr', 'u', 'ul', 'var', 'wbr'];
 
-const anchorPrefix = 'henry-text-';
-const anchorId = (value: string) => value.startsWith(anchorPrefix) ? value : `${anchorPrefix}${value}`;
-
 function purifierFor(ownerDocument: Document) {
   const purifier = DOMPurify(ownerDocument.defaultView!);
   purifier.addHook('uponSanitizeAttribute', (_node, attribute) => {
     if (attribute.attrName === 'id' || attribute.attrName === 'name') {
-      attribute.attrValue = anchorId(attribute.attrValue);
+      attribute.attrValue = textAnchorId(attribute.attrValue);
     }
   });
   return purifier;
@@ -49,8 +47,8 @@ export function sanitizeReadableHtml(html: string, ownerDocument: Document = doc
   for (const link of doc.body.querySelectorAll('a[href^="#"]')) {
     const hash = link.getAttribute('href')!.slice(1);
     let target: string;
-    try { target = anchorId(decodeURIComponent(hash)); }
-    catch { target = anchorId(hash); }
+    try { target = textAnchorId(decodeURIComponent(hash)); }
+    catch { target = textAnchorId(hash); }
     if (targets.has(target)) link.setAttribute('href', `#${encodeURIComponent(target)}`);
     else link.removeAttribute('href');
   }
@@ -83,17 +81,23 @@ export async function extractReadableArticle(
       if (attribute === 'href' && value.startsWith('#')) continue;
       try {
         let resolved = new URL(value, archive.resolvedUrl || url);
+        const href = resolved.href;
         // Production captures wrap relative links in the reader route. Compare
         // their source destination before deciding whether a footnote is local.
         if (attribute === 'href' && resolved.origin === 'https://henry.ink' && /^\/https?:\/\//.test(resolved.pathname)) {
           resolved = new URL(resolved.href.slice(resolved.origin.length + 1));
         }
-        const page = new URL(archive.resolvedUrl || url);
-        page.hash = '';
-        const withoutHash = new URL(resolved);
-        withoutHash.hash = '';
-        element.setAttribute(attribute, attribute === 'href' && resolved.hash && withoutHash.href === page.href
-          ? resolved.hash : new URL(value, archive.resolvedUrl || url).href);
+        if (attribute === 'href' && resolved.hash) {
+          const page = new URL(archive.resolvedUrl || url);
+          page.hash = '';
+          const withoutHash = new URL(resolved);
+          withoutHash.hash = '';
+          if (withoutHash.href === page.href) {
+            element.setAttribute(attribute, resolved.hash);
+            continue;
+          }
+        }
+        element.setAttribute(attribute, href);
       }
       catch { element.removeAttribute(attribute); }
     }
@@ -120,7 +124,7 @@ export async function extractReadableArticle(
 
   const output = ownerDocument.implementation.createHTMLDocument('');
   output.body.innerHTML = sanitizeReadableHtml(html, ownerDocument);
-  if (!plainText(output.body) && archive.textContent.trim()) {
+  if (!output.body.textContent?.trim() && archive.textContent.trim()) {
     for (const paragraph of archive.textContent.trim().split(/\n\s*\n/)) {
       const p = output.createElement('p');
       p.textContent = paragraph;

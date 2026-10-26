@@ -1,4 +1,4 @@
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 import { TRUSTED_CDNS } from '@/api/archive/trusted-cdns';
 import { READER_DOCTYPES, type ReaderDocumentMode } from '@/src/lib/archive-document-mode';
 export { readerDocumentMode, type ReaderDocumentMode } from '@/src/lib/archive-document-mode';
@@ -13,21 +13,19 @@ interface ArchiveDocumentInput {
   documentMode?: ReaderDocumentMode;
 }
 
-export function sanitizeReaderHtml(html: string, ownerDocument: Document = document, source = false): string {
-  return DOMPurify(ownerDocument.defaultView!).sanitize(html, {
-    USE_PROFILES: { html: true, svg: true },
-    CUSTOM_ELEMENT_HANDLING: {
-      // Preserve passive layout containers, never their implementation or "is".
-      tagNameCheck: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/,
-      allowCustomizedBuiltInElements: false,
-    },
-    FORBID_TAGS: ['script', 'style', 'iframe', 'embed', 'object', 'applet', 'base', 'meta', 'link',
-      'form', 'noscript', 'template', 'math', 'foreignObject', 'animate', 'animateTransform',
-      'animateMotion', 'set', 'use', 'feImage'],
-    FORBID_ATTR: ['formaction', 'xlink:href', 'autofocus', 'contenteditable', 'srcdoc',
-      ...(source ? ['data-channel-data', 'data-channel-slug'] : [])],
-  });
-}
+const readerHtmlPolicy: Config = {
+  USE_PROFILES: { html: true, svg: true },
+  CUSTOM_ELEMENT_HANDLING: {
+    // Preserve passive layout containers, never their implementation or "is".
+    tagNameCheck: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/,
+    allowCustomizedBuiltInElements: false,
+  },
+  FORBID_TAGS: ['script', 'style', 'iframe', 'embed', 'object', 'applet', 'base', 'meta', 'link',
+    'form', 'noscript', 'template', 'math', 'foreignObject', 'animate', 'animateTransform',
+    'animateMotion', 'set', 'use', 'feImage'],
+  FORBID_ATTR: ['formaction', 'xlink:href', 'autofocus', 'contenteditable', 'srcdoc',
+    'data-channel-slug'],
+};
 
 export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument: Document = document): string {
   const doc = ownerDocument.implementation.createHTMLDocument(input.title || 'Article');
@@ -47,7 +45,7 @@ export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument:
   doc.head.appendChild(viewport);
   const style = doc.createElement('style');
   // Raw-text style elements must not allow CSS strings to close the HTML element.
-  style.textContent = input.css.replace(/<\/style/gi, closing => `\\3c ${closing.slice(1)}`) + '\n.arena-channel-link{font:inherit;color:inherit;border:0;border-bottom:1px dotted currentColor;background:none;padding:0;cursor:pointer}.arena-link-icon{font-size:.7em;margin-left:.2em}::highlight(henry-notes){background:#efd49588;color:inherit}';
+  style.textContent = input.css.replace(/<\/style/gi, closing => `\\3c ${closing.slice(1)}`) + '\n.arena-channel-link{font:inherit;color:inherit;border:0;border-bottom:1px dotted currentColor;background:none;padding:0;cursor:pointer}::highlight(henry-notes){background:#efd49588;color:inherit}';
   doc.head.appendChild(style);
   for (const [element, attrs] of [
     [doc.documentElement, input.htmlAttrs],
@@ -59,6 +57,11 @@ export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument:
   }
   // The iframe is the CSS boundary. Extra wrappers or rewritten selectors change
   // direct-child layout, inheritance and the source cascade.
-  doc.body.innerHTML = sanitizeReaderHtml(input.html, ownerDocument);
+  const content = DOMPurify(ownerDocument.defaultView!).sanitize(input.html, {
+    ...readerHtmlPolicy, RETURN_DOM_FRAGMENT: true,
+  });
+  // Adopt sanitized nodes directly, avoiding serialization and a second parse
+  // before the final document is serialized for the isolated iframe.
+  doc.body.appendChild(doc.adoptNode(content));
   return `${READER_DOCTYPES[input.documentMode || 'standards']}${doc.documentElement.outerHTML}`;
 }

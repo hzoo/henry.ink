@@ -1,19 +1,13 @@
 import { createHash } from 'node:crypto';
 import { ChannelStorage } from '@/api/arena/channel-storage';
 import { ChannelPatternMatcher } from '@/api/arena/pattern-matcher';
-import { LinkEnhancer, type EnhancementOptions, type EnhancementResult } from '@/api/arena/link-enhancer';
+import { LinkEnhancer } from '@/api/arena/link-enhancer';
 import type { ArenaChannel, ArenaSearchResponse } from '@/api/arena/arena-api-types';
-import type { ArenaBlock } from '@/src/lib/arena-types';
+import type { ArenaApiMatch, ArenaApiResponse } from '@/src/lib/arena-types';
 import { arenaFetchJson } from '@/api/arena/arena-api';
 import { getCorsHeaders, optionsResponse } from '@/api/cors';
 
 // API Response Types (exported for frontend use)
-export interface ArenaChannelBlocksResponse {
-  blocks: ArenaBlock[];
-  error?: string;
-  message?: string;
-}
-
 export interface ArenaSearchAPIResponse {
   success: boolean;
   channelCount: number;
@@ -64,26 +58,13 @@ class LRUCache<K, V> {
     }
     this.cache.set(key, value);
   }
-
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  get size(): number {
-    return this.cache.size;
-  }
 }
 
-const enhancementCache = new LRUCache<string, EnhancementResult>(50);
+const enhancementCache = new LRUCache<string, ArenaApiResponse>(50);
 
 interface EnhanceRequest {
   content: string;
   url?: string;
-  options?: EnhancementOptions;
 }
 
 export { optionsResponse as arenaOptionsRoute };
@@ -117,7 +98,7 @@ export async function enhanceRoute(req: Request) {
 
     // Hash exact input to keep keys bounded without reusing offsets for other content.
     const cacheKey = body.url ? createHash('sha256').update(JSON.stringify([
-      body.url, body.content, body.options || {}, storage.getPatternVersion(),
+      body.url, body.content, storage.getPatternVersion(),
     ])).digest('hex') : undefined;
     if (cacheKey) {
       const cachedResult = enhancementCache.get(cacheKey);
@@ -133,7 +114,23 @@ export async function enhanceRoute(req: Request) {
     }
 
     // Find channel matches
-    const result = await enhancer.findChannelMatches(body.content, body.options);
+    const channelMatches = await enhancer.findChannelMatches(body.content);
+    // Occurrences and pattern objects are matcher internals, not reader data.
+    const result: ArenaApiResponse = {
+      matches: channelMatches.matches.map((match): ArenaApiMatch => ({
+        slug: match.slug,
+        title: match.title,
+        author_name: match.author_name,
+        author_slug: match.author_slug,
+        contents_count: match.contents_count,
+        updated_at: match.updated_at,
+        bestMatch: {
+          matchedText: match.bestMatch.matchedText,
+          position: match.bestMatch.position,
+          endPosition: match.bestMatch.endPosition,
+        },
+      })),
+    };
 
     // Cache result if URL is provided
     if (cacheKey) {

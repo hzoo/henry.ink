@@ -1,5 +1,6 @@
 import { computed, signal } from "@preact/signals";
-import type { ArenaMatch, ArenaBlock } from "./arena-types";
+import type { ArenaBlock } from "@/src/lib/arena-types";
+import { withReaderParams } from "@/henry-ink/reader/url";
 
 // Location signal that updates on popstate/navigation
 export const locationSignal = signal(typeof window !== 'undefined' ? window.location.search : '');
@@ -35,64 +36,25 @@ export const arenaUrlState = computed(() => {
   };
 });
 
-// Navigation functions using URL manipulation
-export function navigateToChannel(channel: ArenaMatch) {
-  const currentPath = window.location.pathname;
-  const newUrl = `${currentPath}?channel=${channel.slug}`;
-  window.history.pushState({}, '', newUrl);
-  
-  // Update location signal for reactive updates
-  locationSignal.value = `?channel=${channel.slug}`;
+// Reader navigation keeps the source query and fragment intact.
+function setReaderParams(changes: Parameters<typeof withReaderParams>[1]) {
+  window.history.pushState({}, '', withReaderParams(window.location.href, changes));
+  locationSignal.value = window.location.search;
 }
 
-export function openBlockOverlay(block: ArenaBlock, channelSlug?: string) {
-  // Get channel slug from parameter or URL
-  let targetChannelSlug = channelSlug;
-  if (!targetChannelSlug) {
-    const params = getUrlParams();
-    targetChannelSlug = params.get('channel') || undefined;
-  }
-  
-  if (!targetChannelSlug) {
-    console.error('No channel context for block overlay');
-    return;
-  }
-  
-  const currentPath = window.location.pathname;
-  const newUrl = `${currentPath}?channel=${targetChannelSlug}&block=${block.id}`;
-  window.history.pushState({}, '', newUrl);
-  
-  // Update location signal
-  locationSignal.value = `?channel=${targetChannelSlug}&block=${block.id}`;
+export function navigateToChannel(slug: string) {
+  setReaderParams({ channel: slug, block: null, post: null });
+  window.dispatchEvent(new Event('henry:show-notes'));
 }
 
-// Note: navigateToNextBlock and navigateToPrevBlock removed
-// BlockViewerOverlay now handles its own navigation using local data
+export function openBlockOverlay(block: ArenaBlock, channelSlug = arenaUrlState.peek().channelSlug || undefined) {
+  if (channelSlug) setReaderParams({ channel: channelSlug, block: String(block.id), post: null });
+}
 
 export function closeBlockOverlay() {
-  const params = getUrlParams();
-  const channelSlug = params.get('channel');
-  
-  if (channelSlug) {
-    const currentPath = window.location.pathname;
-    const newUrl = `${currentPath}?channel=${channelSlug}`;
-    window.history.pushState({}, '', newUrl);
-    
-    // Update location signal
-    locationSignal.value = `?channel=${channelSlug}`;
-  } else {
-    navigateToChannelList();
-  }
+  setReaderParams({ block: null });
 }
 
 export function navigateToChannelList() {
-  const currentPath = window.location.pathname;
-  window.history.pushState({}, '', currentPath);
-  
-  // Update location signal
-  locationSignal.value = '';
-}
-
-export function navigateBack() {
-  window.history.back();
+  setReaderParams({ channel: null, block: null });
 }

@@ -51,7 +51,7 @@ async function search(channel: ReturnType<typeof searchChannel>) {
   fetcher.mockRestore();
 }
 
-test('same URL and options cannot return matches for different content', async () => {
+test('same URL cannot return matches for different content', async () => {
   await search(searchChannel(1, 'Cache Content'));
   const first = await routes.enhanceRoute(request({ url: 'https://example.com/content', content: 'Cache Content' }));
   expect((await first.json()).matches).toHaveLength(1);
@@ -81,14 +81,18 @@ test('identical searches do not reload patterns or rebuild the automaton', async
   expect(builds).toHaveBeenCalledTimes(0);
 });
 
-test('warm enhancement hits cache; uncached matching needs no per-match database reads', async () => {
+test('enhancement keeps only reader fields on cold and warm responses without per-match database reads', async () => {
   await search(searchChannel(4, 'Warm Content'));
   const matches = spyOn(ChannelPatternMatcher.prototype, 'findMatches');
   const lookups = spyOn(ChannelStorage.prototype, 'getChannelBySlug');
   restorers.push(matches, lookups);
-  const body = { url: 'https://example.com/warm', content: 'Warm Content' };
+  const body = { url: 'https://example.com/warm', content: Array(100).fill('Warm Content').join('. ') };
   for (let i = 0; i < 5; i++) {
-    expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(1);
+    expect(await (await routes.enhanceRoute(request(body))).json()).toEqual({ matches: [{
+      slug: 'channel-4', title: 'Warm Content', author_name: 'Reader', author_slug: 'reader',
+      contents_count: 10, updated_at: '2026-01-02',
+      bestMatch: { matchedText: 'Warm Content', position: 0, endPosition: 11 },
+    }] });
   }
   console.log(`Five enhancements: matcher scans=${matches.mock.calls.length}, channel lookups=${lookups.mock.calls.length}`);
   expect(matches).toHaveBeenCalledTimes(1);
@@ -110,22 +114,42 @@ test('channel blocks reuse author from the first response and refresh cached aut
   expect((await (await routes.enhanceRoute(request(body))).json()).matches[0].author_slug).toBe('updated');
 });
 
-test('removed channels do not survive the enhancement cache', async () => {
+test('only confirmed missing channels are removed from matches after block lookup failures', async () => {
   const channel = searchChannel(6, 'Removed Channel');
   await search(channel);
   const body = { url: 'https://example.com/removed', content: channel.title };
   expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(1);
-  upstream({});
+  const builds = spyOn(ChannelPatternMatcher.prototype, 'buildFromPatterns');
+  restorers.push(builds);
+  const fetcher = upstream({});
+  for (const fail of [
+    async () => Response.json({}, { status: 503 }),
+    async () => { throw new TypeError('Network unavailable'); },
+    async () => Response.json({}),
+    async () => Response.json({ ...channel, contents: {} }),
+  ]) {
+    fetcher.mockImplementation(Object.assign(fail, { preconnect: fetch.preconnect }));
+    expect((await routes.channelBlocksRoute(request({ slug: channel.slug }))).status).toBe(500);
+    expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(1);
+  }
+  expect(builds).toHaveBeenCalledTimes(0);
+  fetcher.mockImplementation(Object.assign(async () => Response.json({ ...channel, contents: [] }), { preconnect: fetch.preconnect }));
+  expect((await routes.channelBlocksRoute(request({ slug: channel.slug }))).status).toBe(200);
+  expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(1);
+  fetcher.mockImplementation(Object.assign(async () => Response.json({}, { status: 404 }), { preconnect: fetch.preconnect }));
   expect((await routes.channelBlocksRoute(request({ slug: channel.slug }))).status).toBe(404);
   expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(0);
+  expect(builds).toHaveBeenCalledTimes(1);
 });
 
-test('options remain part of cache identity and requests without URLs still work', async () => {
-  await search(searchChannel(7, 'Option Identity'));
-  const body = { url: 'https://example.com/options', content: 'Option Identity' };
-  expect((await (await routes.enhanceRoute(request(body))).json()).matches).toHaveLength(1);
-  expect((await (await routes.enhanceRoute(request({ ...body, options: { maxLinksPerChannel: 0 } }))).json()).matches).toHaveLength(0);
-  expect((await (await routes.enhanceRoute(request({ content: body.content }))).json()).matches).toHaveLength(1);
+test('one match per channel stays in reading order and requests without URLs still work', async () => {
+  await search({ ...searchChannel(7, 'Early Reading'), length: 3 });
+  await search({ ...searchChannel(10, 'Later Reading'), length: 25 });
+  const body = { url: 'https://example.com/reading-order', content: 'Early Reading. Later Reading. Early Reading.' };
+  for (const input of [body, { content: body.content }]) {
+    const { matches } = await (await routes.enhanceRoute(request(input))).json();
+    expect(matches.map((match: { slug: string }) => match.slug)).toEqual(['channel-7', 'channel-10']);
+  }
 });
 
 test('filtered-out search results do not rebuild patterns', async () => {

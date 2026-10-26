@@ -26,14 +26,12 @@ export interface MatchResult {
 
 export class ChannelPatternMatcher {
   private ac: AhoCorasick | null = null;
-  private patterns: ChannelPattern[] = [];
   private patternLookup: Map<string, ChannelPattern> = new Map();
 
   /**
    * Build Aho-Corasick automaton from channel patterns
    */
   buildFromPatterns(patterns: ChannelPattern[], normalizeFunction: (text: string) => string): void {
-    this.patterns = patterns;
     this.patternLookup.clear();
 
     // Prepare patterns for Aho-Corasick using provided normalization
@@ -146,52 +144,5 @@ export class ChannelPatternMatcher {
     
     return results;
   }
-
-  /**
-   * Debug potential missed matches by analyzing text for common patterns
-   */
-  debugPotentialMatches(text: string, normalizeFunction: (text: string) => string): void {
-    if (!this.ac) return;
-    
-    console.group('🎯 Pattern Matching Debug');
-    
-    // Show normalized text that's being searched
-    const normalizedText = normalizeFunction(text);
-    const textPreview = text.length > 200 ? text.substring(0, 200) + '...' : text;
-    const normalizedPreview = normalizedText.length > 200 ? normalizedText.substring(0, 200) + '...' : normalizedText;
-    
-    console.log('Original text preview:', textPreview);
-    console.log('Normalized text preview:', normalizedPreview);
-    
-    // Find actual matches
-    const matches = this.findMatches(text, normalizeFunction);
-    console.log(`Found ${matches.length} successful matches:`, matches.map(m => m.title));
-    
-    // Look for common words that might have patterns
-    const words = normalizedText.toLowerCase().split(/\s+/);
-    const commonWords = ['design', 'web', 'art', 'development', 'digital', 'creative', 'visual', 'technology', 'culture', 'building', 'work', 'research', 'reference'];
-    
-    const foundCommonWords = words.filter(word => commonWords.includes(word));
-    if (foundCommonWords.length > 0) {
-      console.log('Common words in text that might have patterns:', foundCommonWords);
-    }
-    
-    // Sample some patterns that weren't matched
-    const unmatchedPatterns = this.patterns.filter(p => {
-      const normalizedPattern = normalizeFunction(p.text);
-      return !normalizedText.includes(normalizedPattern);
-    });
-    
-    if (unmatchedPatterns.length > 0) {
-      const sampleUnmatched = unmatchedPatterns.slice(0, 5);
-      console.log('Sample unmatched patterns (first 5):');
-      for (const pattern of sampleUnmatched) {
-        console.log(`  "${pattern.text}" (from: ${pattern.title})`);
-      }
-    }
-    
-    console.groupEnd();
-  }
-
 
 }

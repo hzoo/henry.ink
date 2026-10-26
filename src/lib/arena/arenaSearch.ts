@@ -26,8 +26,6 @@ export async function searchAndSaveArenaChannels(searchText: string): Promise<Ar
   }
 
   try {
-    console.log(`🔍 Searching Arena for: "${searchText}"`);
-    
     const apiUrl = apiBase;
     const response = await fetch(`${apiUrl}/api/arena/search`, {
       method: 'POST',
@@ -42,8 +40,6 @@ export async function searchAndSaveArenaChannels(searchText: string): Promise<Ar
     }
     
     const data = await response.json() as ArenaSearchAPIResponse;
-    
-    console.log(`✅ Found ${data.channelCount} channels for "${searchText}"`);
     
     return {
       success: true,
@@ -83,64 +79,23 @@ function createArenaSearchUrl(searchText: string): string {
  * Show a toast notification with the search result
  */
 export function showArenaToast(result: ArenaSearchResult, searchText: string) {
-  // Create toast element
   const toast = document.createElement('div');
   toast.className = 'arena-search-toast';
-  
-  const arenaUrl = createArenaSearchUrl(searchText);
+  toast.setAttribute('role', 'status');
+  // This utility also runs in extension content scripts without the app CSS.
+  toast.style.cssText = `position:fixed;bottom:20px;right:20px;max-width:calc(100vw - 40px);box-sizing:border-box;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px #0002;font:14px/1.4 system-ui;z-index:10000;background:${result.success ? '#dcfce7' : '#fee2e2'};color:${result.success ? '#14532d' : '#7f1d1d'}`;
   const isClickable = result.success && result.channelCount > 0;
-  
-  toast.innerHTML = `
-    <div style="
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: ${result.success ? '#4ade80' : '#f87171'};
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      font-family: system-ui;
-      font-size: 14px;
-      z-index: 10000;
-      animation: slideIn 0.3s ease-out;
-      cursor: ${isClickable ? 'pointer' : 'default'};
-      transition: transform 0.2s ease;
-    " ${isClickable ? `onclick="window.open('${arenaUrl}', '_blank')"` : ''}>
-      ${result.success && result.channelCount > 0 
-        ? `✓ Found ${result.channelCount} channels for "${searchText}"<br><small style="opacity: 0.8;">Click to view on Arena</small>` 
-        : result.message}
-    </div>
-  `;
-  
-  // Add animation and hover styles
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    .arena-search-toast div:hover {
-      transform: ${isClickable ? 'scale(1.02)' : 'none'};
-    }
-  `;
-  document.head.appendChild(style);
-  
-  // Show toast
+  if (isClickable) {
+    const link = document.createElement('a');
+    link.href = createArenaSearchUrl(searchText);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.cssText = 'display:block;color:inherit;text-decoration:underline;overflow-wrap:anywhere';
+    link.textContent = `View ${result.channelCount} ${result.channelCount === 1 ? 'channel' : 'channels'} for “${searchText}” on Are.na`;
+    toast.appendChild(link);
+  } else {
+    toast.textContent = result.message;
+  }
   document.body.appendChild(toast);
-  
-  // Remove after 5 seconds (longer since it's now clickable)
-  setTimeout(() => {
-    toast.style.animation = 'slideIn 0.3s ease-out reverse';
-    setTimeout(() => {
-      toast.remove();
-      style.remove();
-    }, 300);
-  }, 5000);
+  setTimeout(() => toast.remove(), 5000);
 }

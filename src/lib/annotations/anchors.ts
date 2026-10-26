@@ -3,27 +3,30 @@ export interface QuoteAnchor { exact: string; prefix?: string; suffix?: string }
 const normalize = (text: string) => text.replace(/\s+/g, ' ');
 
 /** Index once per document, without changing article markup or selecting the first ambiguous match. */
-export function indexArticle(root: HTMLElement) {
+export function indexArticle(root: HTMLElement): (anchor: QuoteAnchor) => Range | null {
   const doc = root.ownerDocument;
   const styles = new WeakMap<Element, CSSStyleDeclaration>();
-  const isHidden = (element: Element | null, checkVisibility: boolean) => {
-    let parent = element;
-    while (parent && root.contains(parent)) {
-      let style = styles.get(parent);
-      if (!style && doc.defaultView) {
-        style = doc.defaultView.getComputedStyle(parent);
-        styles.set(parent, style);
-      }
-      if (style?.display === 'none' || style?.opacity === '0'
-        || (checkVisibility && parent === element && ['hidden', 'collapse'].includes(style?.visibility ?? ''))) return true;
-      parent = parent.parentElement;
+  const styleFor = (element: Element) => {
+    let style = styles.get(element);
+    if (!style && doc.defaultView) {
+      style = doc.defaultView.getComputedStyle(element);
+      styles.set(element, style);
     }
-    return false;
+    return style;
   };
+  const excluded = 'script, style, noscript, nav, [hidden], [aria-hidden="true"]';
+  const rootStyle = styleFor(root);
+  if (root.closest(excluded) || rootStyle?.display === 'none' || rootStyle?.opacity === '0') return () => null;
   const walker = doc.createTreeWalker(root, 5, {
     acceptNode(node) {
       const element = node.nodeType === 1 ? node as Element : node.parentElement;
-      if (element?.closest('script, style, noscript, nav, [hidden], [aria-hidden="true"]') || isHidden(element, node.nodeType === 3)) return 2;
+      if (element) {
+        const style = styleFor(element);
+        // Rejecting an element also prunes its descendants; no ancestor scan is
+        // needed for display or opacity. Visibility can be overridden by a child.
+        if (node.nodeType === 1 && (element.matches(excluded) || style?.display === 'none' || style?.opacity === '0')) return 2;
+        if (node.nodeType === 3 && (style?.visibility === 'hidden' || style?.visibility === 'collapse')) return 2;
+      }
       return node.nodeType === 3 || (node as Element).tagName === 'BR' ? 1 : 3;
     },
   });
@@ -61,6 +64,17 @@ export function indexArticle(root: HTMLElement) {
     length += count;
   }
   const text = chunks.join('');
+  const nodeAt = (offset: number) => {
+    let first = 0;
+    let last = nodes.length;
+    while (first < last) {
+      const middle = (first + last) >>> 1;
+      if (nodes[middle].end <= offset) first = middle + 1;
+      else last = middle;
+    }
+    const item = nodes[first];
+    return item && item.start <= offset ? item : undefined;
+  };
   return (anchor: QuoteAnchor): Range | null => {
     const exact = normalize(anchor.exact).trim();
     if (!exact || exact.length > 20000) return null;
@@ -68,15 +82,15 @@ export function indexArticle(root: HTMLElement) {
     const suffix = normalize(anchor.suffix ?? '');
     let match = -1;
     for (let at = text.indexOf(exact); at !== -1; at = text.indexOf(exact, at + 1)) {
-      if (prefix && !text.slice(0, at).endsWith(prefix)) continue;
-      if (suffix && !text.slice(at + exact.length).startsWith(suffix)) continue;
+      if (prefix && (at < prefix.length || !text.startsWith(prefix, at - prefix.length))) continue;
+      if (suffix && !text.startsWith(suffix, at + exact.length)) continue;
       if (match !== -1) return null;
       match = at;
     }
     if (match === -1) return null;
-    const start = nodes.find(item => item.start <= match && item.end > match);
+    const start = nodeAt(match);
     const endAt = match + exact.length - 1;
-    const end = nodes.find(item => item.start <= endAt && item.end > endAt);
+    const end = nodeAt(endAt);
     if (!start || !end) return null;
     const range = doc.createRange();
     range.setStart(start.node, start.offsets[match - start.start]);

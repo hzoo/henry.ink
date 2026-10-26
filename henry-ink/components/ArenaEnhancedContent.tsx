@@ -5,14 +5,18 @@ import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import { navigateToChannel } from "@/src/lib/arena-navigation";
 import type { ArenaMatch } from "@/src/lib/arena-types";
-import { useEffect, useRef } from "preact/hooks";
+import { useCallback, useEffect } from "preact/hooks";
+import { useSignal } from "@preact/signals";
 import { enhanceArenaLinks } from "@/henry-ink/reader/arena-enhancement";
+import { InlineNotes } from "@/henry-ink/reader/InlineNotes";
+import { observeArenaNavigation } from '@/henry-ink/reader/arena-navigation';
+import { observeSourceFragment } from '@/henry-ink/reader/fragments';
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
   contentRef: RefObject<HTMLDivElement>;
   mode: 'md' | 'archive';
-  renderContent?: (html: string) => ComponentChildren;
+  renderContent?: (html: string, matches: ArenaMatch[]) => ComponentChildren;
 }
 
 const EMPTY_MATCHES: ArenaMatch[] = [];
@@ -23,30 +27,31 @@ const EMPTY_MATCHES: ArenaMatch[] = [];
  */
 export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderContent }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
+  const url = currentUrl.value;
+  const textRoot = useSignal<HTMLDivElement | null>(null);
+  const setTextRoot = useCallback((root: HTMLDivElement | null) => {
+    contentRef.current = root;
+    textRoot.value = root;
+  }, [contentRef]);
 
   // Use shared query with URL-based key (much smaller than content)
   const { data: arenaMatches = EMPTY_MATCHES } = useQuery({
-    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
-    queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
-    enabled: contentState.type === 'success' && !!contentState.content,
+    queryKey: arenaQueryKeys.matches(url || null),
+    queryFn: ({ signal }) => fetchArenaMatches(contentState.type === 'success' ? contentState.content : '', url, signal),
+    enabled: contentState.type === 'success' && contentState.url === url && !!contentState.content,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
-  const enhancedCache = useRef<{ html: string; matches: ArenaMatch[]; doc: Document; result: string } | null>(null);
-  const enhance = () => {
-    if (!arenaMatches.length || typeof document === 'undefined') return htmlContent;
-    const root = document.createElement('div');
-    root.innerHTML = htmlContent;
-    enhanceArenaLinks(root, arenaMatches);
-    return root.innerHTML;
-  };
-  const doc = typeof document === 'undefined' ? null : document;
-  const cached = enhancedCache.current;
-  const enhancedHtml = cached?.html === htmlContent && cached.matches === arenaMatches && cached.doc === doc
-    ? cached.result : enhance();
-  if (doc && (!cached || cached.html !== htmlContent || cached.matches !== arenaMatches || cached.doc !== doc)) {
-    enhancedCache.current = { html: htmlContent, matches: arenaMatches, doc, result: enhancedHtml };
-  }
+  // Update the Text document in place, just like the isolated Original frame.
+  useEffect(() => {
+    if (!textRoot.value) return;
+    enhanceArenaLinks(textRoot.value, arenaMatches);
+    return observeArenaNavigation(textRoot.value, currentUrl.value);
+  }, [textRoot.value, htmlContent, arenaMatches, currentUrl.value]);
+
+  useEffect(() => {
+    if (textRoot.value) return observeSourceFragment(textRoot.value);
+  }, [textRoot.value, htmlContent]);
 
   // Add click handlers for arena channel links
   useEffect(() => {
@@ -54,36 +59,30 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderCont
     if (!element) return;
 
     const handleChannelClick = (event: Event) => {
-      const button = event.target as HTMLElement;
-      if (button.classList.contains('arena-channel-link')) {
+      const button = (event.target as Element | null)?.closest?.('button.arena-channel-link');
+      const slug = button?.getAttribute('data-channel-slug');
+      if (slug) {
         event.preventDefault();
-        const channelData = button.getAttribute('data-channel-data');
-        if (channelData) {
-          try {
-            const channel = JSON.parse(channelData) as ArenaMatch;
-            navigateToChannel(channel);
-          } catch (err) {
-            console.error('Failed to parse channel data:', err);
-          }
-        }
+        navigateToChannel(slug);
       }
     };
 
-    element.addEventListener('click', handleChannelClick);
-    
-    return () => {
-      element.removeEventListener('click', handleChannelClick);
-    };
-  }, [contentRef, enhancedHtml]);
+    const controller = new AbortController();
+    element.addEventListener('click', handleChannelClick, { signal: controller.signal });
+    return () => controller.abort();
+  }, [textRoot.value]);
 
   // Both modes now use regular rendering - CSS isolation handled at parent level
-  if (renderContent) return <>{renderContent(enhancedHtml)}</>;
+  if (renderContent) return <>{renderContent(htmlContent, arenaMatches)}</>;
   return (
+    <>
     <div
-      ref={contentRef}
+      ref={setTextRoot}
       className={mode === 'archive' ? 'max-w-none' : 'prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words'}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
-      dangerouslySetInnerHTML={{ __html: enhancedHtml }}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
     />
+    {textRoot.value && contentState.type === 'success' && <InlineNotes root={textRoot.value} article={contentState} />}
+    </>
   );
 }

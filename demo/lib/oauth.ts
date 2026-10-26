@@ -10,7 +10,7 @@ import {
 	resolveFromService,
 } from "@atcute/oauth-browser-client";
 import { useEffect } from "preact/hooks";
-import { sleep } from "@/src/lib/utils/sleep";
+import { oauthCallbackParams } from '@/src/lib/oauth-callback';
 
 const isBrowserExtension =
 	typeof browser !== "undefined" && !!browser.runtime?.id;
@@ -57,6 +57,7 @@ const storeReturnUrl = (url: string) => {
 const getReturnUrl = (): string | null => {
 	try {
 		const returnUrl = sessionStorage.getItem('atcute-oauth:return-url');
+		sessionStorage.removeItem('atcute-oauth:return-url');
 		if (!returnUrl) return null;
 		
 		const currentOrigin = window.location.origin;
@@ -69,7 +70,6 @@ const getReturnUrl = (): string | null => {
 	} catch {
 		// Invalid URL
 	}
-	sessionStorage.removeItem('atcute-oauth:return-url'); // Clean up invalid URLs
 	return null;
 };
 
@@ -80,12 +80,9 @@ export const useAtCute = () => {
 		const loadSession = async () => {
 			initializeOAuth();
 
-			// Check if returning from OAuth callback
-			if (location.hash.includes("state=") || location.search.includes("code=")) {
+			const params = oauthCallbackParams(new URL(window.location.href), import.meta.env.VITE_OAUTH_REDIRECT_URI);
+			if (params) {
 				try {
-					const params = new URLSearchParams(
-						location.hash ? location.hash.slice(1) : location.search
-					);
 					history.replaceState(null, "", location.pathname);
 					
 					const session = await finalizeAuthorization(params);
@@ -95,17 +92,17 @@ export const useAtCute = () => {
 					if (isMounted) {
 						atCuteState.value = { agent, rpc, session };
 						localStorage.setItem("atcute-oauth:did", session.info.sub);
-						
-						// Redirect back to original URL
-						const returnUrl = getReturnUrl();
-						if (returnUrl && returnUrl !== window.location.href) {
-							window.location.assign(returnUrl);
-							return;
-						}
 					}
 				} catch (error) {
 					console.error("OAuth finalization error:", error);
-					localStorage.removeItem("atcute-oauth:did");
+					if (isMounted) localStorage.removeItem("atcute-oauth:did");
+				}
+				if (isMounted) {
+					const returnUrl = getReturnUrl();
+					if (returnUrl && returnUrl !== window.location.href) {
+						window.location.assign(returnUrl);
+						return;
+					}
 				}
 			} else {
 				// Try to load existing session
@@ -116,8 +113,9 @@ export const useAtCute = () => {
 							persistedDid as `did:${string}:${string}`,
 							{ allowStale: false }
 						);
-						
-						if (session && isMounted) {
+						if (!isMounted) return;
+
+						if (session) {
 							const agent = new OAuthUserAgent(session);
 							const rpc = new Client({ handler: agent });
 							atCuteState.value = { agent, rpc, session };
@@ -125,17 +123,17 @@ export const useAtCute = () => {
 							localStorage.removeItem("atcute-oauth:did");
 						}
 					} catch (error) {
-						localStorage.removeItem("atcute-oauth:did");
+						if (isMounted) localStorage.removeItem("atcute-oauth:did");
 					}
 				}
 			}
-
-			if (isMounted) {
-				isLoadingSession.value = false;
-			}
 		};
 
-		loadSession();
+		void loadSession().catch(error => {
+			console.error("Session restoration error:", error);
+		}).finally(() => {
+			if (isMounted) isLoadingSession.value = false;
+		});
 
 		return () => {
 			isMounted = false;
@@ -151,6 +149,8 @@ export const startLoginProcess = async () => {
 		// Store current URL if not on home page
 		if (window.location.pathname !== '/') {
 			storeReturnUrl(window.location.href);
+		} else {
+			sessionStorage.removeItem('atcute-oauth:return-url');
 		}
 		
 		const { metadata } = await resolveFromService('https://bsky.social');
@@ -188,7 +188,6 @@ export const startLoginProcess = async () => {
 				window.location.assign(returnUrl);
 			}
 		} else {
-			await sleep(200);
 			window.location.assign(authUrl.toString());
 		}
 	} catch (error) {
@@ -202,8 +201,14 @@ export const logout = async () => {
 	const did = atCuteState.value?.session.info.sub;
 	
 	// Immediate logout
-	localStorage.removeItem("atcute-oauth:did");
 	atCuteState.value = null;
+	try {
+		localStorage.removeItem("atcute-oauth:did");
+		if (did) {
+			localStorage.removeItem(`bskyUserHandle_${did}`);
+			localStorage.removeItem(`bskyUserAvatar_${did}`);
+		}
+	} catch { /* Storage cleanup must not prevent signing out. */ }
 	
 	// Clean up stored session (optional, for completeness)
 	if (did) {

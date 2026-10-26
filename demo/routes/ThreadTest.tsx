@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChatView } from "@/src/components/experimental/ChatView";
 import { CardStack } from "@/src/components/experimental/CardStack";
 import { SlideshowView } from "@/src/components/experimental/SlideshowView";
+import { atCuteState } from "@/demo/lib/oauth";
 
 export const VIEW_MODES = [
 	"thread",
@@ -109,6 +110,8 @@ const BookmarkletButton = () => {
 };
 
 export function ThreadTest(props: ThreadTestProps) {
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 	const threadUri = useSignal(initThreadUri(props));
 	const displayItems = useSignal<DisplayableItem[]>([
 		"avatar",
@@ -140,13 +143,14 @@ export function ThreadTest(props: ThreadTestProps) {
 		}
 	};
 
+	const queryUri = atUri.value;
 	const {
 		data: threadData,
 		isLoading,
 		error,
 	} = useQuery({
-		queryKey: ["thread", atUri.value],
-		queryFn: () => fetchProcessedThread(atUri.value),
+		queryKey: ["thread", queryUri, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => fetchProcessedThread(queryUri, signal, rpc),
 		staleTime: 1000 * 60 * 60 * 24,
 		enabled: !!atUri.value, // Only run query if atUri is set
 	});

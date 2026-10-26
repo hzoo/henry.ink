@@ -25,6 +25,8 @@ describe("asset validation", () => {
     expect(validateAsset(makeResource(png, "image/png"))).toBe("image/png");
     expect(validateAsset(makeResource(png, "application/octet-stream"))).toBe("image/png");
     expect(validateAsset(makeResource(png, "image/jpeg"))).toBe("image/png");
+    // Moxie's nft-removed.png is served as image/png but contains JPEG bytes.
+    expect(validateAsset(makeResource(Buffer.from("ffd8ffe10000", "hex"), "image/png"))).toBe("image/jpeg");
   });
   test("checks font signatures and size", () => {
     expect(validateAsset(makeResource(Buffer.from("wOF2font"), "font/woff2"))).toBe("font/woff2");
@@ -39,6 +41,8 @@ describe("asset validation", () => {
     expect(() => validateAsset(makeResource(otf, "image/png"))).toThrow("content type");
     expect(() => validateAsset(makeResource(png, "font/woff2"))).toThrow("content type");
     expect(() => validateAsset(makeResource(Buffer.from("<html>font</html>"), "font/woff2"))).toThrow();
+    expect(() => validateAsset(makeResource(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), "image/png"))).toThrow();
+    expect(() => validateAsset(makeResource(png, "image/svg+xml"))).toThrow();
   });
   test("requires valid SVG XML without entity declarations", () => {
     expect(validateAsset(makeResource(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>'), "image/svg+xml"))).toBe("image/svg+xml");
@@ -75,28 +79,6 @@ describe("asset proxy", () => {
     expect(calls).toBe(1);
   });
 
-  test("five requests share one download with a byte limit", async () => {
-    const target = "https://assets.example/coalesced.png";
-    permit(target);
-    const now = Date.now();
-    let calls = 0;
-    const handler = createAssetProxyHandler(async (_url, options) => {
-      expect(options.maxBytes).toBe(10 * 1024 * 1024);
-      expect(options.timeoutMs).toBe(5000);
-      calls++;
-      await Bun.sleep(10);
-      return makeResource(png, "image/png");
-    }, { now: () => now });
-    const responses = await Promise.all(Array.from({ length: 5 }, (_, i) => handler(req(target, `asset-${i}`))));
-    expect(calls).toBe(1);
-    for (const response of responses) {
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("image/png");
-      expect(response.headers.get("cache-control")).toBe("public, max-age=900");
-      expect(response.headers.get("vary")).toBe("Origin");
-    }
-  });
-
   test("HTML is rejected and SVG receives an execution sandbox", async () => {
     const htmlTarget = "https://assets.example/html.png";
     const svgTarget = "https://assets.example/diagram.svg";
@@ -114,15 +96,4 @@ describe("asset proxy", () => {
     expect(result.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
-  test("distinct downloads are bounded and failed jobs can retry", async () => {
-    const targets = Array.from({ length: 17 }, (_, i) => `https://assets.example/bounded-${i}.png`);
-    targets.forEach(permit);
-    let fail = true;
-    const handler = createAssetProxyHandler(async () => { await Bun.sleep(15); if (fail) throw new Error("upstream failed"); return makeResource(png, "image/png"); });
-    const jobs = targets.slice(0, 16).map((url, i) => handler(req(url, `bounded-${i}`)));
-    expect((await handler(req(targets[16], "overflow"))).status).toBe(429);
-    await Promise.all(jobs);
-    fail = false;
-    expect((await handler(req(targets[0], "retry"))).status).toBe(200);
-  });
 });

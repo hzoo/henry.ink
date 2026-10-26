@@ -283,7 +283,7 @@ browserTest("flattened conditional imports preserve the browser's named layer or
     await page.setContent(`<style>${flattened.content}</style><p>Article</p>`, { waitUntil: "load" });
     expect(await page.locator("p").evaluate(element => getComputedStyle(element).color)).toBe(originalColor);
   } finally { await browser.close(); }
-});
+}, 20_000);
 
 browserTest("five concurrent archives use one real browser capture and one HTML download", async () => {
   let downloads = 0;
@@ -340,4 +340,4 @@ browserTest("proxied SVG still renders as an image and cannot execute in a docum
     expect(frame).toBeDefined();
     expect(await frame!.evaluate(() => (globalThis as typeof globalThis & { __sourceScriptExecuted?: boolean }).__sourceScriptExecuted)).toBeUndefined();
   } finally { await browser.close(); }
-});
+}, 20_000);

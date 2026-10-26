@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { JSDOM } from 'jsdom';
-import { createReaderDocument, sanitizeReaderHtml, readerDocumentMode } from '@/henry-ink/reader/document';
+import { createReaderDocument, readerDocumentMode } from '@/henry-ink/reader/document';
 
 function render(html: string, css = '', attrs: Record<string, string> = {}) {
   const host = new JSDOM('<!doctype html><html><body></body></html>');
@@ -17,12 +17,6 @@ describe('isolated reader document', () => {
     const host = new JSDOM('');
     const output = createReaderDocument({ html: '<p>Text</p>', css: '', assetOrigin: 'http://localhost:3000', documentMode: 'limited-quirks' }, host.window.document);
     expect(output).toStartWith('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"');
-    host.window.close();
-  });
-  test('source pre-sanitization keeps passive containers but rejects spoofed reader data', () => {
-    const host = new JSDOM('');
-    const html = sanitizeReaderHtml('<stamp-thwack data-channel-slug="spoof" onclick="evil()">From</stamp-thwack>', host.window.document, true);
-    expect(html).toBe('<stamp-thwack>From</stamp-thwack>');
     host.window.close();
   });
   test('preserves inert custom containers and direct body children', () => {
@@ -43,15 +37,29 @@ describe('isolated reader document', () => {
     dom.window.close();
   });
 
-  test('custom elements do not admit handlers, executable URLs or active children', () => {
-    const dom = render('<stamp-thwack onclick="evil()"><script>evil()</script><iframe src="https://example.com"></iframe><a href="javascript:evil()">Link</a><button is="evil-button">Button</button></stamp-thwack>');
+  test('custom elements do not admit handlers, spoofed reader data, executable URLs or active children', () => {
+    const dom = render('<stamp-thwack data-channel-slug="spoof" onclick="evil()"><script>evil()</script><iframe src="https://example.com"></iframe><a href="javascript:evil()">Link</a><button is="evil-button">Button</button></stamp-thwack>');
     const doc = dom.window.document;
     expect(doc.querySelector('stamp-thwack')).not.toBeNull();
-    expect(doc.querySelector('script, iframe, [onclick]')).toBeNull();
+    expect(doc.querySelector('script, iframe, [onclick], [data-channel-slug]')).toBeNull();
     expect(doc.querySelector('a')?.hasAttribute('href')).toBe(false);
     expect(doc.querySelector('button')?.getAttribute('is')).not.toBe('evil-button');
     expect(doc.querySelector('meta[http-equiv]')?.getAttribute('content')).toContain("script-src 'none'");
     dom.window.close();
+  });
+
+  test('preserves passive markup while rejecting active SVG and malformed source', () => {
+    const host = new JSDOM('');
+    const source = '<table><tr><td>Cell</td></tr></table><stamp-thwack>Layout</stamp-thwack><svg viewBox="0 0 10 10"><path d="M0 0L10 10"></path><foreignObject><iframe srcdoc="<script>evil()</script>"></iframe></foreignObject><animate attributeName="href"></animate></svg><img src="x" onerror="evil()"><p><a href="javascript:evil()">Text</a>';
+    const output = createReaderDocument({ html: source, css: '', assetOrigin: 'http://localhost:3000' }, host.window.document);
+    const rendered = new JSDOM(output);
+    expect(rendered.window.document.querySelector('body > table > tbody > tr > td')?.textContent).toBe('Cell');
+    expect(rendered.window.document.querySelector('foreignObject, iframe, script, animate, [onerror]')).toBeNull();
+    expect(rendered.window.document.querySelector('svg path')?.getAttribute('d')).toBe('M0 0L10 10');
+    expect(rendered.window.document.querySelector('stamp-thwack')?.textContent).toBe('Layout');
+    expect(rendered.window.document.querySelector('a')?.hasAttribute('href')).toBe(false);
+    rendered.window.close();
+    host.window.close();
   });
 
   test('CSS cannot break out of its raw-text element', () => {

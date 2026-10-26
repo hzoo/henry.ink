@@ -13,6 +13,7 @@ import type { DisplayableItem } from "@/src/components/post/FullPost";
 import { getAuthorUrl, getPost, getPostId } from "@/src/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/src/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/src/lib/postFilters";
+import { atCuteState } from "@/demo/lib/oauth";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -37,16 +38,18 @@ export function CompactPost({
 	const postUrl = getPost(post.uri);
 	const postAuthorUrl = getAuthorUrl(post.author.handle);
 	const timeAgo = getTimeAgo(post.indexedAt);
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 
-	const { data: fetchedRepliesData, error: repliesError } = useQuery<
+	const { data: fetchedRepliesData, error: repliesError, isFetching, refetch } = useQuery<
 		Thread,
 		Error
 	>({
-		queryKey: ["thread", post.uri],
-		queryFn: () => {
-			return fetchProcessedThread(post.uri);
+		queryKey: ["thread", post.uri, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => {
+			return fetchProcessedThread(post.uri, signal, rpc);
 		},
-		enabled: isExpanded.value && initialReplies === undefined,
+		enabled: isExpanded.value && initialReplies === undefined && post.replyCount !== 0,
 		staleTime: 1000 * 60,
 	});
 
@@ -64,24 +67,24 @@ export function CompactPost({
 		<article className="relative min-w-0" data-post-rkey={getPostId(post.uri)}>
 			<div className="flex-1 min-w-0 pb-1 text-gray-500">
 				<div className="flex items-center gap-x-1.5 flex-wrap text-sm">
-					{isExpanded.value ? (
+					<ExpandButton isExpanded={isExpanded} />
+					{isExpanded.value && (
 						displayItems.includes("avatar") &&
 						post.author.avatar && (
 							<img
+								loading="lazy"
 								src={post.author.avatar}
 								alt={post.author.displayName}
 								className="w-[24px] h-[24px] rounded-full flex-shrink-0"
 							/>
 						)
-					) : (
-						<ExpandButton post={post} isExpanded={isExpanded} />
 					)}
 					{displayItems.includes("displayName") && (
 						<a
 							href={postAuthorUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="font-semibold truncate hover:underline text-gray-800 dark:text-gray-100"
+							className="max-w-full font-semibold truncate hover:underline text-gray-800 dark:text-gray-100"
 						>
 							{post.author.displayName}
 						</a>
@@ -91,7 +94,7 @@ export function CompactPost({
 							href={postAuthorUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className={`hover:underline ${op === post.author.handle ? "text-blue-800 bg-blue-100 dark:bg-blue-900 dark:text-blue-300 rounded-full px-1" : "text-gray-600 dark:text-gray-400"}`}
+							className={`max-w-full break-all hover:underline ${op === post.author.handle ? "text-blue-800 bg-blue-100 dark:bg-blue-900 dark:text-blue-300 rounded-full px-1" : "text-gray-600 dark:text-gray-400"}`}
 							title={post.author.displayName ?? post.author.handle}
 						>
 							{post.author.handle}
@@ -112,10 +115,7 @@ export function CompactPost({
 					</a>
 				</div>
 				{isExpanded.value && (
-					<ExpandButton post={post} isExpanded={isExpanded} />
-				)}
-				{isExpanded.value && (
-					<div className="pl-7.5">
+					<div className="pl-11">
 						<div className="text-sm break-words text-gray-900 dark:text-gray-100">
 							<PostText post={post} />
 							<PostEmbed post={post} />
@@ -128,8 +128,10 @@ export function CompactPost({
 				<div className="pl-4">
 					{/* Show loading/error only if we are the ones fetching (initialReplies was undefined) */}
 					{initialReplies === undefined && repliesError && (
-						<div className="pl-1 pt-1 text-xs text-red-500">
-							Error: {repliesError.message}
+						<div role="alert" className="pl-1 pt-1 text-xs text-red-700 dark:text-red-400">
+							<p>Replies could not be loaded.</p>
+							<button type="button" disabled={isFetching} onClick={() => { void refetch(); }}
+								className="min-h-10 rounded px-2 underline focus-visible:outline-2 focus-visible:outline-gray-500 disabled:opacity-50">Try again</button>
 						</div>
 					)}
 					{actualReplies && actualReplies.length > 0 && (

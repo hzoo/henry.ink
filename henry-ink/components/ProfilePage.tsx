@@ -5,11 +5,13 @@ import { getProfile, getAuthorFeed } from "@/src/lib/bsky";
 import { filterProfilePosts } from "@/src/lib/profileFilters";
 import { ProfilePost } from "@/henry-ink/components/ProfilePost";
 import { ProfileHeader } from "@/src/components/ProfileHeader";
-import { useAtCute } from "@/demo/lib/oauth";
+import { atCuteState, useAtCute } from "@/demo/lib/oauth";
 
 export function ProfilePage() {
 	const routeInfo = useRoute();
 	const username = routeInfo.params?.username as string;
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 
 	useAtCute();
 
@@ -21,16 +23,18 @@ export function ProfilePage() {
 
 	// Fetch profile data
 	const profileQuery = useQuery({
-		queryKey: ["profile", username],
-		queryFn: () => getProfile(username),
+		queryKey: ["profile", username, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => getProfile(username, { signal, rpc }),
 		enabled: !!username,
+		staleTime: 60 * 1000,
 	});
 
 	// Fetch author feed
 	const feedQuery = useQuery({
-		queryKey: ["authorFeed", username],
-		queryFn: () => getAuthorFeed(username),
+		queryKey: ["authorFeed", username, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => getAuthorFeed(username, { signal, rpc }),
 		enabled: !!username,
+		staleTime: 60 * 1000,
 	});
 
 	// Filter posts to only show ones with links or quotes
@@ -46,6 +50,7 @@ export function ProfilePage() {
 	return (
 		<div className="min-h-screen bg-white dark:bg-gray-900">
 			<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<a href="/" className="mb-4 inline-flex min-h-10 items-center rounded text-sm text-gray-600 hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-400 dark:hover:text-white">Home</a>
 			{isLoading && (
 				<div class="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div class="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
@@ -91,6 +96,12 @@ export function ProfilePage() {
 							<span className="font-medium">Error:</span>
 							<span className="ml-1">{error?.message || 'Failed to load profile'}</span>
 						</div>
+						<button type="button" disabled={profileQuery.isFetching || feedQuery.isFetching}
+							onClick={() => {
+								if (profileQuery.isError) void profileQuery.refetch();
+								if (feedQuery.isError) void feedQuery.refetch();
+							}}
+							className="mt-2 inline-flex min-h-10 items-center rounded px-3 text-sm font-medium hover:bg-red-200 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 dark:hover:bg-red-900/50">Try again</button>
 					</div>
 				)}
 

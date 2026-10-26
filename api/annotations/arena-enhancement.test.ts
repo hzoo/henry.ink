@@ -139,13 +139,28 @@ test('does not flatten markup to match phrases split across source elements', ()
   expect(root.innerHTML).toBe(before);
 });
 
-test('ignores empty and single-word matches and preserves channel metadata on valid links', () => {
+test('ignores empty and single-word matches and keeps channel navigation on valid links', () => {
   const root = article('<p>blue sky</p>');
   const channel = match('blue sky', 'sky');
   enhanceArenaLinks(root, [match(''), match('   '), match('blue'), channel]);
   expect(labels(root)).toEqual(['blue sky']);
   const button = root.querySelector('button')!;
-  expect(JSON.parse(button.dataset.channelData!)).toEqual(channel);
+  expect(button.dataset.channelSlug).toBe(channel.slug);
+  expect(button.title).toBe('View ' + channel.title + ' in sidebar');
   expect(button.type).toBe('button');
-  expect(root.querySelector('a')!.getAttribute('href')).toBe(channel.url);
+  expect(root.textContent).toBe('blue sky');
+  expect(root.querySelector('a')).toBeNull();
+});
+
+test('updates and clears context in place without duplicating source text', () => {
+  const root = article('<p>blue sky and shared tools</p>');
+  const paragraph = root.querySelector('p');
+  const before = root.innerHTML;
+  enhanceArenaLinks(root, [match('blue sky')]);
+  enhanceArenaLinks(root, [match('shared tools')]);
+  expect(labels(root)).toEqual(['shared tools']);
+  expect(root.textContent).toBe('blue sky and shared tools');
+  enhanceArenaLinks(root, []);
+  expect(root.innerHTML).toBe(before);
+  expect(root.querySelector('p')).toBe(paragraph);
 });

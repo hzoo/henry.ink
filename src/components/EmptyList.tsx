@@ -56,7 +56,7 @@ function DomainBadge() {
 	);
 }
 
-export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
+export function EmptyList({ autoAllowDomain, onSearch }: { autoAllowDomain?: string; onSearch: () => void }) {
 	// Check if we're on the auto-allow domain
 	const isAllowedWithOverride =
 		autoAllowDomain && window.location.hostname === autoAllowDomain
@@ -64,7 +64,7 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 			: isAllowed.value;
 
 	return (
-		<div className="h-full flex flex-col items-center justify-center p-6 text-center">
+		<div className="min-h-full flex flex-col items-center justify-center p-6 text-center">
 			<div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-4">
 				<Icon
 					name="comment"
@@ -144,7 +144,7 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 					<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
 						Search Bluesky for posts about {currentDomain.value}
 					</p>
-					<ManualFetchButton />
+					<ManualFetchButton onSearch={onSearch} disabled={!isSearchableUrl.value || isBlocked.value} />
 				</>
 			)}
 
@@ -162,10 +162,10 @@ export function EmptyList({ autoAllowDomain }: { autoAllowDomain?: string }) {
 			)}
 
 			{/* bottom of page */}
-			<div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-center gap-2">
-				<ManualFetchButton />
-				{!isBlocked.value && <DenyButton />}
-			</div>
+			{isSearchableUrl.value && <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+				{autoFetchEnabled.value && <ManualFetchButton onSearch={onSearch} />}
+				<DenyButton />
+			</div>}
 		</div>
 	);
 }

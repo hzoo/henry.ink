@@ -8,6 +8,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Reader controls stay outside the isolated source document. */
+::highlight(henry-notes) { background: #efd49588; color: inherit; }
 .reader-icon-button {
   display: inline-flex;
   align-items: center;
@@ -39,33 +40,19 @@
 .saved-person .note-record-person { width: auto; min-width: 40px; gap: 6px; padding: 0 4px; font-size: 11px; }
 .note-record-person span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dark .saved-person { color: #9ca3af; }
-
-/* Restore browser defaults for archive content - override Tailwind Preflight */
-@layer base {
-  /* Restore browser defaults for archive content */
-  .archive-mode * {
-    margin: revert;
-    padding: revert;
-    box-sizing: revert;
-    border: revert;
-  }
-
-  /* Restore semantic element styling */
-  .archive-mode h1, .archive-mode h2, .archive-mode h3,
-  .archive-mode h4, .archive-mode h5, .archive-mode h6 {
-    font-size: revert;
-    font-weight: revert;
-  }
-
-  .archive-mode ol, .archive-mode ul {
-    list-style: revert;
-  }
-
-  .archive-mode img, .archive-mode svg, .archive-mode video {
-    display: revert;
-    vertical-align: revert;
-  }
-}
+.note-comment > summary { list-style: none; cursor: pointer; }
+.note-comment > summary::-webkit-details-marker { display: none; }
+.note-comment > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
+.note-comment-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.note-comment-more, .note-comment-less { min-height: 40px; align-items: center; font-size: 11px; color: #737783; }
+.note-comment-more { display: flex; }
+.note-comment-less { display: none; }
+.note-comment[open] .note-comment-preview, .note-comment[open] .note-comment-more { display: none; }
+.note-comment[open] .note-comment-less { display: flex; }
+.dark .note-comment-more, .dark .note-comment-less { color: #9ca3af; }
+.note-curation { display: flex; flex-wrap: wrap; gap: 0 8px; color: #737783; }
+.note-curation .note-record-person { margin-left: 0; width: auto; min-width: 40px; gap: 6px; padding: 0 4px; font-size: 11px; }
+.dark .note-curation { color: #9ca3af; }
 
 /* Arena channel links styling */
 .arena-channel-link-wrapper {
@@ -84,7 +71,7 @@
   cursor: pointer;
   text-decoration: none !important;
   border-bottom: 1px dotted #17AD58 !important;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .arena-channel-link:hover {
@@ -112,20 +99,6 @@
   text-decoration: none !important;
 }
 
-.arena-link-icon {
-  color: #17AD58;
-  font-size: 0.75em;
-  opacity: 0.6;
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-  padding: 0 2px;
-}
-
-.arena-link-icon:hover {
-  opacity: 1;
-  color: #0e7a3e;
-}
-
 /* Dark mode adjustments - uses .dark class to match Tailwind v4 custom variant */
 .dark .arena-channel-link,
 .dark .prose .arena-channel-link,
@@ -141,18 +114,9 @@
   border-bottom-color: #86EFAC !important;
 }
 
-.dark .arena-link-icon {
-  color: #4ADE80;
-}
-
-.dark .arena-link-icon:hover {
-  color: #86EFAC;
-}
-
-/* Archive Mode Wrapper - Create containing block for fixed positioned elements */
-.archive-mode-wrapper {
-  /* Transform creates a new containing block for position: fixed elements
-     This ensures fixed positioned elements in archived content stay contained
-     within the archive area instead of escaping to henry.ink's viewport */
-  transform: translateZ(0);
+/* Reader shell: widen the pointer target without spending article width. */
+.reader-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0 -6px;
 }

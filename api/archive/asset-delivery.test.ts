@@ -24,13 +24,16 @@ const tick = () => Bun.sleep(0);
 test("sequential reads reuse validated bytes, with fresh CORS and security headers per reader", async () => {
   const url = permit("repeat");
   let calls = 0;
-  const route = createAssetProxyHandler(async target => {
+  const route = createAssetProxyHandler(async (target, options) => {
+    expect(options.maxBytes).toBe(10 * 1024 * 1024);
+    expect(options.timeoutMs).toBe(5000);
     calls++;
     return resource(target, { "access-control-allow-origin": "https://evil.example", "content-security-policy": "default-src *" });
   });
   for (const origin of ["https://henry.ink", "http://127.0.0.1:3003", "https://evil.example", "https://henry.ink"]) {
     const response = await route(request(url, { origin }));
     expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
     expect(Buffer.from(await response.arrayBuffer())).toEqual(png);
     expect(response.headers.get("access-control-allow-origin")).toBe(origin === "https://evil.example" ? null : origin);
     expect(response.headers.get("vary")).toBe("Origin");

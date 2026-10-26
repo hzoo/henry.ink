@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
+import type { Client } from "@atcute/client";
 import { getPostThread } from "@/src/lib/bsky";
 import { isRecord } from "@/src/lib/postActions";
 
@@ -36,9 +37,11 @@ export function processThreadReplies(thread: Thread): Thread[] {
 	});
 }
 
-export async function fetchProcessedThread(uri: string): Promise<Thread> {
+export async function fetchProcessedThread(uri: string, signal?: AbortSignal, rpc?: Client | null): Promise<Thread> {
 	const thread = (await getPostThread(uri, {
 		depth: DEFAULT_FETCH_DEPTH,
+		signal,
+		rpc,
 	})) as Thread;
 	return {
 		post: thread.post,

@@ -8,17 +8,18 @@ import { apiBase } from '@/src/lib/api-url';
 /**
  * Fetch Arena matches from the API
  */
-export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> {
+export async function fetchArenaMatches(content: string, url: string, signal?: AbortSignal): Promise<ArenaMatch[]> {
   const apiUrl = apiBase;
   
   const response = await fetch(`${apiUrl}/api/arena/enhance`, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       content,
-      options: { maxLinksPerChannel: 1 }
+      url,
     }),
   });
 
@@ -52,11 +53,12 @@ export async function fetchArenaMatches(content: string): Promise<ArenaMatch[]> 
 /**
  * Fetch blocks for a specific Arena channel
  */
-export async function fetchChannelBlocks(slug: string, per: number = 24, page: number = 1): Promise<ArenaChannelWithBlocks | null> {
+export async function fetchChannelBlocks(slug: string, per: number = 24, page: number = 1, signal?: AbortSignal): Promise<ArenaChannelWithBlocks | null> {
   const apiUrl = apiBase;
   
   const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -69,6 +71,16 @@ export async function fetchChannelBlocks(slug: string, per: number = 24, page: n
 
   const result: ArenaChannelWithBlocks | null = await response.json();
   return result;
+}
+
+export function parseArenaSourceUrl(value?: string): URL | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

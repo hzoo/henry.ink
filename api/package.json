@@ -7,7 +7,6 @@
   "main": "server.ts",
   "scripts": {
     "start": "bun run server.ts",
-    "dev:arena": "bun run arena/server.ts",
     "dev:archive": "bun run archive/server.ts",
     "compile": "tsc --noEmit"
   },

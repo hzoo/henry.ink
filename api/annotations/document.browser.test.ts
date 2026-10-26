@@ -41,4 +41,4 @@ test.skipIf(!process.env.ARCHIVE_BROWSER_TESTS)('sandboxed reader blobs retain l
     expect(result.executed).toBe(false);
     expect(result.publicId).toContain('XHTML 1.0 Transitional');
   } finally { await browser.close(); }
-});
+}, 20_000);

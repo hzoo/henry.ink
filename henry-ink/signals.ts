@@ -25,6 +25,8 @@ export type ContentState =
   | { type: 'success'; url: string; resolvedUrl?: string; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
   | { type: 'error'; message: string; mode: ContentMode };
 
+export type ArticleContent = Extract<ContentState, { type: 'success' }>;
+
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
 export const contentRevision = signal(0);
 

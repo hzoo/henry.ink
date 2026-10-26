@@ -110,7 +110,7 @@ test('external SQLite writes refresh matcher metadata and remove deleted matches
     writer.updateChannelAuthor('channel-1', 'External', 'external');
     expect((await enhancer.findChannelMatches('Storage Test')).matches[0].author_slug).toBe('external');
     writer.removeChannelBySlug('channel-1');
-    expect(await enhancer.previewMatches('Storage Test')).toHaveLength(0);
+    expect((await enhancer.findChannelMatches('Storage Test')).matches).toHaveLength(0);
   } finally {
     storage.close();
     writer.close();

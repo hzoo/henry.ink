@@ -21,7 +21,7 @@ export function ProfilePost({
 }: ProfilePostProps) {
 	if (!post || !post.author) {
 		return (
-			<div className="p-4 text-center text-gray-500">
+			<div className="p-4 text-center text-gray-600 dark:text-gray-400">
 				Post data not available
 			</div>
 		);
@@ -37,7 +37,7 @@ export function ProfilePost({
 
 	return (
 		<article 
-			className="border-b border-gray-300 dark:border-gray-600"
+			className="border-b border-gray-300 text-gray-900 dark:border-gray-600 dark:text-gray-100"
 			data-post-uri={post.uri}
 			data-post-rkey={getPostId(post.uri)}
 		>
@@ -46,19 +46,20 @@ export function ProfilePost({
 					<div className="flex items-center pb-1">
 						{displayItems.includes("avatar") && post.author.avatar && (
 							<img
+								loading="lazy"
 								src={post.author.avatar}
 								alt={authorName}
 								className="w-[42px] h-[42px] rounded-full mr-2.5 flex-shrink-0"
 							/>
 						)}
-						<div className="flex flex-col text-sm">
+						<div className="min-w-0 flex-1 flex flex-col text-sm">
 							<div className="flex items-center flex-wrap gap-x-1 min-w-0">
 								{displayItems.includes("displayName") && (
 									<a
 										href={postAuthorUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="font-semibold truncate hover:underline"
+										className="max-w-full font-semibold truncate hover:underline"
 									>
 										{authorName}
 									</a>
@@ -68,27 +69,27 @@ export function ProfilePost({
 										href={postAuthorUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="text-gray-500"
+										className="max-w-full break-all text-gray-600 dark:text-gray-400"
 									>
 										{post.author.handle}
 									</a>
 								)}
 								{(displayItems.includes("displayName") ||
 									displayItems.includes("handle")) && (
-									<span className="text-gray-500">·</span>
+									<span className="text-gray-600 dark:text-gray-400">·</span>
 								)}
 								<a
 									href={getPost(post.uri)}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="text-gray-500 hover:underline"
+									className="text-gray-600 hover:underline dark:text-gray-400"
 								>
 									{timeAgo}
 								</a>
 								<QuoteIndicator postUri={post.uri} />
 							</div>
 							{rootPost && (
-								<div className="flex items-center gap-x-1 text-gray-500">
+								<div className="flex items-center gap-x-1 text-gray-600 dark:text-gray-400">
 									<a
 										href={getPost(rootPost.uri)}
 										target="_blank"

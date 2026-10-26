@@ -4,8 +4,8 @@ import { contentStateSignal, contentModeSignal, contentRevision, type ContentMod
 import { archiveCache } from "@/henry-ink/reader/archive-cache";
 import { currentUrl } from "@/src/lib/messaging";
 import { useEffect } from "preact/hooks";
-import { resolveEmbedProvider, normalizeWithProvider } from "@/henry-ink/embed/providers";
-import "@/henry-ink/embed/youtube";
+import { extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
+import { sourceFromReaderPath } from '@/henry-ink/reader/url';
 
 // URL detection and normalization utilities
 function isUrl(input: string): boolean {
@@ -41,39 +41,21 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 
 	const targetUrl = normalizedUrl;
 
-	// Handle third-party embeds (YouTube, Vimeo, etc.) separately
-	const embedProvider = resolveEmbedProvider(targetUrl);
-	if (embedProvider) {
-		const embedMode: ContentMode = 'embed';
-
-		// Force embed mode for embed URLs
-		if (contentModeSignal.value !== embedMode) {
-			contentModeSignal.value = embedMode;
+	const videoId = extractYouTubeVideoId(targetUrl);
+	if (videoId) {
+		if (mode !== 'embed') {
+			contentModeSignal.value = 'embed';
 			return; // Render the embed after its mode transition.
 		}
 
-		try {
-			const normalizedForProvider = normalizeWithProvider(embedProvider, targetUrl);
-			const embed = embedProvider.createContent(normalizedForProvider);
-
-			if (signal.aborted) return;
-			contentStateSignal.value = {
-				type: 'success',
-				url: targetUrl,
-				content: '',
-				title: embed.title,
-				mode: embedMode,
-				embed,
-			};
-		} catch (e: unknown) {
-			if (signal.aborted) return;
-			console.error("Embed fetch error:", e);
-			contentStateSignal.value = {
-				type: 'error',
-				message: e instanceof Error ? e.message : 'An unexpected error occurred while fetching embedded content.',
-				mode: embedMode,
-			};
-		}
+		if (signal.aborted) return;
+		contentStateSignal.value = {
+			type: 'success',
+			url: targetUrl,
+			content: '',
+			mode: 'embed',
+			embed: { provider: 'youtube', originalUrl: targetUrl, videoId },
+		};
 		return;
 	}
 
@@ -120,7 +102,7 @@ export function useUrlPathSyncer() {
 	useEffect(() => {
 		const currentPath = location.url; // Use full URL with query parameters
 		if (currentPath.length > 1 && currentPath.startsWith("/")) {
-			const potentialUrl = currentPath.substring(1); // Remove leading '/'
+			const potentialUrl = sourceFromReaderPath(currentPath);
 			const normalizedUrl = normalizeUrl(potentialUrl);
 			
 			if (normalizedUrl) {
