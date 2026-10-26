@@ -7,6 +7,7 @@ import { extractQuotesFromPosts } from "@/src/lib/highlights/extractQuotes";
 import {
 	extractedQuotes,
 	quotesUrl,
+	targetPostRkey,
 	type QuoteHighlight,
 } from "@/src/lib/highlights/signals";
 import { showCommentDialog, currentUrl } from "@/src/lib/messaging";
@@ -18,7 +19,6 @@ export interface PostListProps {
 }
 
 const filters: PostFilter[] = [
-	// Filters.MinInteractionCount(1),
 	Filters.NoPins,
 	Filters.MaxTags(3),
 	Filters.BotPost,
@@ -27,6 +27,9 @@ const filters: PostFilter[] = [
 export function PostList({ posts }: PostListProps) {
 	const url = currentUrl.value;
 	const visibleCount = useSignal(20);
+	const target = targetPostRkey.value;
+	const targetIndex = target ? posts.findIndex(post => post.uri.split('/').at(-1) === target) : -1;
+	const shown = Math.max(visibleCount.value, targetIndex + 1);
 	useEffect(() => { visibleCount.value = 20; }, [url]);
 	// Extract quotes from posts when they change (only in website contexts, not extension)
 	useEffect(() => {
@@ -50,7 +53,6 @@ export function PostList({ posts }: PostListProps) {
 					id: `${post.uri}-${index}`, // Unique ID for each quote
 					postUri: post.uri,
 					quote,
-					ranges: [], // Will be populated when content is matched
 					postData: post,
 				});
 			});
@@ -63,7 +65,7 @@ export function PostList({ posts }: PostListProps) {
 
 	return (
 		<>
-			{posts.slice(0, visibleCount.value).map((post: AppBskyFeedDefs.PostView) => (
+			{posts.slice(0, shown).map((post: AppBskyFeedDefs.PostView) => (
 				<FullPost
 					key={post.cid}
 					postUri={post.uri}
@@ -72,7 +74,7 @@ export function PostList({ posts }: PostListProps) {
 					displayItems={["avatar", "handle"]}
 				/>
 			))}
-			{posts.length > visibleCount.value && <button className="p-4 text-sm underline" onClick={() => visibleCount.value += 20}>Show more discussions</button>}
+			{posts.length > shown && <button className="p-4 text-sm underline" onClick={() => { visibleCount.value = shown + 20; }}>Show more discussions</button>}
 			
 			{/* Add comment section */}
 			<div className="p-4 mb-96">

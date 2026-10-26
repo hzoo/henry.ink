@@ -16,9 +16,6 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
   mock.module('@/henry-ink/reader/notes', () => ({ useReaderNotes() {} }));
   mock.module('@/henry-ink/components/ArenaEnhancedContent', () => ({ ArenaEnhancedContent: ({ htmlContent }: { htmlContent: string }) => h('div', { id: 'output', innerHTML: htmlContent }) }));
   for (const [path, name] of [
-    ['@/src/components/highlights/HighlightController', 'HighlightController'],
-    ['@/src/components/highlights/QuotePositionDots', 'QuotePositionDots'],
-    ['@/src/components/highlights/ArenaNavigationController', 'ArenaNavigationController'],
     ['@/henry-ink/components/ArchiveDocument', 'ArchiveDocument'],
     ['@/henry-ink/components/YouTubePlayer', 'YouTubePlayer'],
   ]) mock.module(path, () => ({ [name]: () => null }));

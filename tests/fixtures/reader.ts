@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import type { ArchiveResponse } from '@/api/archive/routes';
-import type { AnnotationView } from '@/src/lib/annotations/margin';
 
 export interface ReaderFixture {
   id: 'custom-styled' | 'bare' | 'legacy';
@@ -10,14 +9,6 @@ export interface ReaderFixture {
   paragraphs: string[];
   expectedParagraphs: string[];
   expectedEndingParagraphs: [string, string, string];
-  noteAnchor: Extract<AnnotationView['anchor'], { kind: 'quote' }>;
-  marginResponse: {
-    items: AnnotationView[];
-    skipped: number;
-    via: 'margin';
-    target: string;
-    page: { offset: number; limit: number; completeness: 'unknown' };
-  };
 }
 
 interface FixtureSource {
@@ -87,8 +78,6 @@ const sources: FixtureSource[] = [
 export const readerFixtures: ReaderFixture[] = sources.map((fixture) => {
   const url = `https://reader-fixtures.example/${fixture.id}`;
   const expectedParagraphs = [...fixture.openingParagraphs, ...fixture.expectedEndingParagraphs];
-  const noteAnchor: ReaderFixture['noteAnchor'] = { kind: 'quote', exact: fixture.expectedEndingParagraphs[2] };
-  const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
   return {
     id: fixture.id,
     name: fixture.name,
@@ -105,25 +94,5 @@ export const readerFixtures: ReaderFixture[] = sources.map((fixture) => {
     paragraphs: expectedParagraphs,
     expectedParagraphs,
     expectedEndingParagraphs: fixture.expectedEndingParagraphs,
-    noteAnchor,
-    marginResponse: {
-      items: [{
-        uri: `at://${did}/at.margin.note/${fixture.id}`,
-        collection: 'at.margin.note',
-        via: 'margin',
-        motivation: 'commenting',
-        author: { did, handle: 'reader.example', name: 'Fixture Reader' },
-        target: url,
-        title: fixture.title,
-        createdAt: '2026-01-01T12:00:00.000Z',
-        body: { kind: 'text', text: `A synthetic margin note on ${fixture.title}.`, format: 'text/plain' },
-        anchor: noteAnchor,
-        labels: [],
-      }],
-      skipped: 0,
-      via: 'margin',
-      target: url,
-      page: { offset: 0, limit: 50, completeness: 'unknown' },
-    },
   };
 });

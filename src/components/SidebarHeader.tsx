@@ -5,10 +5,11 @@ import { currentDomain, isAllowed, isBlocked } from "@/src/lib/messaging";
 import { getTimeAgo } from "@/src/lib/utils/time";
 import { queryClient } from "@/src/lib/queryClient";
 import { Icon } from "@/src/components/Icon";
+import { atCuteState } from "@/demo/lib/oauth";
 
 const handleRefresh = () => {
 	if (contentSourceUrl.value) {
-		queryClient.refetchQueries({ queryKey: ["posts", contentSourceUrl.value] });
+		queryClient.refetchQueries({ queryKey: ["posts", contentSourceUrl.value, atCuteState.peek()?.session.info.sub ?? null], exact: true });
 	}
 };
 

@@ -15,22 +15,26 @@ export interface Storage {
  * @template T - The type of the signal value.
  * @param key - The key used to store and retrieve the persisted value.
  * @param initialValue - The initial value of the signal if no persisted value is found.
- * @param storage - An object implementing the Storage interface for persisting the signal.
+ * @param storage - Storage to use; defaults to localStorage when available.
  * @returns A signal with a persisted value that updates storage on changes.
  */
 export const persistSignal = <T>(
   key: string,
   initialValue: T,
-  storage: Storage
+  storage?: Storage
 ): Signal<T> => {
-  const persistedValue = storage.getItem(STORAGE_PREFIX + key);
-
-  const data = persistedValue
-    ? signal(JSON.parse(persistedValue) as T)
-    : signal(initialValue);
+  const data = signal(initialValue);
+  try {
+    storage ??= window.localStorage;
+    const persistedValue = storage.getItem(STORAGE_PREFIX + key);
+    if (persistedValue) data.value = JSON.parse(persistedValue) as T;
+  } catch { /* Preferences still work in memory when storage is unavailable. */ }
 
   effect(() => {
-    storage.setItem(STORAGE_PREFIX + key, JSON.stringify(data.value));
+    const value = data.value;
+    try {
+      storage?.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+    } catch { /* Storage limits must not prevent reading or changing preferences. */ }
   });
 
   return data;
@@ -85,7 +89,7 @@ export const signalBrowserLocal = <T>(key: string, initialValue: T): Signal<T> =
   }
   // Fallback to localStorage if browser.storage.local is not available (web context)
   // console.warn(`browser.storage.local not available for key '${key}'. Falling back to localStorage.`);
-  return persistSignal(key, initialValue, window.localStorage);
+  return persistSignal(key, initialValue);
 };
 
 export const signalBrowserSync = <T>(key: string, initialValue: T): Signal<T> => {
@@ -95,5 +99,5 @@ export const signalBrowserSync = <T>(key: string, initialValue: T): Signal<T> =>
   }
   // Fallback to localStorage if browser.storage.sync is not available (web context)
   // console.warn(`browser.storage.sync not available for key '${key}'. Falling back to localStorage (syncing disabled).`);
-  return persistSignal(key, initialValue, window.localStorage);
+  return persistSignal(key, initialValue);
 };

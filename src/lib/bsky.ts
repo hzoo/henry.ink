@@ -72,9 +72,10 @@ function preparePosts(
 
 export async function searchBskyPosts(
 	url: string,
-	options?: { signal?: AbortSignal },
+	options?: { signal?: AbortSignal; rpc?: Client | null },
 ) {
 	try {
+		const client = options?.rpc === undefined ? atCuteState.peek()?.rpc : options.rpc;
 		const params = {
 			q: "*",
 			url: url as `https://${string}`,
@@ -82,7 +83,7 @@ export async function searchBskyPosts(
 			limit: 100,
 		};
 
-		if (!atCuteState.value?.rpc) {
+		if (!client) {
 			// Use the worker for search, it handles caching and auth forwarding
 			const workerUrl = `${import.meta.env.VITE_WORKER_URL}?url=${encodeURIComponent(url)}`;
 			const res = await fetch(workerUrl, {
@@ -114,11 +115,13 @@ export async function searchBskyPosts(
 				AppBskyFeedSearchPosts.mainSchema["output"]["schema"]
 			>;
 
+			// The worker searches as its bot account, not the anonymous reader.
+			for (const post of data.posts) delete post.viewer;
 			return preparePosts(data.posts, url);
 		}
 
 		// Direct RPC call if rpc is available (user is logged in)
-		const { ok, data } = await atCuteState.value.rpc.get(
+		const { ok, data } = await client.get(
 			"app.bsky.feed.searchPosts",
 			{ params, signal: options?.signal },
 		);
@@ -166,10 +169,11 @@ export async function searchBskyPosts(
 
 export async function getPostThread(
 	uri: string,
-	options?: { depth?: number; parentHeight?: number; signal?: AbortSignal },
+	options?: { depth?: number; parentHeight?: number; signal?: AbortSignal; rpc?: Client | null },
 ) {
 	try {
-		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
+		const client = options?.rpc === undefined ? atCuteState.peek()?.rpc : options.rpc;
+		const { ok, data } = await (client ?? rpc).get(
 			"app.bsky.feed.getPostThread",
 			{
 				params: {
@@ -189,17 +193,18 @@ export async function getPostThread(
 	} catch (error: unknown) {
 		if (error instanceof Error && error.name !== "AbortError") {
 			console.error("Error fetching thread:", error);
-			throw error;
 		}
+		throw error;
 	}
 }
 
 export async function getProfile(
 	actor: string,
-	options?: { signal?: AbortSignal },
+	options?: { signal?: AbortSignal; rpc?: Client | null },
 ) {
 	try {
-		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
+		const client = options?.rpc === undefined ? atCuteState.peek()?.rpc : options.rpc;
+		const { ok, data } = await (client ?? rpc).get(
 			"app.bsky.actor.getProfile",
 			{
 				params: {
@@ -224,10 +229,11 @@ export async function getProfile(
 
 export async function getAuthorFeed(
 	actor: string,
-	options?: { limit?: number; cursor?: string; signal?: AbortSignal },
+	options?: { limit?: number; cursor?: string; signal?: AbortSignal; rpc?: Client | null },
 ) {
 	try {
-		const { ok, data } = await (atCuteState.value?.rpc ?? rpc).get(
+		const client = options?.rpc === undefined ? atCuteState.peek()?.rpc : options.rpc;
+		const { ok, data } = await (client ?? rpc).get(
 			"app.bsky.feed.getAuthorFeed",
 			{
 				params: {

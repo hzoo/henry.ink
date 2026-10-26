@@ -1,6 +1,3 @@
-import type { EmbedProvider } from '@/henry-ink/embed/providers';
-import { registerEmbedProvider } from '@/henry-ink/embed/providers';
-
 export function extractYouTubeVideoId(input: string): string | null {
   try {
     const url = new URL(input);
@@ -16,19 +13,3 @@ export function extractYouTubeVideoId(input: string): string | null {
     return null;
   }
 }
-
-export function isYouTubeUrl(url: string): boolean {
-  return extractYouTubeVideoId(url) !== null;
-}
-
-export const youtubeEmbedProvider: EmbedProvider = {
-  id: 'youtube',
-  matches: isYouTubeUrl,
-  createContent(url) {
-    const videoId = extractYouTubeVideoId(url);
-    if (!videoId) throw new Error('Invalid YouTube video URL');
-    return { provider: 'youtube', originalUrl: url, videoId };
-  },
-};
-
-registerEmbedProvider(youtubeEmbedProvider);

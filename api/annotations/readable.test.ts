@@ -21,7 +21,7 @@ test('short notes retain semantic HTML, headings and links without original styl
   expect(result.textContent).toBe('Note\nFirst paragraph.\nMore\nSecond paragraph.');
 });
 
-test('production reader-wrapped same-page links jump to prefixed footnotes', async () => {
+test('captured same-page links jump to prefixed footnotes', async () => {
   const url = 'https://source.test/posts/article';
   const service = createArchiveService(async () => ({
     fullHTMLContent: '<!doctype html><h1>Notes</h1><p><a href="article#note">Footnote</a><a href="other#note">Elsewhere</a></p><p id="note">The footnote.</p>',
@@ -30,7 +30,6 @@ test('production reader-wrapped same-page links jump to prefixed footnotes', asy
       metadata: { title: 'Notes', author: '', publishedTime: '', domain: 'source.test', url } },
   }));
   const archive = await service(url, 'https://api.henry.ink', 'https://henry.ink');
-  expect(archive.html).toContain('https://henry.ink/https://source.test/posts/article#note');
   const host = new JSDOM('');
   try {
     const result = await extractReadableArticle(archive, url, host.window.document);

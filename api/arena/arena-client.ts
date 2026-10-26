@@ -11,7 +11,7 @@ import type {
   RESTContent
 } from './arena-api-types';
 import type { ArenaBlock } from '../../src/lib/arena-types';
-import { arenaFetchJson, arenaGraphql } from './arena-api';
+import { ArenaApiError, arenaFetchJson, arenaGraphql } from '@/api/arena/arena-api';
 
 export interface FetchChannelsOptions {
   per?: number;
@@ -203,9 +203,7 @@ export class ArenaClient {
       
       const channelData = await arenaFetchJson<RESTChannelResponse>(restUrl);
       
-      if (!channelData || !channelData.contents) {
-        return null;
-      }
+      if (!Array.isArray(channelData?.contents)) throw new Error('Arena response is missing channel contents');
 
       // Transform REST API response to our expected format
       const blocks = channelData.contents.map((content: RESTContent) => {
@@ -322,8 +320,8 @@ export class ArenaClient {
         blocks: blocks as ArenaBlock[]
       };
     } catch (error) {
-      console.error(`Error fetching blocks for channel ${slug}:`, error);
-      return null;
+      if (error instanceof ArenaApiError && error.status === 404) return null;
+      throw error;
     }
   }
 

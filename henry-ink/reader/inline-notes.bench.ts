@@ -7,19 +7,19 @@ Object.assign(globalThis, { window: dom.window, document: dom.window.document, A
 const { h, render, options } = await import('preact');
 options.requestAnimationFrame = callback => { setTimeout(callback, 0); };
 const { InlineNotes } = await import('@/henry-ink/reader/InlineNotes');
-const { readerNotes, matchedNotes } = await import('@/henry-ink/reader/notes');
-const { extractedQuotes, quotesUrl } = await import('@/src/lib/highlights/signals');
+const { readerNotes } = await import('@/henry-ink/reader/notes');
+const { extractedQuotes, quotesUrl, readerAnchors } = await import('@/src/lib/highlights/signals');
 const doc = dom.window.document;
 const root = doc.querySelector('article') as HTMLElement;
 const mount = doc.querySelector('#mount') as HTMLElement;
 const url = 'https://example.com/article';
+const article = { type: 'success', url, content: '', mode: 'md' } as const;
 const iterations = 30;
 const quoteCount = 20;
 const quotes = Array.from({ length: quoteCount }, (_, index) => ({
   id: `quote-${index}`, quote: `unique quote ${String(index).padStart(2, '0')} end`,
   postUri: `at://did:plc:test/app.bsky.feed.post/${index}`,
   postData: { author: { displayName: 'Reader', handle: 'reader.test' }, record: { text: `Note ${index}` } },
-  ranges: [],
 }));
 const originalWalker = doc.createTreeWalker.bind(doc);
 let walks = 0;
@@ -28,11 +28,11 @@ doc.createTreeWalker = ((...args: Parameters<Document['createTreeWalker']>) => {
   return originalWalker(...args);
 }) as Document['createTreeWalker'];
 
-function settled(previous: Map<string, HTMLElement>) {
+function settled(previous: typeof readerAnchors.value) {
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => { unsubscribe(); reject(new Error('Inline note placement did not settle')); }, 2000);
-    const unsubscribe = matchedNotes.subscribe(current => {
-      if (current === previous || current.size !== quoteCount) return;
+    const unsubscribe = readerAnchors.subscribe(current => {
+      if (!current || current === previous || current.anchors.size !== quoteCount) return;
       clearTimeout(timeout);
       unsubscribe();
       resolve();
@@ -52,7 +52,7 @@ function snapshot() {
     hosts: hosts.length,
     noteTextLength: noteText.length,
     noteTextHash: fingerprint(noteText),
-    matched: matchedNotes.value.size,
+    matched: readerAnchors.value!.anchors.size,
     walks,
   };
 }
@@ -61,10 +61,10 @@ async function measure(mode: 'rebuild' | 'retained') {
   walks = 0;
   const start = performance.now();
   for (let iteration = 0; iteration < iterations; iteration++) {
-    const previous = matchedNotes.value;
+    const previous = readerAnchors.value;
     const placement = settled(previous);
     extractedQuotes.value = quotes.slice() as unknown as typeof extractedQuotes.value;
-    render(h(InlineNotes, { key: mode === 'rebuild' ? iteration : 'retained', root, url }), mount);
+    render(h(InlineNotes, { key: mode === 'rebuild' ? iteration : 'retained', root, article }), mount);
     await placement;
   }
   const ms = performance.now() - start;

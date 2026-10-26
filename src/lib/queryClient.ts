@@ -1,12 +1,15 @@
 import { QueryClient } from "@tanstack/react-query";
 import { experimental_createQueryPersister, type PersistedQuery } from "@tanstack/react-query-persist-client";
 import { openDB, type IDBPDatabase } from 'idb';
+import type { AppBskyFeedDefs } from '@atcute/bluesky';
+import type { ResourceUri } from '@atcute/lexicons';
+import type { Thread } from '@/src/lib/threadUtils';
 
 const DB_NAME = 'bsky-search';
 const STORE_NAME = 'queries';
 const VERSION = 1;
 
-if (typeof window !== 'undefined' && window.localStorage) {
+if (typeof window !== 'undefined') {
 	try {
 		const keys = Object.keys(localStorage);
 		const oldCacheKeys = keys.filter(k => k.startsWith('bsky-search-experimental'));
@@ -93,3 +96,48 @@ export const queryClient = new QueryClient({
 		},
 	},
 });
+
+// Keep successful actions in the same viewer-owned data used after navigation.
+export function updatePostActionCache(
+	client: QueryClient,
+	did: string,
+	postUri: string,
+	action: 'like' | 'repost',
+	uri?: ResourceUri,
+) {
+	const count = action === 'like' ? 'likeCount' : 'repostCount';
+	let changed = false;
+	const updatePost = (post: AppBskyFeedDefs.PostView): AppBskyFeedDefs.PostView => {
+		if (post.uri !== postUri || post.viewer?.[action] === uri) return post;
+		changed = true;
+		return {
+			...post,
+			[count]: Math.max(0, (post[count] ?? 0) + Number(!!uri) - Number(!!post.viewer?.[action])),
+			viewer: { ...post.viewer, [action]: uri },
+		};
+	};
+	const updateThread = (thread: Thread): Thread => ({
+		...thread,
+		post: updatePost(thread.post),
+		...(thread.replies && { replies: thread.replies.map(updateThread) }),
+	});
+
+	for (const query of client.getQueryCache().findAll({
+		predicate: query => query.queryKey[2] === did && ['posts', 'authorFeed', 'thread'].includes(query.queryKey[0] as string),
+	})) {
+		const previous = query.state.data;
+		if (!previous) continue;
+		changed = false;
+		let next: unknown;
+		if (query.queryKey[0] === 'posts') next = (previous as AppBskyFeedDefs.PostView[]).map(updatePost);
+		else if (query.queryKey[0] === 'thread') next = updateThread(previous as Thread);
+		else {
+			const feed = previous as { feed: AppBskyFeedDefs.FeedViewPost[] };
+			next = { ...feed, feed: feed.feed.map(item => ({ ...item, post: updatePost(item.post) })) };
+		}
+		if (changed) {
+			client.setQueryData(query.queryKey, next);
+			void appPersister.persistQueryByKey(query.queryKey, client);
+		}
+	}
+}

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { Client, type FetchHandler } from "@atcute/client";
 import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
-import { searchBskyPosts } from "@/src/lib/bsky";
+import { getAuthorFeed, getPostThread, getProfile, searchBskyPosts } from "@/src/lib/bsky";
 
 const videoId = "dQw4w9WgXcQ";
 const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -132,19 +132,20 @@ for (const mode of ["worker", "authenticated"] as const) {
 		});
 
 		test("keeps non-video results and stable ordering for equal engagement", async () => {
+			const like = "at://did:plc:viewer/app.bsky.feed.like/liked";
 			const posts = [
 				post("first"),
 				post("second"),
-				post("popular", { likeCount: 2 }),
+				post("popular", { likeCount: 2, viewer: { like } }),
 			];
 			transport(mode, async () => Response.json({ posts }));
-			expect(
-				(
-					await searchBskyPosts(
-						"https://www.robinsloan.com/notes/home-cooked-app",
-					)
-				)?.map((entry) => entry.uri.split("/").pop()),
-			).toEqual(["popular", "first", "second"]);
+			const result = await searchBskyPosts("https://www.robinsloan.com/notes/home-cooked-app");
+			expect(result?.map((entry) => entry.uri.split("/").pop())).toEqual(["popular", "first", "second"]);
+			if (mode === "authenticated") {
+				expect(result?.[0].viewer?.like).toBe(like);
+			} else {
+				expect(result?.[0].viewer).toBeUndefined();
+			}
 		});
 
 		test("accepts empty search results", async () => {
@@ -189,3 +190,40 @@ for (const mode of ["worker", "authenticated"] as const) {
 		});
 	});
 }
+
+test("keeps captured clients and explicit anonymous search after an account change", async () => {
+	const requests: string[] = [];
+	const controller = new AbortController();
+	const fixture = post("owned");
+	const handler: FetchHandler = async (url, init) => {
+		requests.push(url);
+		expect(init.signal).toBe(controller.signal);
+		const path = new URL(url, "https://public.test").pathname;
+		if (path.endsWith("getPostThread")) return Response.json({ thread: { post: fixture } });
+		if (path.endsWith("getProfile")) return Response.json(fixture.author);
+		if (path.endsWith("getAuthorFeed")) return Response.json({ feed: [{ post: fixture }] });
+		return Response.json({ posts: [fixture] });
+	};
+	const capturedRpc = new Client({ handler });
+	const nextAccountRpc = new Client({ handler: async () => { throw new Error("Used the next account's client"); } });
+	const read = (rpc: Client | null) => Promise.resolve().then(() => Promise.all([
+		searchBskyPosts("https://example.com/article", { signal: controller.signal, rpc }),
+		getPostThread(fixture.uri, { signal: controller.signal, rpc }),
+		getProfile(fixture.author.did, { signal: controller.signal, rpc }),
+		getAuthorFeed(fixture.author.did, { signal: controller.signal, rpc }),
+	]));
+
+	const capturedRead = read(capturedRpc);
+	// Persistence may defer these helpers until another account is active.
+	atCuteState.value = { rpc: nextAccountRpc } as AtCuteState;
+	const authenticated = await capturedRead;
+	expect(authenticated[0]?.[0].uri).toBe(fixture.uri);
+	expect(requests).toHaveLength(4);
+
+	transport("worker", handler);
+	const anonymousRead = Promise.resolve().then(() => searchBskyPosts("https://example.com/article", { signal: controller.signal, rpc: null }));
+	atCuteState.value = { rpc: nextAccountRpc } as AtCuteState;
+	const anonymous = await anonymousRead;
+	expect(anonymous?.[0].uri).toBe(fixture.uri);
+	expect(requests).toHaveLength(5);
+});

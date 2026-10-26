@@ -216,6 +216,15 @@ describe("archive processing", () => {
     expect(captures).toBe(2);
   });
 
+  test('keeps relative current-article fragments in the source document', async () => {
+    const service = createArchiveService(async () => ({ ...fixture,
+      fullHTMLContent: '<p id="section">Article</p><a href="../post/#section">Same article</a><a href="next#section">Next article</a>',
+    }));
+    const result = await service('https://example.com/articles/post/', 'https://api.henry.ink', 'https://henry.ink');
+    expect(result.html).toContain('href="https://example.com/articles/post/#section"');
+    expect(result.html).toContain('href="https://henry.ink/https://example.com/articles/post/next#section"');
+  });
+
   test("preserves stylesheet bases/media, rewrites inline URLs, and removes scripts", async () => {
     const service = createArchiveService(async () => fixture);
     const result = await service("https://example.com/articles/post/", "https://api.henry.ink");

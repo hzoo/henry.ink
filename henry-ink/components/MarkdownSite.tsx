@@ -1,15 +1,11 @@
 import { useLocation } from "preact-iso";
 import { useRef } from "preact/hooks";
-import { signal, useSignalEffect } from "@preact/signals";
 
 import { contentStateSignal, contentModeSignal, contentRevision } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
-import { HighlightController } from "@/src/components/highlights/HighlightController";
-import { QuotePositionDots } from "@/src/components/highlights/QuotePositionDots";
-import { ArenaNavigationController } from "@/src/components/highlights/ArenaNavigationController";
 import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
 import { ArchiveDocument } from "@/henry-ink/components/ArchiveDocument";
-import { sanitizeReaderHtml, readerDocumentMode } from "@/henry-ink/reader/document";
+import { readerDocumentMode } from "@/henry-ink/reader/document";
 import { sanitizeReadableHtml } from "@/henry-ink/reader/readable";
 import { useReaderNotes } from "@/henry-ink/reader/notes";
 import { currentUrl } from "@/src/lib/messaging";
@@ -17,7 +13,6 @@ import { YouTubePlayer } from "@/henry-ink/components/YouTubePlayer";
 import { extractYouTubeVideoId } from '@/henry-ink/embed/youtube';
 import { ReaderError, ReaderLoading } from '@/henry-ink/components/ReaderStatus';
 
-// Example carousel component
 const examples = [
 	{
 		title: "Spatial Software",
@@ -27,7 +22,7 @@ const examples = [
 	{
 		title: "Reality has a surprising amount of detail",
 		domain: "johnsalvatier.org",
-		url: "https://henry.ink/http://johnsalvatier.org/blog/2017/reality-has-a-surprising-amount-of-detail"
+		url: "/http://johnsalvatier.org/blog/2017/reality-has-a-surprising-amount-of-detail"
 	},
 	{
 		title: "Mechanical Watch",
@@ -41,98 +36,43 @@ const examples = [
 	},
 ];
 
-const currentExampleIndex = signal(0);
-const isHovered = signal(false);
-const progress = signal(0);
-
-function ExampleCarousel() {
-	// Auto-rotate examples with progress animation
-	useSignalEffect(() => {
-		if (isHovered.value) return;
-
-		progress.value = 0;
-
-		const progressInterval = setInterval(() => {
-			if (isHovered.value) return;
-			progress.value += 1;
-
-			if (progress.value >= 100) {
-				currentExampleIndex.value = (currentExampleIndex.value + 1) % examples.length;
-				progress.value = 0;
-			}
-		}, 40);
-
-		return () => clearInterval(progressInterval);
-	});
-
-	const currentExample = examples[currentExampleIndex.value];
-
-	return (
-		<div
-			className="text-center"
-			onMouseEnter={() => isHovered.value = true}
-			onMouseLeave={() => isHovered.value = false}
-		>
-			<a
-				href={currentExample.url}
-				className="relative inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 text-sm font-medium overflow-hidden"
-			>
-				<svg
-					className="w-4 h-4 mr-2"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-					/>
-				</svg>
-				<span
-					key={currentExample.title}
-					className="transition-opacity duration-300"
-				>
-					Try: {currentExample.title}
-				</span>
-
-				{/* Progress bar */}
-				<div
-					className="absolute bottom-0 left-0 h-0.5 bg-white/30 transition-all duration-75 ease-linear"
-					style={{ width: `${progress.value}%` }}
-				/>
-			</a>
-
-			{/* Domain transformation subtitle */}
-			<div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-				<span className="inline-flex items-center px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">
-					{currentExample.domain}
-				</span>
-				<span className="mx-2">→</span>
-				<span className="inline-flex items-center px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-mono">
-					henry.ink/{currentExample.domain}
-				</span>
-			</div>
+function OpenPageForm() {
+	const location = useLocation();
+	return <form className="mb-7 text-left" onSubmit={event => {
+		event.preventDefault();
+		const input = event.currentTarget.elements.namedItem('url') as HTMLInputElement;
+		const value = input.value.trim();
+		try {
+			const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`);
+			if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw new Error();
+			location.route(`/${url.href}`);
+		} catch {
+			input.setCustomValidity('Enter a web address, such as example.com/article.');
+			input.reportValidity();
+		}
+	}}>
+		<label className="mb-2 block text-sm font-medium" htmlFor="page-url">Web address</label>
+		<div className="flex gap-2">
+			<input id="page-url" name="url" type="text" inputMode="url" autoComplete="url" autoCapitalize="none" spellcheck={false}
+				required placeholder="example.com/article" onInput={event => event.currentTarget.setCustomValidity('')}
+				className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-gray-700 dark:bg-gray-900" />
+			<button type="submit" className="shrink-0 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Open page</button>
 		</div>
-	);
+	</form>;
 }
 
 export function MarkdownSite() {
-	const location = useLocation();
 	const contentState = contentStateSignal.value;
 	const contentMode = contentModeSignal.value;
 	const contentRef = useRef<HTMLDivElement>(null);
-	const renderedHtml = useRef<{ mode: 'archive' | 'md'; source: string; doc: Document; html: string } | null>(null);
+	const renderedHtml = useRef<{ source: string; doc: Document; html: string } | null>(null);
 	const videoId = contentMode === 'embed' ? extractYouTubeVideoId(currentUrl.value) : null;
 	const embedContent = contentState.type === 'success' && contentState.url === currentUrl.value ? contentState.embed : undefined;
-	const prepareHtml = (mode: 'archive' | 'md', source: string) => {
+	const prepareReadableHtml = (source: string) => {
 		const cached = renderedHtml.current;
-		if (cached?.mode === mode && cached.source === source && cached.doc === document) return cached.html;
-		const html = mode === 'archive'
-			? sanitizeReaderHtml(source, document, true)
-			: sanitizeReadableHtml(source, document);
-		renderedHtml.current = { mode, source, doc: document, html };
+		if (cached?.source === source && cached.doc === document) return cached.html;
+		const html = sanitizeReadableHtml(source, document);
+		renderedHtml.current = { source, doc: document, html };
 		return html;
 	};
 
@@ -155,33 +95,29 @@ export function MarkdownSite() {
 						: 'max-w-4xl mx-auto'}>
 						{contentMode === 'archive' && contentState.html ? (
 									<ArenaEnhancedContent
-										htmlContent={prepareHtml('archive', contentState.html)}
+										htmlContent={contentState.html}
 										contentRef={contentRef}
 										mode="archive"
-										renderContent={html => <ArchiveDocument key={contentState.url} html={html} css={contentState.css || ''}
+										renderContent={(html, arenaMatches) => <ArchiveDocument key={contentState.url} html={html} css={contentState.css || ''} arenaMatches={arenaMatches}
+											article={contentState}
 											documentMode={readerDocumentMode(contentState.html || '')}
 											resolvedUrl={contentState.resolvedUrl}
 											url={currentUrl.value} title={contentState.title} htmlAttrs={contentState.htmlAttrs} bodyAttrs={contentState.bodyAttrs} />}
 									/>
 						) : (
 							<ArenaEnhancedContent
-									htmlContent={prepareHtml('md', contentState.html || '')}
+									htmlContent={prepareReadableHtml(contentState.html || '')}
 								contentRef={contentRef}
 								mode="md"
 							/>
 						)}
 					</div>
-					{contentMode !== 'archive' && <>
-						<HighlightController contentRef={contentRef} />
-						<QuotePositionDots contentRef={contentRef} />
-						<ArenaNavigationController contentRef={contentRef} enabled={true} />
-					</>}
 				</>
 			)}
 
-			{contentState.type === "idle" && location.path === "/" && (
-				<div className="flex-1 flex items-center justify-center">
-					<div className="max-w-2xl text-center px-2 sm:px-4 w-full">
+			{contentState.type === "idle" && !currentUrl.value && (
+				<div className="flex-1 flex items-center justify-center px-4 py-10">
+					<div className="max-w-xl text-center w-full">
 						<img
 							src="/hnote.webp"
 							alt="Henry's Note"
@@ -194,10 +130,14 @@ export function MarkdownSite() {
 							A social annotation layer for the web
 						</p>
 
-						{/* Lead with examples */}
-						<div className="mb-8">
-							<ExampleCarousel />
-						</div>
+						<OpenPageForm />
+						<nav aria-label="Example articles" className="mb-7 text-left">
+							<h3 className="mb-2 text-xs text-gray-500 dark:text-gray-400">Or try an article</h3>
+							{examples.map(example => <a key={example.url} href={example.url}
+								className="flex min-h-11 items-center justify-between gap-3 rounded-md py-2 text-sm text-gray-700 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+								<span>{example.title}</span><span className="shrink-0 text-xs text-gray-600 dark:text-gray-400 max-sm:hidden">{example.domain}</span>
+							</a>)}
+						</nav>
 
 						{/* Collapsible how-to */}
 						<details className="bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 text-left">
@@ -262,7 +202,7 @@ export function MarkdownSite() {
 							href="https://henryzoo.com"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 mt-6 block text-center transition-colors"
+							className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mt-6 block text-center transition-colors"
 						>
 							by henry
 						</a>

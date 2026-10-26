@@ -25,21 +25,18 @@ function createLink(doc: Document, match: ArenaMatch, text: string): HTMLElement
   button.title = 'View ' + match.title + ' in sidebar';
   button.textContent = text;
   button.setAttribute('data-channel-slug', match.slug);
-  button.setAttribute('data-channel-data', JSON.stringify(match));
-  const external = doc.createElement('a');
-  external.href = 'https://are.na/channels/' + match.slug;
-  external.className = 'arena-link-icon';
-  external.target = '_blank';
-  external.rel = 'noopener noreferrer';
-  external.title = 'Open ' + match.title + ' on Are.na';
-  external.textContent = '\u2197';
   wrapper.appendChild(button);
-  wrapper.appendChild(external);
   return wrapper;
 }
 
-/** Enhance a detached source subtree without replacing its existing elements. */
+/** Update context links without replacing source elements or adding source text. */
 export function enhanceArenaLinks(root: HTMLElement, matches: readonly ArenaMatch[]): void {
+  // Source sanitization strips these first-party data attributes. Restore the
+  // preceding lookup before applying updated matches, including an empty lookup.
+  for (const wrapper of root.querySelectorAll('.arena-channel-link-wrapper')) {
+    const button = wrapper.querySelector('button[data-channel-slug]');
+    if (button) wrapper.replaceWith(root.ownerDocument.createTextNode(button.textContent || ''));
+  }
   const patterns = matches.map(match => ({ match, text: match.matchedText.trim() }))
     .filter(({ text }) => text.split(/\s+/).length > 1)
     .sort((a, b) => b.text.length - a.text.length)

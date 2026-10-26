@@ -7,6 +7,7 @@ import { rewriteSrcset } from "@/api/archive/srcset";
 import { readerDocumentMode, READER_DOCTYPES } from "@/src/lib/archive-document-mode";
 import { validatedEmbeddedFont } from "@/api/archive/asset-validation";
 import { validatedEmbeddedSvg } from "@/api/archive/embedded-svg";
+import { sameArticle } from '@/src/lib/annotations/anchors';
 
 // Dangerous URI schemes — allow data:image/ for inline images, block everything else
 // Block data:image/svg+xml specifically (SVGs can contain scripts)
@@ -267,7 +268,8 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
         const destination = new URL(href, baseUrl);
         if (destination.protocol !== 'http:' && destination.protocol !== 'https:') return;
         const relative = !/^[a-z][a-z0-9+.-]*:/i.test(href);
-        link.setAttribute('href', relative && linkRewriteBaseUrl
+        const currentFragment = destination.hash && sameArticle(destination.href, pageData.metadata.url);
+        link.setAttribute('href', relative && linkRewriteBaseUrl && !currentFragment
           ? `${linkRewriteBaseUrl}/${destination.href}` : destination.href);
       } catch { link.removeAttribute('href'); }
     });

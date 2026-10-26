@@ -20,16 +20,16 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
           <img
             src={profile.avatar}
             alt={profile.displayName || profile.handle}
-            className="w-20 h-20 rounded-full object-cover bg-gray-100 dark:bg-gray-800"
+            className="w-20 h-20 shrink-0 rounded-full object-cover bg-gray-100 dark:bg-gray-800"
           />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+          <div className="w-20 h-20 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
             <svg className="w-10 h-10 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
             </svg>
           </div>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 break-words">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
             {profile.displayName || profile.handle}
           </h1>
@@ -41,7 +41,7 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
               {profile.description}
             </p>
           )}
-          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
             <span>
               <span className="font-medium text-gray-900 dark:text-gray-100">
                 {profile.followersCount || 0}

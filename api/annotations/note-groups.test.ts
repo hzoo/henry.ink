@@ -18,7 +18,8 @@ describe('reader contribution groups', () => {
       note('3'),
     ]);
     expect(result.comments).toHaveLength(2);
-    expect(result.highlights).toHaveLength(1);
+    expect(result.highlights).toHaveLength(0);
+    expect(result.commentGroups[0].highlights).toHaveLength(1);
   });
 
   test('renders repeated passages once without losing attribution', () => {
@@ -27,9 +28,35 @@ describe('reader contribution groups', () => {
     expect(result.highlights[0].notes).toHaveLength(2);
   });
 
+  test('groups written comments by passage while retaining independent page notes', () => {
+    const content = { body: { kind: 'text', text: 'A comment', format: 'text/plain' } } as const;
+    const result = groupNotes([
+      note('1', content),
+      note('2', { ...content, author: { did: 'did:plc:bob' }, anchor: { kind: 'quote', exact: 'A\npassage.' } }),
+      note('3', { ...content, anchor: { kind: 'page' } }),
+      note('4', { ...content, anchor: { kind: 'page' } }),
+    ]);
+    expect(result.comments).toHaveLength(4);
+    expect(result.commentGroups).toHaveLength(3);
+    expect(result.commentGroups[0].notes.map(note => note.uri)).toEqual([note('1').uri, note('2').uri]);
+    expect(result.commentGroups[0].exact).toBe('A passage.');
+    expect(result.commentGroups[1].exact).toBeUndefined();
+  });
+
   test('does not merge different contexts or targets', () => {
     const result = groupNotes([note('1'), note('2', { anchor: { kind: 'quote', exact: 'A passage.', prefix: 'Different context' } }), note('3', { target: 'https://example.com/other' })]);
     expect(result.highlights).toHaveLength(3);
+  });
+
+  test('merges highlight provenance into a discussion only when its passage context matches', () => {
+    const result = groupNotes([
+      note('comment', { body: { kind: 'text', text: 'A response', format: 'text/plain' } }),
+      note('highlight'),
+      note('other-context', { anchor: { kind: 'quote', exact: 'A passage.', prefix: 'Other occurrence' } }),
+    ]);
+    expect(result.commentGroups[0].highlights.map(note => note.uri)).toEqual([note('highlight').uri]);
+    expect(result.highlights).toHaveLength(1);
+    expect(result.highlights[0].notes[0].uri).toBe(note('other-context').uri);
   });
 
   test('counts unique savers while retaining all their records', () => {

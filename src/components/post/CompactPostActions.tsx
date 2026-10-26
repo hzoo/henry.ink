@@ -1,4 +1,5 @@
-import { useComputed, useSignal } from "@preact/signals-react";
+import { useSignal } from "@preact/signals-react";
+import { useRef } from "preact/hooks";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -26,14 +27,20 @@ interface ReplyMutationResult {
 }
 
 export function CompactPostActions({ post }: CompactPostActionsProps) {
+	const did = atCuteState.value?.session.info.sub ?? null;
+	return <PostActions key={`${did}:${post.uri}`} post={post} />;
+}
+
+function PostActions({ post }: CompactPostActionsProps) {
 	const queryClient = useQueryClient();
 	const isReplying = useSignal(false);
 	const actionError = useSignal<string | null>(null);
+	const replyButtonRef = useRef<HTMLButtonElement>(null);
 
 	const state = atCuteState.value;
 	const isLoggedIn = !!state?.session;
 
-	const displayedReplyCount = useComputed(() => post.replyCount ?? 0);
+	const displayedReplyCount = post.replyCount ?? 0;
 
 	const onErrorCallback = (error: Error) => {
 		actionError.value = error.message;
@@ -84,10 +91,7 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 		},
 	});
 
-	const computedIsSubmitting = useComputed(() => replyMutation.isPending);
-	const computedSubmitError = useComputed(
-		() => replyMutation.error?.message || null,
-	);
+	const submitError = replyMutation.error?.message || null;
 
 	const handleReplyClick = (e: MouseEvent) => {
 		e.stopPropagation();
@@ -100,6 +104,7 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 		isReplying.value = false;
 		if (replyMutation.error) replyMutation.reset();
 		actionError.value = null;
+		window.requestAnimationFrame(() => replyButtonRef.current?.focus({ preventScroll: true }));
 	};
 
 	const handleSubmitReply = async (text: string) => {
@@ -133,26 +138,29 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 		<div className="mt-1">
 			<div className="flex justify-between gap-4 text-gray-500 text-sm">
 				<button
+					ref={replyButtonRef}
 					onClick={handleReplyClick}
-					className="flex items-center gap-1 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+					className="flex min-h-10 min-w-10 items-center gap-1 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
 					aria-label="Reply"
+					aria-expanded={isReplying.value}
 					title="Reply"
-					disabled={!isLoggedIn}
+					disabled={!isLoggedIn || replyMutation.isPending}
 				>
 					<Icon name="comment" className="w-3.5 h-3.5" />
 					<span
 						style={{
 							visibility:
-								displayedReplyCount.value === 0 ? "hidden" : "visible",
+								displayedReplyCount === 0 ? "hidden" : "visible",
 						}}
 					>
-						{formatCount(displayedReplyCount.value)}
+						{formatCount(displayedReplyCount)}
 					</span>
 				</button>
 				<button
 					onClick={handleRepostClick}
-					className={`flex items-center gap-1 ${reposted ? "text-green-500" : "hover:text-green-500"} ${isRepostPending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
+					className={`flex min-h-10 min-w-10 items-center gap-1 ${reposted ? "text-green-500" : "hover:text-green-500"} ${isRepostPending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
 					aria-label="Repost"
+					aria-pressed={reposted}
 					title="Repost"
 					disabled={!isLoggedIn || isRepostPending}
 				>
@@ -167,8 +175,9 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 				</button>
 				<button
 					onClick={handleLikeClick}
-					className={`flex items-center gap-1 ${liked ? "text-[#ec4899]" : "hover:text-[#ec4899]"} ${isLikePending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
+					className={`flex min-h-10 min-w-10 items-center gap-1 ${liked ? "text-[#ec4899]" : "hover:text-[#ec4899]"} ${isLikePending ? "opacity-75" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
 					aria-label="Like"
+					aria-pressed={liked}
 					title="Like"
 					disabled={!isLoggedIn || isLikePending}
 				>
@@ -190,12 +199,12 @@ export function CompactPostActions({ post }: CompactPostActionsProps) {
 				<ReplyInput
 					onCancel={handleCancelReply}
 					onSubmit={handleSubmitReply}
-					isSubmitting={computedIsSubmitting}
-					submitError={computedSubmitError}
+					isSubmitting={replyMutation.isPending}
+					submitError={submitError}
 					onClearError={handleClearSubmitError}
 				/>
 			)}
-			{actionError.value && !computedSubmitError.value && (
+			{actionError.value && !submitError && (
 				<p className="text-red-500 text-xs mt-1">{actionError.value}</p>
 			)}
 		</div>

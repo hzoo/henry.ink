@@ -55,10 +55,3 @@ export function hasQuotes(post: AppBskyFeedDefs.PostView): boolean {
 export function filterProfilePosts(posts: AppBskyFeedDefs.PostView[]): AppBskyFeedDefs.PostView[] {
 	return posts.filter(post => hasLinks(post) && hasQuotes(post));
 }
-
-/**
- * Check if a post is suitable for annotation (has both links and quotes)
- */
-export function isAnnotationWorthy(post: AppBskyFeedDefs.PostView): boolean {
-	return hasLinks(post) && hasQuotes(post);
-}

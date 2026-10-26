@@ -12,7 +12,6 @@ type NotesState =
 
 export const readerNotes = signal<NotesState>({ status: 'idle', url: '' });
 export const notesRevision = signal(0);
-export { readerAnchors as matchedNotes } from '@/src/lib/highlights/signals';
 
 // Only the reader owns this request. Do not persist anonymous moderation-sensitive results.
 export function useReaderNotes() {

@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useSignal } from "@preact/signals";
 import { 
   arenaUrlState,
   closeBlockOverlay,
-  locationSignal
+  openBlockOverlay
 } from "@/src/lib/arena-navigation";
-import { fetchChannelBlocks, arenaQueryKeys } from "@/src/lib/arena-api";
-import type { ArenaBlock, ImageBlock, TextBlock, LinkBlock, EmbedBlock, AttachmentBlock } from "@/src/lib/arena-types";
+import type { ArenaMatch, ArenaBlock, ImageBlock, TextBlock, LinkBlock, EmbedBlock, AttachmentBlock } from "@/src/lib/arena-types";
+import { sanitizeReadableHtml } from '@/henry-ink/reader/readable';
+import { parseArenaSourceUrl } from '@/src/lib/arena-api';
 
 interface ProgressiveImageProps {
   lowResUrl: string;
@@ -15,28 +16,28 @@ interface ProgressiveImageProps {
 }
 
 function ProgressiveImage({ lowResUrl, highResUrl, alt }: ProgressiveImageProps) {
-  const [currentImageUrl, setCurrentImageUrl] = useState(lowResUrl);
-  const [isHighResLoaded, setIsHighResLoaded] = useState(false);
+  const currentImageUrl = useSignal(lowResUrl);
 
   useEffect(() => {
-    if (!highResUrl) return;
+    currentImageUrl.value = lowResUrl;
+    if (!highResUrl || highResUrl === lowResUrl) return;
 
     // Preload high resolution image
     const highResImage = new Image();
     highResImage.onload = () => {
-      setCurrentImageUrl(highResUrl);
-      setIsHighResLoaded(true);
+      currentImageUrl.value = highResUrl;
     };
     highResImage.src = highResUrl;
-  }, [highResUrl]);
+    return () => { highResImage.onload = null; };
+  }, [lowResUrl, highResUrl]);
 
   return (
     <div className="flex justify-center">
       <img
-        src={currentImageUrl}
+        src={currentImageUrl.value}
         alt={alt}
         className={`max-w-full max-h-[80vh] object-contain rounded shadow-lg transition-opacity duration-300 ${
-          !isHighResLoaded && highResUrl ? 'opacity-90' : 'opacity-100'
+          highResUrl && currentImageUrl.value !== highResUrl ? 'opacity-90' : 'opacity-100'
         }`}
         loading="eager"
       />
@@ -44,123 +45,63 @@ function ProgressiveImage({ lowResUrl, highResUrl, alt }: ProgressiveImageProps)
   );
 }
 
-export function BlockViewerOverlay() {
-  const urlState = arenaUrlState.value;
+interface BlockViewerProps { channel: ArenaMatch; blocks: ArenaBlock[] }
 
-  // Only show overlay if we have both channel and block in URL
-  if (!urlState.channelSlug || !urlState.blockId) {
-    return null;
-  }
+export function BlockViewerOverlay({ channel, blocks }: BlockViewerProps) {
+  const state = arenaUrlState.value;
+  const index = blocks.findIndex(block => block.id === state.blockId);
+  if (state.channelSlug !== channel.slug || index < 0) return null;
+  return <BlockViewer channel={channel} blocks={blocks} index={index} />;
+}
 
-  // Fetch channel data directly (same as ArenaChannelView)
-  const { data: channelData, isLoading } = useQuery({
-    queryKey: arenaQueryKeys.blocks(urlState.channelSlug, 24, 1),
-    queryFn: () => fetchChannelBlocks(urlState.channelSlug!, 24, 1),
-    enabled: !!urlState.channelSlug,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  // Don't show overlay while data is loading
-  if (isLoading || !channelData) {
-    return null;
-  }
-
-  const allBlocks = channelData.blocks;
-  const blockIndex = allBlocks.findIndex(b => b.id === urlState.blockId);
-  
-  if (blockIndex === -1) {
-    return null; // Block not found
-  }
-
-  const blockData = { 
-    block: allBlocks[blockIndex], 
-    index: blockIndex 
+function BlockViewer({ channel, blocks: allBlocks, index }: BlockViewerProps & { index: number }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const blockData = { block: allBlocks[index], index };
+  const navigate = (offset: number) => {
+    const currentIndex = allBlocks.findIndex(block => block.id === arenaUrlState.peek().blockId);
+    const next = allBlocks[currentIndex + offset];
+    if (next) openBlockOverlay(next, channel.slug);
   };
-  const channel = {
-    title: channelData.title,
-    slug: urlState.channelSlug
-  };
+  const navigateToNext = () => navigate(1);
+  const navigateToPrev = () => navigate(-1);
 
-  // Navigation functions using fresh state
-  const navigateToNext = () => {
-    const currentUrlState = arenaUrlState.value; // Get fresh state
-    const currentBlockIndex = allBlocks.findIndex(b => b.id === currentUrlState.blockId);
-    if (currentBlockIndex >= allBlocks.length - 1) return;
-    
-    const nextBlock = allBlocks[currentBlockIndex + 1];
-    if (nextBlock) {
-      const currentPath = window.location.pathname;
-      const newUrl = `${currentPath}?channel=${currentUrlState.channelSlug}&block=${nextBlock.id}`;
-      const searchParams = `?channel=${currentUrlState.channelSlug}&block=${nextBlock.id}`;
-      
-      window.history.pushState({}, '', newUrl);
-      locationSignal.value = searchParams;
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog?.open && !dialog.contains(document.activeElement)) {
+      dialog.querySelector('button')?.focus({ preventScroll: true });
     }
-  };
+  }, [blockData.block.id]);
 
-  const navigateToPrev = () => {
-    const currentUrlState = arenaUrlState.value; // Get fresh state
-    const currentBlockIndex = allBlocks.findIndex(b => b.id === currentUrlState.blockId);
-    if (currentBlockIndex <= 0) return;
-    
-    const prevBlock = allBlocks[currentBlockIndex - 1];
-    if (prevBlock) {
-      const currentPath = window.location.pathname;
-      const newUrl = `${currentPath}?channel=${currentUrlState.channelSlug}&block=${prevBlock.id}`;
-      const searchParams = `?channel=${currentUrlState.channelSlug}&block=${prevBlock.id}`;
-      
-      window.history.pushState({}, '', newUrl);
-      locationSignal.value = searchParams;
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Native modal focus and keys belong to this dialog, including when the
+    // surrounding mobile Notes panel has its own Escape and Tab handling.
+    e.stopPropagation();
+    // Don't intercept browser navigation shortcuts (Cmd/Ctrl/Alt + Arrow)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    switch (e.key) {
+      case 'Escape':
+        closeBlockOverlay();
+        break;
+      case 'ArrowLeft':
+      case 'j':
+        navigateToPrev();
+        break;
+      case 'ArrowRight':
+      case 'k':
+        navigateToNext();
+        break;
+      default:
+        return;
     }
+    e.preventDefault();
   };
-
-  // Prevent double-firing with a simple flag
-  const handlingNavigation = useRef(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent double-firing
-      if (handlingNavigation.current) return;
-      
-      // Don't intercept browser navigation shortcuts (Cmd/Ctrl + Arrow)
-      if (e.metaKey || e.ctrlKey) return;
-      
-      let handled = false;
-      switch (e.key) {
-        case 'Escape':
-          closeBlockOverlay();
-          handled = true;
-          break;
-        case 'ArrowLeft':
-        case 'j':
-          handlingNavigation.current = true;
-          navigateToPrev();
-          setTimeout(() => { handlingNavigation.current = false; }, 50);
-          handled = true;
-          break;
-        case 'ArrowRight':
-        case 'k':
-          handlingNavigation.current = true;
-          navigateToNext();
-          setTimeout(() => { handlingNavigation.current = false; }, 50);
-          handled = true;
-          break;
-      }
-      
-      if (handled) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-      }
-    };
-
-    // Use capture phase to handle before other listeners
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown, { capture: true });
-    };
-  }, [navigateToNext, navigateToPrev]);
 
   const hasPrev = blockData.index > 0;
   const hasNext = blockData.index < allBlocks.length - 1;
@@ -182,7 +123,7 @@ export function BlockViewerOverlay() {
         }
 
         // Progressive loading: thumbnail preview → CloudFront original
-        return <ProgressiveImage 
+        return <ProgressiveImage key={block.id}
           lowResUrl={thumbnailUrl || cloudFrontUrl!} 
           highResUrl={cloudFrontUrl}
           alt={imageBlock.title || "Arena image"} 
@@ -195,8 +136,8 @@ export function BlockViewerOverlay() {
           <div className="max-w-4xl mx-auto text-white text-lg leading-relaxed">
             {textBlock.content ? (
               <div 
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: content from Arena
-                dangerouslySetInnerHTML={{ __html: textBlock.content }}
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
+                dangerouslySetInnerHTML={{ __html: sanitizeReadableHtml(textBlock.content) }}
               />
             ) : (
               <p className="text-white italic">No text content</p>
@@ -208,9 +149,8 @@ export function BlockViewerOverlay() {
       case "Link": {
         const linkBlock = block as LinkBlock;
         // Prefer CloudFront original, fallback to display size (1200x1200)
-        console.log(linkBlock);
         const imageUrl = linkBlock.image_url || linkBlock.resized_image?.grid_cell_resized_image?.src_2x;
-        const domain = linkBlock.source?.url ? new URL(linkBlock.source.url).hostname : null;
+        const sourceUrl = parseArenaSourceUrl(linkBlock.source?.url);
         
         return (
           <div className="max-w-4xl mx-auto">
@@ -224,14 +164,14 @@ export function BlockViewerOverlay() {
                 />
               </div>
             )}
-            {linkBlock.source?.url && (
+            {sourceUrl && (
               <a
-                href={linkBlock.source.url}
+                href={sourceUrl.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 hover:underline text-lg"
+                className="break-all text-white hover:text-gray-300 hover:underline text-lg"
               >
-                {domain}
+                {sourceUrl.hostname}
                 <svg className="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
@@ -307,8 +247,10 @@ export function BlockViewerOverlay() {
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col"
+    <dialog ref={dialogRef} aria-label={`${channel.title} block viewer`}
+      className="m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-black/95 p-0 text-white open:flex open:flex-col backdrop:bg-black/70"
+      onKeyDown={handleKeyDown}
+      onCancel={event => { event.preventDefault(); closeBlockOverlay(); }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           closeBlockOverlay();
@@ -316,11 +258,12 @@ export function BlockViewerOverlay() {
       }}
     >
       {/* Header */}
-      <div className="flex justify-between items-center p-4 text-white">
-        <div className="flex items-center gap-4">
+      <div className="flex shrink-0 justify-between items-center gap-3 p-4 text-white">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={closeBlockOverlay}
-            className="hover:bg-white/10 p-2 rounded transition-colors"
+            aria-label="Close block viewer"
+            className="shrink-0 hover:bg-white/10 p-2 rounded transition-colors"
             title="Close (ESC)"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,24 +271,25 @@ export function BlockViewerOverlay() {
             </svg>
           </button>
           
-          <div>
+          <div className="min-w-0">
             <div className="text-sm text-gray-300">
               {blockData.block.__typename} • {blockData.index + 1} of {allBlocks.length}
             </div>
-            <div className="text-lg font-medium">
+            <div className="truncate text-lg font-medium" title={channel.title}>
               {channel.title}
             </div>
-            <div className="text-sm text-gray-400 mt-1">
+            <div className="truncate text-sm text-gray-400 mt-1" title={blockData.block.title}>
               {blockData.block.title || "No title"}
             </div>
           </div>
         </div>
 
         <a
+          aria-label="Open block in Are.na"
           href={`https://are.na${blockData.block.href}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:bg-white/10 p-2 rounded transition-colors"
+          className="shrink-0 hover:bg-white/10 p-2 rounded transition-colors"
           title="Open in Are.na"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,38 +299,36 @@ export function BlockViewerOverlay() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center p-8 relative">
-        {/* Previous button */}
-        {hasPrev && (
+      <div key={blockData.block.id} className="min-h-0 flex-1 overflow-auto break-words px-4 py-8 sm:px-12">
+        {renderBlockContent(blockData.block)}
+      </div>
+
+      {(hasPrev || hasNext) && (
+        <div className="flex shrink-0 justify-between gap-4 px-4 py-2">
           <button
             onClick={navigateToPrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors z-10"
+            disabled={!hasPrev}
+            aria-label="Previous block"
+            className="rounded-full p-3 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             title="Previous block (← or J)"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-        )}
-
-        {/* Block content */}
-        <div className="max-w-full max-h-full">
-          {renderBlockContent(blockData.block)}
-        </div>
-
-        {/* Next button */}
-        {hasNext && (
           <button
             onClick={navigateToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors z-10"
+            disabled={!hasNext}
+            aria-label="Next block"
+            className="rounded-full p-3 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             title="Next block (→ or K)"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </dialog>
   );
 }

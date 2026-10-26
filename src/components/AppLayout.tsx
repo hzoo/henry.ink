@@ -43,6 +43,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 	const mobileSidebarHeaderRef = useRef<HTMLDivElement>(null);
 	const resizeHandleRef = useRef<HTMLDivElement>(null);
 	const restoreViewportFocusRef = useRef(false);
+	const articleJumpRef = useRef(false);
 	const resizeControllerRef = useRef<AbortController | null>(null);
 	const sidebarId = useId();
 	const desktopSidebarOpen = useSignal(true);
@@ -68,7 +69,16 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		}
 
 		const controller = new AbortController();
-		window.addEventListener('henry:show-article', () => { isMobileSidebarOpen.value = false; }, { signal: controller.signal });
+		window.addEventListener('henry:show-notes', () => {
+			if (isDesktop.peek()) desktopSidebarOpen.value = true;
+			else isMobileSidebarOpen.value = true;
+		}, { signal: controller.signal });
+		window.addEventListener('henry:show-article', () => {
+			if (!isDesktop.peek() && isMobileSidebarOpen.peek()) {
+				articleJumpRef.current = true;
+				isMobileSidebarOpen.value = false;
+			}
+		}, { signal: controller.signal });
 		const media = window.matchMedia("(min-width: 1024px)");
 		const updateViewport = () => {
 			if (isDesktop.peek() !== media.matches) {
@@ -113,7 +123,8 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		else isMobileSidebarOpen.value = true;
 	}, [quote, comment, isDesktop, desktopSidebarOpen]);
 
-	useEffect(() => {
+	// Focus before paint so a later passive effect cannot steal tab focus.
+	useLayoutEffect(() => {
 		if (!mobileOpen) return;
 		const controller = new AbortController();
 		const panel = sidebarRef.current;
@@ -122,6 +133,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		document.addEventListener(
 			"keydown",
 			(event) => {
+				if (event.isComposing || event.defaultPrevented || document.querySelector('dialog:modal')) return;
 				if (event.key === "Escape") {
 					event.preventDefault();
 					isMobileSidebarOpen.value = false;
@@ -164,7 +176,8 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 
 		return () => {
 			controller.abort();
-			if (!isDesktop.peek()) toggleRef.current?.focus();
+			if (!isDesktop.peek() && !articleJumpRef.current) toggleRef.current?.focus({ preventScroll: true });
+			articleJumpRef.current = false;
 		};
 	}, [mobileOpen, isDesktop]);
 
@@ -223,7 +236,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		`inline-flex items-center justify-center gap-2 min-h-10 px-3 text-xs font-medium rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-gray-500 disabled:opacity-50 ${
 			active
 				? "bg-white shadow-sm text-gray-950 dark:bg-gray-700 dark:text-white"
-				: "text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white"
+				: "text-gray-600 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white"
 		}`;
 
 	return (
@@ -250,7 +263,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 				>
 					<div class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-0 py-1">
 						<a
-							href="https://henry.ink"
+							href="/"
 							class="shrink-0 font-serif text-lg font-semibold hover:text-blue-600 dark:hover:text-blue-400"
 						>
 							Henry's Note
@@ -357,7 +370,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 					aria-valuemin={384}
 					aria-valuemax={600}
 					aria-valuenow={sidebarWidth.value}
-					class={`relative z-50 hidden w-1 shrink-0 touch-none cursor-col-resize bg-gray-100 hover:bg-gray-300 focus-visible:bg-gray-300 focus-visible:outline-2 focus-visible:outline-gray-500 dark:bg-gray-800 ${sidebarClosed ? '' : 'lg:block'} ${isResizing.value ? "!bg-gray-400" : ""}`}
+					class={`reader-resize-handle relative z-50 hidden w-1 shrink-0 touch-none cursor-col-resize bg-gray-100 hover:bg-gray-300 focus-visible:bg-gray-300 focus-visible:outline-2 focus-visible:outline-gray-500 dark:bg-gray-800 ${sidebarClosed ? '' : 'lg:block'} ${isResizing.value ? "!bg-gray-400" : ""}`}
 					onPointerDown={handlePointerDown}
 					onKeyDown={(event) => {
 						const offsets: Record<string, number> = {
@@ -463,85 +476,6 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		</div>
 	);
 }
-
-// Sidebar component exports for composition
-export const SidebarHeader = ({
-	title,
-	onRefresh,
-	showRefresh = false,
-	refreshTitle,
-	cacheTimeAgo,
-}: {
-	title: string;
-	onRefresh?: () => void;
-	showRefresh?: boolean;
-	refreshTitle?: string;
-	cacheTimeAgo?: string;
-}) => {
-	return (
-		<div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-			{showRefresh && onRefresh ? (
-				<button
-					onClick={onRefresh}
-					class="min-h-10 text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hover:text-gray-800 dark:hover:text-gray-200 transition-colors cursor-pointer flex flex-col items-start justify-center group"
-					aria-label={refreshTitle || "Refresh"}
-					title={refreshTitle || "Refresh"}
-				>
-					<div class="flex items-center gap-1.5">
-						<span>{title}</span>
-						<svg
-							class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-							/>
-						</svg>
-					</div>
-					{cacheTimeAgo && (
-						<span
-							class="text-xs text-gray-400 dark:text-gray-500 normal-case tracking-normal font-normal"
-							title="These discussions were saved to show you results faster. Click to refresh and get the latest posts."
-						>
-							{cacheTimeAgo}
-						</span>
-					)}
-				</button>
-			) : (
-				<div class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-					{title}
-				</div>
-			)}
-			{/* Close button - only shows on mobile when sidebar is open */}
-			{isMobileSidebarOpen.value && (
-				<button
-					class="lg:hidden min-h-10 min-w-10 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-					onClick={() => (isMobileSidebarOpen.value = false)}
-					aria-label="Close sidebar"
-				>
-					<svg
-						class="w-5 h-5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-				</button>
-			)}
-		</div>
-	);
-};
 
 export const SidebarContent = ({
 	children,

@@ -71,14 +71,13 @@ SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-eleme
 #### POST `/api/arena/enhance`
 Enhances content with Arena channel links.
 
-Enhancement cache identity includes exact text, options, URL, and the channel database revision. Unchanged channel writes skip matcher rebuilds; external SQLite writes invalidate them. Matches already contain channel metadata, and block responses supply author enrichment without a second upstream request.
+Enhancement cache identity includes exact text, URL, and the channel database revision. Unchanged channel writes skip matcher rebuilds; external SQLite writes invalidate them. Matches already contain channel metadata, and block responses supply author enrichment without a second upstream request.
 
 **Request:**
 ```json
 {
   "content": "text content to enhance",
-  "url": "https://example.com/page",
-  "options": { "minWords": 2 }
+  "url": "https://example.com/page"
 }
 ```
 
