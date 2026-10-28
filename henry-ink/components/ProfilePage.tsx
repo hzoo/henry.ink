@@ -1,33 +1,40 @@
 import { useEffect } from "preact/hooks";
 import { useRoute } from "preact-iso";
 import { useQuery } from "@tanstack/react-query";
-import { AppLayout, SidebarHeader, SidebarContent } from "@/src/components/AppLayout";
 import { getProfile, getAuthorFeed } from "@/src/lib/bsky";
 import { filterProfilePosts } from "@/src/lib/profileFilters";
 import { ProfilePost } from "@/henry-ink/components/ProfilePost";
-
+import { ProfileHeader } from "@/src/components/ProfileHeader";
+import { atCuteState, useAtCute } from "@/demo/lib/oauth";
 
 export function ProfilePage() {
-	const route = useRoute();
-	const username = route.params?.username as string;
+	const routeInfo = useRoute();
+	const username = routeInfo.params?.username as string;
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 
-	// Update page title
+	useAtCute();
+
+	// Update page title reactively
 	useEffect(() => {
-		document.title = `@${username} | Henry's Note`;
+		if (!username) return;
+		document.title = `${username} | henry.ink`;
 	}, [username]);
 
 	// Fetch profile data
 	const profileQuery = useQuery({
-		queryKey: ["profile", username],
-		queryFn: () => getProfile(username),
+		queryKey: ["profile", username, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => getProfile(username, { signal, rpc }),
 		enabled: !!username,
+		staleTime: 60 * 1000,
 	});
 
 	// Fetch author feed
 	const feedQuery = useQuery({
-		queryKey: ["authorFeed", username],
-		queryFn: () => getAuthorFeed(username),
+		queryKey: ["authorFeed", username, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => getAuthorFeed(username, { signal, rpc }),
 		enabled: !!username,
+		staleTime: 60 * 1000,
 	});
 
 	// Filter posts to only show ones with links or quotes
@@ -39,19 +46,11 @@ export function ProfilePage() {
 	const isLoading = profileQuery.isLoading || feedQuery.isLoading;
 	const error = profileQuery.error || feedQuery.error;
 
+	// Regular profile view - centered layout like GitHub
 	return (
-		<AppLayout
-			sidebar={
-				<>
-					<SidebarHeader title="Profile Discussion" />
-					<SidebarContent>
-						<div class="text-center p-8 text-gray-500 dark:text-gray-400">
-							Profile discussions coming soon...
-						</div>
-					</SidebarContent>
-				</>
-			}
-		>
+		<div className="min-h-screen bg-white dark:bg-gray-900">
+			<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<a href="/" className="mb-4 inline-flex min-h-10 items-center rounded text-sm text-gray-600 hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-400 dark:hover:text-white">Home</a>
 			{isLoading && (
 				<div class="text-center p-8 flex flex-col items-center justify-center space-y-2">
 					<div class="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
@@ -80,111 +79,69 @@ export function ProfilePage() {
 				</div>
 			)}
 
-			{error && (
-				<div class="mb-6 p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl">
-					<div class="flex items-center">
-						<svg
-							class="w-5 h-5 mr-2"
-							fill="currentColor"
-							viewBox="0 0 20 20"
-						>
-							<path
-								fillRule="evenodd"
-								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-								clipRule="evenodd"
-							/>
-						</svg>
-						<span class="font-medium">Error:</span>
-						<span class="ml-1">{error?.message || 'Failed to load profile'}</span>
-					</div>
-				</div>
-			)}
-
-			{profile && (
-				<>
-					{/* Profile Header */}
-					<div class="mb-4 pb-6 border-b border-gray-200 dark:border-gray-700">
-						<div class="flex items-start gap-4">
-							{profile.avatar ? (
-								<img
-									src={profile.avatar}
-									alt={profile.displayName || profile.handle}
-									class="w-20 h-20 rounded-full object-cover bg-gray-100 dark:bg-gray-800"
+				{error && (
+					<div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl">
+						<div className="flex items-center">
+							<svg
+								className="w-5 h-5 mr-2"
+								fill="currentColor"
+								viewBox="0 0 20 20"
+							>
+								<path
+									fillRule="evenodd"
+									d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+									clipRule="evenodd"
 								/>
-							) : (
-								<div class="w-20 h-20 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-									<svg class="w-10 h-10 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-										<path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-									</svg>
-								</div>
-							)}
-							<div class="flex-1 min-w-0">
-								<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-									{profile.displayName || profile.handle}
-								</h1>
-								<p class="text-gray-600 dark:text-gray-400 mb-3">
-									@{profile.handle}
-								</p>
-								{profile.description && (
-									<p class="text-gray-700 dark:text-gray-300 mb-3 whitespace-pre-wrap">
-										{profile.description}
-									</p>
-								)}
-								<div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-									<span>
-										<span class="font-medium text-gray-900 dark:text-gray-100">
-											{profile.followersCount || 0}
-										</span>{" "}
-										followers
-									</span>
-									<span>
-										<span class="font-medium text-gray-900 dark:text-gray-100">
-											{profile.followsCount || 0}
-										</span>{" "}
-										following
-									</span>
-									<span>
-										<span class="font-medium text-gray-900 dark:text-gray-100">
-											{profile.postsCount || 0}
-										</span>{" "}
-										posts
-									</span>
-								</div>
+							</svg>
+							<span className="font-medium">Error:</span>
+							<span className="ml-1">{error?.message || 'Failed to load profile'}</span>
+						</div>
+						<button type="button" disabled={profileQuery.isFetching || feedQuery.isFetching}
+							onClick={() => {
+								if (profileQuery.isError) void profileQuery.refetch();
+								if (feedQuery.isError) void feedQuery.refetch();
+							}}
+							className="mt-2 inline-flex min-h-10 items-center rounded px-3 text-sm font-medium hover:bg-red-200 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 dark:hover:bg-red-900/50">Try again</button>
+					</div>
+				)}
+
+				{profile && (
+					<>
+						{/* Profile Header */}
+						<ProfileHeader 
+							profile={profile}
+						/>
+
+						{/* Posts Section */}
+						<div className="mb-3 sm:mb-4">
+							<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+								Annotations in recent activity
+								{feedQuery.data && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+									({filteredPosts.length} posts)
+								</span>}
+							</h2>
+						</div>
+
+						{filteredPosts.length > 0 ? (
+							<div className="space-y-2 sm:space-y-1">
+								{filteredPosts.map((post) => (
+									<div key={post.uri} className="border border-gray-200 dark:border-gray-700 rounded-lg">
+										<ProfilePost 
+											post={post}
+											displayItems={["avatar", "displayName", "handle"]}
+										/>
+									</div>
+								))}
 							</div>
-						</div>
-					</div>
+						) : feedQuery.data && (
+							<div className="text-center p-8 text-gray-500 dark:text-gray-400">
+								<p className="text-lg">No annotations found in recent activity.</p>
+							</div>
+						)}
 
-					{/* Posts Section */}
-					<div class="mb-2">
-						<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-							Annotations
-							<span class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-								({filteredPosts.length} posts)
-							</span>
-						</h2>
-					</div>
-
-					{filteredPosts.length > 0 ? (
-						<div class="space-y-1">
-							{filteredPosts.map((post) => (
-								<div key={post.uri} class="border border-gray-200 dark:border-gray-700 rounded-lg">
-									<ProfilePost 
-										post={post}
-										displayItems={["avatar", "displayName", "handle"]}
-									/>
-								</div>
-							))}
-						</div>
-					) : feedQuery.data && (
-						<div class="text-center p-8 text-gray-500 dark:text-gray-400">
-							<p class="text-lg mb-2">No posts with links + quotes found</p>
-							<p class="text-sm">
-								This user hasn't posted any content that combines both links and quotes yet.
-							</p>
-						</div>
-					)}
-				</>
-			)}
-		</AppLayout>
+					</>
+				)}
+			</div>
+		</div>
 	);
 }

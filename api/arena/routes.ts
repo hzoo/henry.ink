@@ -1,25 +1,18 @@
-import { ChannelStorage } from './channel-storage';
-import { ChannelPatternMatcher } from './pattern-matcher';
-import { LinkEnhancer, type EnhancementOptions } from './link-enhancer';
-import type { ArenaChannel, ArenaSearchResponse } from './arena-api-types';
-import type { ArenaBlock } from '../../src/lib/arena-types';
+import { createHash } from 'node:crypto';
+import { ChannelStorage } from '@/api/arena/channel-storage';
+import { ChannelPatternMatcher } from '@/api/arena/pattern-matcher';
+import { LinkEnhancer } from '@/api/arena/link-enhancer';
+import type { ArenaChannel, ArenaSearchResponse } from '@/api/arena/arena-api-types';
+import type { ArenaApiMatch, ArenaApiResponse } from '@/src/lib/arena-types';
+import { arenaFetchJson } from '@/api/arena/arena-api';
+import { getCorsHeaders, optionsResponse } from '@/api/cors';
 
 // API Response Types (exported for frontend use)
-export interface ArenaChannelBlocksResponse {
-  blocks: ArenaBlock[];
-  error?: string;
-  message?: string;
-}
-
 export interface ArenaSearchAPIResponse {
   success: boolean;
   channelCount: number;
   query: string;
 }
-
-// Arena API tokens
-const APP_TOKEN = process.env.ARENA_APP_TOKEN;
-const AUTH_TOKEN = process.env.ARENA_AUTH_TOKEN;
 
 // Shared instances for arena functionality
 const DB_PATH = process.env.ARENA_DB_PATH || './api/arena/data/channels.db';
@@ -65,51 +58,16 @@ class LRUCache<K, V> {
     }
     this.cache.set(key, value);
   }
-
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  get size(): number {
-    return this.cache.size;
-  }
 }
 
-const enhancementCache = new LRUCache<string, unknown>(50);
+const enhancementCache = new LRUCache<string, ArenaApiResponse>(50);
 
 interface EnhanceRequest {
   content: string;
   url?: string;
-  options?: EnhancementOptions;
 }
 
-// Remove duplicate - use ArenaSearchChannel from arena-api-types.ts instead
-
-// Helper function to get CORS headers
-function getCorsHeaders(origin: string = ''): Record<string, string> {
-  const CORS_ORIGINS = ['https://henry.ink', 'http://127.0.0.1:3003', 'http://localhost:3003'];
-  const allowedOrigin = CORS_ORIGINS.includes(origin) ? origin : '*';
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
-
-export async function arenaOptionsRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-  
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders,
-  });
-}
+export { optionsResponse as arenaOptionsRoute };
 
 /**
  * Handle content enhancement requests
@@ -138,9 +96,11 @@ export async function enhanceRoute(req: Request) {
       );
     }
 
-    // Check cache first if URL is provided
-    if (body.url) {
-      const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
+    // Hash exact input to keep keys bounded without reusing offsets for other content.
+    const cacheKey = body.url ? createHash('sha256').update(JSON.stringify([
+      body.url, body.content, storage.getPatternVersion(),
+    ])).digest('hex') : undefined;
+    if (cacheKey) {
       const cachedResult = enhancementCache.get(cacheKey);
       if (cachedResult) {
         return new Response(
@@ -154,11 +114,26 @@ export async function enhanceRoute(req: Request) {
     }
 
     // Find channel matches
-    const result = await enhancer.findChannelMatches(body.content, body.options);
+    const channelMatches = await enhancer.findChannelMatches(body.content);
+    // Occurrences and pattern objects are matcher internals, not reader data.
+    const result: ArenaApiResponse = {
+      matches: channelMatches.matches.map((match): ArenaApiMatch => ({
+        slug: match.slug,
+        title: match.title,
+        author_name: match.author_name,
+        author_slug: match.author_slug,
+        contents_count: match.contents_count,
+        updated_at: match.updated_at,
+        bestMatch: {
+          matchedText: match.bestMatch.matchedText,
+          position: match.bestMatch.position,
+          endPosition: match.bestMatch.endPosition,
+        },
+      })),
+    };
 
     // Cache result if URL is provided
-    if (body.url) {
-      const cacheKey = `${body.url}:${JSON.stringify(body.options || {})}`;
+    if (cacheKey) {
       enhancementCache.set(cacheKey, result);
       console.log(`🔍 "${body.url}"`);
     }
@@ -176,7 +151,6 @@ export async function enhanceRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Enhancement failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -221,28 +195,7 @@ export async function arenaSearchRoute(req: Request) {
     searchUrl.searchParams.set('q', query);
     searchUrl.searchParams.set('per', '100');
     
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-    };
-    
-    if (APP_TOKEN) {
-      headers['x-app-token'] = APP_TOKEN;
-    }
-    
-    if (AUTH_TOKEN) {
-      headers['x-auth-token'] = AUTH_TOKEN;
-    }
-    
-    const response = await fetch(searchUrl.toString(), {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Arena API error: ${response.status}`);
-    }
-    
-    const data = await response.json() as ArenaSearchResponse;
+    const data = await arenaFetchJson<ArenaSearchResponse>(searchUrl.toString());
     const channels = data.channels || [];
     
     if (channels.length > 0) {
@@ -289,7 +242,6 @@ export async function arenaSearchRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Arena search failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,
@@ -328,7 +280,7 @@ export async function channelBlocksRoute(req: Request) {
     }
 
     // Use the arena client to fetch blocks
-    const { ArenaClient } = await import('./arena-client');
+    const { ArenaClient } = await import('@/api/arena/arena-client');
     const arenaClient = new ArenaClient();
     
     const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug, per, page);
@@ -349,25 +301,8 @@ export async function channelBlocksRoute(req: Request) {
     // Lazy update author if it's currently unknown
     try {
       const existingChannel = storage.getChannelBySlug(slug);
-      if (existingChannel?.author_slug == null) {
-        // Fetch channel info to get author data
-        const channelInfoUrl = `https://api.are.na/v2/channels/${slug}`;
-        
-        const headers: Record<string, string> = {
-          'Accept': 'application/json',
-        };
-        
-        if (APP_TOKEN) headers['x-app-token'] = APP_TOKEN;
-        if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
-
-        const channelResponse = await fetch(channelInfoUrl, { headers });
-        if (channelResponse.ok) {
-          const channelData = await channelResponse.json() as { user: { username?: string; full_name?: string; slug?: string } };
-          if (channelData.user) {
-            const authorName = channelData.user.username || channelData.user.full_name || 'unknown';
-            storage.updateChannelAuthor(slug, authorName, channelData.user.slug);
-          }
-        }
+      if (existingChannel && existingChannel.author_slug == null && channelWithBlocks.user?.slug) {
+        storage.updateChannelAuthor(slug, channelWithBlocks.user.name, channelWithBlocks.user.slug);
       }
     } catch (error) {
       console.warn(`Failed to update author for channel ${slug}:`, error);
@@ -386,7 +321,6 @@ export async function channelBlocksRoute(req: Request) {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch channel blocks',
-        message: error instanceof Error ? error.message : 'Unknown error'
       }),
       {
         status: 500,

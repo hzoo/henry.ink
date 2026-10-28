@@ -7,7 +7,7 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
-    "types": ["@atcute/atproto", "@atcute/bluesky"],
+    "types": ["@atcute/atproto", "@atcute/bluesky", "bun"],
     
     "strict": true,
     "skipLibCheck": true,

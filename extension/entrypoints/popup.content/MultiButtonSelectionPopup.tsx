@@ -17,8 +17,11 @@ const MultiButtonSelectionPopup = ({ position, actions }: MultiButtonSelectionPo
 	const animatingIndex = useSignal<number | null>(null);
 
 	useEffect(() => {
+		const controller = new AbortController();
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+			const target = event.target;
+			if (event.defaultPrevented || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey ||
+				(target instanceof HTMLElement && (target.isContentEditable || target.matches('input, textarea, select')))) {
 				return;
 			}
 		
@@ -37,10 +40,8 @@ const MultiButtonSelectionPopup = ({ position, actions }: MultiButtonSelectionPo
 			}
 		};
 
-		document.addEventListener("keydown", onKeyDown);
-		return () => {
-			document.removeEventListener("keydown", onKeyDown);
-		};
+		document.addEventListener("keydown", onKeyDown, { signal: controller.signal });
+		return () => controller.abort();
 	}, [actions, animatingIndex]);
 
 	return (

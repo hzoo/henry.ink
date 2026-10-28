@@ -1,231 +1,84 @@
-import { computed } from "@preact/signals";
 import { useQuery } from "@tanstack/react-query";
-import type { RefObject } from "preact";
+import type { ComponentChildren } from "preact";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
 import { navigateToChannel } from "@/src/lib/arena-navigation";
 import type { ArenaMatch } from "@/src/lib/arena-types";
-import { useEffect } from "preact/hooks";
+import { useCallback, useEffect } from "preact/hooks";
+import { useSignal } from "@preact/signals";
+import { enhanceArenaLinks } from "@/henry-ink/reader/arena-enhancement";
+import { InlineNotes } from "@/henry-ink/reader/InlineNotes";
+import { observeArenaNavigation } from '@/henry-ink/reader/arena-navigation';
+import { observeSourceFragment } from '@/henry-ink/reader/fragments';
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
-  contentRef: RefObject<HTMLDivElement>;
-  mode: 'md' | 'archive';
+  renderContent?: (html: string, matches: ArenaMatch[]) => ComponentChildren;
 }
+
+const EMPTY_MATCHES: ArenaMatch[] = [];
 
 /**
  * Component that enhances HTML content with Arena channel links
  * Uses text matching instead of positions for accuracy
  */
-export function ArenaEnhancedContent({ htmlContent, contentRef, mode }: ArenaEnhancedContentProps) {
+export function ArenaEnhancedContent({ htmlContent, renderContent }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
+  const url = currentUrl.value;
+  const textRoot = useSignal<HTMLDivElement | null>(null);
+  const setTextRoot = useCallback((root: HTMLDivElement | null) => {
+    textRoot.value = root;
+  }, [textRoot]);
 
   // Use shared query with URL-based key (much smaller than content)
-  const { data: arenaMatches = [] } = useQuery({
-    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
-    queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
-    enabled: contentState.type === 'success' && !!contentState.content,
+  const { data: arenaMatches = EMPTY_MATCHES } = useQuery({
+    queryKey: arenaQueryKeys.matches(url || null),
+    queryFn: ({ signal }) => fetchArenaMatches(contentState.type === 'success' ? contentState.content : '', url, signal),
+    enabled: contentState.type === 'success' && contentState.url === url && !!contentState.content,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
-  // Compute enhanced content
-  const enhancedHtml = computed(() => {
-    if (!arenaMatches.length || typeof window === 'undefined') {
-      return htmlContent;
-    }
+  // Update the Text document in place, just like the isolated Original frame.
+  useEffect(() => {
+    if (!textRoot.value) return;
+    enhanceArenaLinks(textRoot.value, arenaMatches);
+    return observeArenaNavigation(textRoot.value, currentUrl.value);
+  }, [textRoot.value, htmlContent, arenaMatches, currentUrl.value]);
 
-    // Create a temporary container for DOM manipulation
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-
-    // Sort matches by length (longest first) to avoid partial replacements
-    const sortedMatches = [...arenaMatches].sort((a, b) => 
-      b.matchedText.length - a.matchedText.length
-    );
-
-    // Track what we've already enhanced to avoid duplicates
-    const enhancedTexts = new Set<string>();
-
-    // Walk through text nodes and enhance matches
-    const walker = document.createTreeWalker(
-      tempDiv,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          const parent = node.parentElement;
-          if (parent) {
-            // Skip if already in a link, code, or pre
-            if (parent.tagName === 'A' || 
-                parent.tagName === 'CODE' || 
-                parent.tagName === 'PRE' ||
-                parent.closest('a') ||
-                parent.closest('code') ||
-                parent.closest('pre')) {
-              return NodeFilter.FILTER_REJECT;
-            }
-          }
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      }
-    );
-
-    const nodesToReplace: Array<{
-      node: Text;
-      replacements: Array<{ match: ArenaMatch; index: number }>
-    }> = [];
-
-    // Find all matches in text nodes
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      const textNode = node as Text;
-      const text = textNode.textContent || '';
-      const lowerText = text.toLowerCase();
-      const replacements: Array<{ match: ArenaMatch; index: number }> = [];
-
-      for (const match of sortedMatches) {
-        const matchLower = match.matchedText.toLowerCase();
-        
-        // Skip if we've already enhanced this text
-        if (enhancedTexts.has(matchLower)) continue;
-
-        let index = lowerText.indexOf(matchLower);
-        if (index !== -1) {
-          // Check word boundaries
-          const before = index > 0 ? text[index - 1] : ' ';
-          const after = index + match.matchedText.length < text.length 
-            ? text[index + match.matchedText.length] : ' ';
-          
-          const validBefore = /\s|^/.test(before) || !/\w/.test(before);
-          const validAfter = /\s|$/.test(after) || !/\w/.test(after);
-          
-          if (validBefore && validAfter) {
-            replacements.push({ match, index });
-            enhancedTexts.add(matchLower);
-          }
-        }
-      }
-
-      if (replacements.length > 0) {
-        nodesToReplace.push({ node: textNode, replacements });
-      }
-    }
-
-    // Apply replacements (after walking to avoid modifying tree during traversal)
-    for (const { node, replacements } of nodesToReplace) {
-      const text = node.textContent || '';
-      const parent = node.parentNode;
-      if (!parent) continue;
-
-      // Sort replacements by position (reverse order)
-      const sortedReplacements = replacements.sort((a, b) => b.index - a.index);
-      
-      let currentText = text;
-      let fragments: (string | HTMLElement)[] = [text];
-
-      // Process each replacement
-      for (const { match, index } of sortedReplacements) {
-        const newFragments: (string | HTMLElement)[] = [];
-        
-        for (const fragment of fragments) {
-          if (typeof fragment === 'string') {
-            const fragLower = fragment.toLowerCase();
-            const matchLower = match.matchedText.toLowerCase();
-            const fragIndex = fragLower.indexOf(matchLower);
-            
-            if (fragIndex !== -1) {
-              // Split the fragment and insert link
-              const before = fragment.substring(0, fragIndex);
-              const matchedText = fragment.substring(fragIndex, fragIndex + match.matchedText.length);
-              const after = fragment.substring(fragIndex + match.matchedText.length);
-              
-              if (before) newFragments.push(before);
-              
-              // Create link wrapper
-              const linkWrapper = document.createElement('span');
-              linkWrapper.className = 'arena-channel-link-wrapper';
-              
-              // Create clickable text for internal navigation
-              const textLink = document.createElement('button');
-              textLink.className = 'arena-channel-link';
-              textLink.title = `View ${match.title} in sidebar`;
-              textLink.textContent = matchedText;
-              textLink.setAttribute('data-channel-slug', match.slug);
-              textLink.setAttribute('data-channel-data', JSON.stringify(match));
-              
-              // Create external link icon
-              const externalLink = document.createElement('a');
-              externalLink.href = `https://are.na/channels/${match.slug}`;
-              externalLink.className = 'arena-link-icon';
-              externalLink.target = '_blank';
-              externalLink.rel = 'noopener noreferrer';
-              externalLink.title = `Open ${match.title} on Are.na`;
-              externalLink.textContent = '↗';
-              
-              linkWrapper.appendChild(textLink);
-              linkWrapper.appendChild(externalLink);
-              
-              newFragments.push(linkWrapper);
-              if (after) newFragments.push(after);
-            } else {
-              newFragments.push(fragment);
-            }
-          } else {
-            newFragments.push(fragment);
-          }
-        }
-        
-        fragments = newFragments;
-      }
-
-      // Replace the text node with fragments
-      for (const fragment of fragments) {
-        if (typeof fragment === 'string') {
-          parent.insertBefore(document.createTextNode(fragment), node);
-        } else {
-          parent.insertBefore(fragment, node);
-        }
-      }
-      parent.removeChild(node);
-    }
-
-    return tempDiv.innerHTML;
-  });
+  useEffect(() => {
+    if (textRoot.value) return observeSourceFragment(textRoot.value);
+  }, [textRoot.value, htmlContent]);
 
   // Add click handlers for arena channel links
   useEffect(() => {
-    if (!contentRef.current) return;
+    const element = textRoot.value;
+    if (!element) return;
 
     const handleChannelClick = (event: Event) => {
-      const button = event.target as HTMLElement;
-      if (button.classList.contains('arena-channel-link')) {
+      const button = (event.target as Element | null)?.closest?.('button.arena-channel-link');
+      const slug = button?.getAttribute('data-channel-slug');
+      if (slug) {
         event.preventDefault();
-        const channelData = button.getAttribute('data-channel-data');
-        if (channelData) {
-          try {
-            const channel = JSON.parse(channelData) as ArenaMatch;
-            navigateToChannel(channel);
-          } catch (err) {
-            console.error('Failed to parse channel data:', err);
-          }
-        }
+        navigateToChannel(slug);
       }
     };
 
-    contentRef.current.addEventListener('click', handleChannelClick);
-    
-    return () => {
-      contentRef.current?.removeEventListener('click', handleChannelClick);
-    };
-  }, [contentRef, enhancedHtml.value]);
+    const controller = new AbortController();
+    element.addEventListener('click', handleChannelClick, { signal: controller.signal });
+    return () => controller.abort();
+  }, [textRoot.value]);
 
-  // Both modes now use regular rendering - CSS isolation handled at parent level
+  if (renderContent) return <>{renderContent(htmlContent, arenaMatches)}</>;
   return (
+    <>
     <div
-      ref={contentRef}
-      className={mode === 'archive' ? 'max-w-none' : 'prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words'}
+      ref={setTextRoot}
+      className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
-      dangerouslySetInnerHTML={{ __html: enhancedHtml.value }}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
     />
+    {textRoot.value && contentState.type === 'success' && <InlineNotes root={textRoot.value} article={contentState} />}
+    </>
   );
 }

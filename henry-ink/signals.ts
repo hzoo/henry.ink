@@ -1,24 +1,43 @@
 import { signal } from "@preact/signals";
 
 // Content mode types
-export type ContentMode = 'md' | 'archive';
+export type ContentMode = 'md' | 'archive' | 'embed';
+
+export type EmbedProviderId = 'youtube';
+
+export interface EmbedBase {
+  provider: EmbedProviderId;
+  originalUrl: string;
+  title?: string;
+}
+
+export interface YouTubeEmbed extends EmbedBase {
+  provider: 'youtube';
+  videoId: string;
+}
+
+export type EmbedContent = YouTubeEmbed;
 
 // Content loading state
-export type ContentState = 
+export type ContentState =
   | { type: 'idle' }
-  | { type: 'loading'; mode: ContentMode }
-  | { type: 'success'; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any }
+  | { type: 'loading'; mode: ContentMode; message?: string }
+  | { type: 'success'; url: string; resolvedUrl?: string; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
   | { type: 'error'; message: string; mode: ContentMode };
 
+export type ArticleContent = Extract<ContentState, { type: 'success' }>;
+
 export const contentStateSignal = signal<ContentState>({ type: 'idle' });
+export const contentRevision = signal(0);
 
 // Content mode signal with localStorage persistence
 const getInitialContentMode = (): ContentMode => {
   if (typeof window === 'undefined') return 'archive';
-  
+
   try {
     const stored = localStorage.getItem('content-mode');
-    return (stored === 'archive' || stored === 'md') ? stored as ContentMode : 'archive';
+    if (stored === 'youtube') return 'embed';
+    return (stored === 'archive' || stored === 'md' || stored === 'embed') ? stored as ContentMode : 'archive';
   } catch {
     return 'archive';
   }
@@ -38,8 +57,8 @@ if (typeof window !== 'undefined') {
 }
 
 // Tab state for sidebar
-export type TabType = 'bluesky' | 'arena';
-export const activeTabSignal = signal<TabType>('bluesky');
+export type TabType = 'bluesky' | 'arena' | 'notes';
+export const activeTabSignal = signal<TabType>('notes');
 
 // Arena view mode with localStorage persistence
 export type ArenaViewMode = 'compact' | 'preview';

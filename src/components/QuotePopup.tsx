@@ -1,46 +1,21 @@
-import { useSignal, useSignalEffect, useComputed } from "@preact/signals";
+import { useSignal, useComputed } from "@preact/signals";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
+import { now as generateRkey } from '@atcute/tid';
 import { quotedSelection, currentUrl, showCommentDialog } from "@/src/lib/messaging";
 import { atCuteState } from "@/demo/lib/oauth";
+import { contentStateSignal } from '@/henry-ink/signals';
+import { pageMetadata } from '@/src/lib/page-metadata';
+import { discussionShareUrl } from '@/henry-ink/reader/url';
 import type {
 	AppBskyFeedPost,
 	AppBskyRichtextFacet,
 } from "@atcute/bluesky";
 
-// Helper function to generate a proper TID (Timestamp Identifier)
-const generateRkey = (): string => {
-	// TID specification: https://atproto.com/specs/tid
-	// 64-bit integer: 1 bit (0) + 53 bits (microseconds since epoch) + 10 bits (random)
-	
-	const now = Date.now();
-	// Convert milliseconds to microseconds
-	const microseconds = now * 1000;
-	
-	// Generate 10-bit random clock identifier (0-1023)
-	const clockId = Math.floor(Math.random() * 1024);
-	
-	// Use BigInt to avoid JavaScript integer overflow
-	const timestampBits = BigInt(microseconds);
-	const clockBits = BigInt(clockId);
-	
-	// Combine: 53 bits timestamp + 10 bits random (top bit is always 0)
-	const tidBigInt = (timestampBits << 10n) | clockBits;
-	
-	// Convert to base32-sortable (234567abcdefghijklmnopqrstuvwxyz)
-	const base32Chars = '234567abcdefghijklmnopqrstuvwxyz';
-	let result = '';
-	let num = tidBigInt;
-	
-	// Always generate exactly 13 characters
-	for (let i = 0; i < 13; i++) {
-		result = base32Chars[Number(num % 32n)] + result;
-		num = num / 32n;
-	}
-	
-	return result;
-};
-
 const MAX_CHARS = 300;
+const MAX_BYTES = 3000;
 const MAX_QUOTE_DISPLAY = 80;
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const textEncoder = new TextEncoder();
 
 function handleClose() {
 	quotedSelection.value = null;
@@ -49,15 +24,19 @@ function handleClose() {
 }
 
 
-// Helper function to truncate quote for display
-const truncateQuote = (quote: string, maxLength: number = MAX_QUOTE_DISPLAY): string => {
-	if (quote.length <= maxLength) return quote;
-	
-	// Find last space before limit to avoid cutting words
-	const truncated = quote.substring(0, maxLength);
+const truncateQuote = (quote: string) => {
+	let length = 0;
+	let end = quote.length;
+	for (const { index } of graphemes.segment(quote)) {
+		if (length === MAX_QUOTE_DISPLAY) end = index;
+		length++;
+	}
+	if (length <= MAX_QUOTE_DISPLAY) return { text: quote, length };
+
+	// Find the last space within the grapheme-safe prefix to avoid cutting words.
+	const truncated = quote.slice(0, end);
 	const lastSpace = truncated.lastIndexOf(' ');
-	
-	return `${truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength)}...`;
+	return { text: `${truncated.slice(0, lastSpace > 0 ? lastSpace : undefined)}...`, length };
 };
 
 // Helper function to create compose-friendly text for Bluesky
@@ -69,33 +48,15 @@ const createComposeText = (text: string, originalUrl: string): string => {
 
 
 // Helper function to create facet for [h↗] with post rkey
-const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFacet.Main[] => {
+const createHenryInkFacet = (text: string, postRkey: string, originalUrl: string): AppBskyRichtextFacet.Main[] => {
 	const henryInkText = "[h↗]";
 	const henryInkIndex = text.indexOf(henryInkText);
 	
 	if (henryInkIndex === -1) return [];
 	
-	const textEncoder = new TextEncoder();
-	const textBytes = textEncoder.encode(text);
-	const henryInkBytes = textEncoder.encode(henryInkText);
-	
-	// Find byte index
-	let byteStartIndex = -1;
-	for (let i = 0; (i = textBytes.indexOf(henryInkBytes[0], i)) !== -1; i++) {
-		if (
-			textBytes
-				.slice(i, i + henryInkBytes.length)
-				.every((byte, j) => byte === henryInkBytes[j])
-		) {
-			byteStartIndex = i;
-			break;
-		}
-	}
-	
-	if (byteStartIndex === -1) return [];
-	
-	const byteEndIndex = byteStartIndex + henryInkBytes.length;
-	const henryInkUrl = `https://henry.ink/${currentUrl.value}?post=${postRkey}`;
+	const byteStartIndex = textEncoder.encode(text.slice(0, henryInkIndex)).length;
+	const byteEndIndex = byteStartIndex + textEncoder.encode(henryInkText).length;
+	const henryInkUrl = discussionShareUrl(originalUrl, postRkey);
 	
 	return [{
 		index: { byteStart: byteStartIndex, byteEnd: byteEndIndex },
@@ -106,40 +67,19 @@ const createHenryInkFacet = (text: string, postRkey: string): AppBskyRichtextFac
 	}];
 };
 
-// Helper function to fetch page metadata using Jina worker
 const fetchPageMetadata = async (originalUrl: string) => {
-	try {
-		// Use the same Jina worker that henry.ink uses to get metadata
-		const jinaUrl = import.meta.env.VITE_JINA_URL || 'http://localhost:8787';
-		const response = await fetch(`${jinaUrl}/${originalUrl}`);
-		const content = await response.text();
-		
-		// Extract title from markdown content using same pattern as henry-ink
-		let title = 'View on original site';
-		let description = 'Click to view the original article';
-		
-		// Look for title using same pattern as henry-ink/services.ts
-		const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i) || 
-						 content.match(/^#\s+(.+)$/m) ||
-						 content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-		if (titleMatch) {
-			title = titleMatch[1].trim();
-		}
-		
-		// Look for description (usually in italics after title)
-		const descMatch = content.match(/\*(.+)\*/);
-		if (descMatch) {
-			description = descMatch[1].trim();
-		}
-		
-		return { title, description };
-	} catch (error) {
-		console.warn('Failed to fetch page metadata from Jina worker:', error);
-		return {
-			title: 'View on original site',
-			description: 'Click to view the original article'
-		};
+	const article = contentStateSignal.peek();
+	if (article.type === 'success' && article.url === originalUrl) {
+		return pageMetadata(originalUrl, article);
 	}
+	if (typeof browser !== 'undefined' && browser.tabs) {
+		try {
+			const tabs: { url?: string; title?: string }[] = await browser.tabs.query({ active: true, currentWindow: true });
+			const tab = tabs.find(tab => tab.url === originalUrl);
+			if (tab?.url) return pageMetadata(originalUrl, { url: tab.url, title: tab.title });
+		} catch { /* Metadata must not prevent posting. */ }
+	}
+	return pageMetadata(originalUrl);
 };
 
 // Helper function to create external embed
@@ -162,90 +102,81 @@ const createExternalEmbed = async (url: string) => {
 export function QuotePopup() {
 	// Show popup if either quoted text or comment dialog is active
 	if (!quotedSelection.value && !showCommentDialog.value) return null;
+	return <QuoteComposer />;
+}
+
+function QuoteComposer() {
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	useLayoutEffect(() => {
+		const dialog = dialogRef.current;
+		dialog?.showModal();
+		return () => dialog?.close();
+	}, []);
 
 	// --- State Signals ---
-	// Initialize empty, will be populated by effect
-	const userText = useSignal<string>("");
+	const { originalUrl, initialQuote } = useMemo(() => ({
+		originalUrl: currentUrl.peek(),
+		initialQuote: quotedSelection.peek(),
+	}), []);
+	const quotePreview = useMemo(() => truncateQuote(initialQuote || ''), [initialQuote]);
+	const userText = useSignal(initialQuote
+		? `${quotePreview.text.split("\n").map(line => `> ${line}`).join("\n")}\n\n[h↗]`
+		: "[h↗]");
 	const isPosting = useSignal(false);
 	const postError = useSignal<string | null>(null);
 	const previewMetadata = useSignal<{title: string, description: string} | null>(null);
 	const userProfile = useSignal<{handle: string, avatar?: string} | null>(null);
+	const currentAtCute = atCuteState.value;
 	const isQuoteExpanded = useSignal(false);
-	const postRkey = useSignal<string>(generateRkey()); // Generate unique rkey for this post
+	const postRkey = useMemo(generateRkey, []);
 	const failedPostText = useSignal<string>(""); // Store text when login fails
 
 	// --- Computed Values ---
-	// Length is now just the userText length
-	const combinedLength = useComputed(() => userText.value.length);
+	const combinedLength = useComputed(() => Array.from(graphemes.segment(userText.value)).length);
 	const remainingChars = useComputed(() => MAX_CHARS - combinedLength.value);
+	const remainingBytes = useComputed(() => MAX_BYTES - textEncoder.encode(userText.value).length);
 
 	const isPostDisabled = useComputed(
 		() =>
 			isPosting.value ||
 			userText.value.trim().length === 0 || // Disallow empty posts
-			remainingChars.value < 0,
+			remainingChars.value < 0 || remainingBytes.value < 0,
 	);
 
 	// --- Effects ---
-	// Effect to set/reset text based on the current selection
-	useSignalEffect(() => {
-		const currentSelection = quotedSelection.value;
-		const isCommentMode = showCommentDialog.value && !currentSelection;
-
-		if (currentSelection) {
-			// Selection exists, format the text with truncated quote
-			const displayQuote = truncateQuote(currentSelection);
-			const quoteLines = displayQuote
-				.split("\n")
-				.map((line) => `> ${line}`)
-				.join("\n");
-			const newInitialText = `${quoteLines}\n\n[h↗]`;
-
-			// Reset userText to the new quote/URL format
-			userText.value = newInitialText;
-		} else if (isCommentMode) {
-			// Comment mode without selection - just the henry.ink link
-			userText.value = "[h↗]";
-		}
-	});
-
 	// Effect to fetch metadata for preview
-	useSignalEffect(() => {
-		if (currentUrl.value) {
-			fetchPageMetadata(currentUrl.value).then(metadata => {
-				previewMetadata.value = metadata;
+	useEffect(() => {
+		let active = true;
+		previewMetadata.value = null;
+		if (originalUrl) {
+			fetchPageMetadata(originalUrl).then(metadata => {
+				if (active) previewMetadata.value = metadata;
 			});
 		}
-	});
+		return () => { active = false; };
+	}, [originalUrl]);
 
 	// Effect to fetch user profile
-	useSignalEffect(() => {
-		const state = atCuteState.peek();
-		if (state?.session && state?.rpc) {
-			const did = state.session.info.sub;
-			// Check localStorage first
-			const cachedHandle = localStorage.getItem(`bskyUserHandle_${did}`);
-			const cachedAvatar = localStorage.getItem(`bskyUserAvatar_${did}`);
-			
-			if (cachedHandle) {
-				userProfile.value = { handle: cachedHandle, avatar: cachedAvatar || undefined };
-			} else {
-				// Fetch profile if not cached
-				state.rpc.get("app.bsky.actor.getProfile", {
-					params: { actor: did }
-				}).then(({ ok, data }) => {
-					if (ok && data.handle) {
-						userProfile.value = { handle: data.handle, avatar: data.avatar };
-						// Cache the data
-						localStorage.setItem(`bskyUserHandle_${did}`, data.handle);
-						if (data.avatar) {
-							localStorage.setItem(`bskyUserAvatar_${did}`, data.avatar);
-						}
-					}
-				});
+	useEffect(() => {
+		userProfile.value = null;
+		if (!currentAtCute) return;
+		const controller = new AbortController();
+		const did = currentAtCute.session.info.sub;
+		try {
+			const handle = localStorage.getItem(`bskyUserHandle_${did}`);
+			if (handle) {
+				userProfile.value = { handle, avatar: localStorage.getItem(`bskyUserAvatar_${did}`) || undefined };
+				return;
 			}
-		}
-	});
+		} catch { /* Fetch the profile when its optional cache is unavailable. */ }
+		void currentAtCute.rpc.get("app.bsky.actor.getProfile", {
+			params: { actor: did }, signal: controller.signal,
+		}).then(({ ok, data }) => {
+			if (!ok || controller.signal.aborted || atCuteState.peek() !== currentAtCute || !data.handle) return;
+			userProfile.value = { handle: data.handle, avatar: data.avatar };
+		}).catch(() => { /* Profile details must not prevent composing. */ });
+		return () => controller.abort();
+	}, [currentAtCute]);
 
 	// --- Event Handlers ---
 	const handlePostClick = async () => {
@@ -256,19 +187,17 @@ export function QuotePopup() {
 		const state = atCuteState.peek();
 		if (!state?.session || !state?.rpc) {
 			postError.value = "You must be logged in to post.";
-			failedPostText.value = createComposeText(userText.value.trim(), currentUrl.value || ''); // Store compose-friendly text
+			failedPostText.value = createComposeText(userText.value.trim(), originalUrl); // Store compose-friendly text
 			isPosting.value = false;
 			return;
 		}
 
 		const { session, rpc } = state;
 		const fullText = userText.value.trim();
-		const originalUrl = currentUrl.value;
-		const hasQuote = quotedSelection.value;
 
 		try {
 			// Create facets for [h↗] link with rkey
-			const facets = createHenryInkFacet(fullText, postRkey.value);
+			const facets = createHenryInkFacet(fullText, postRkey, originalUrl);
 
 			// Create external embed with metadata
 			const embed = originalUrl ? await createExternalEmbed(originalUrl) : undefined;
@@ -283,23 +212,24 @@ export function QuotePopup() {
 			};
 
 			// Add annotation if there's a quote
-			if (hasQuote) {
+			if (initialQuote) {
 				postRecord._annotation = {
-					quote: hasQuote,
+					quote: initialQuote,
 				};
 			}
 
-			await rpc.post("com.atproto.repo.createRecord", {
+			const { ok, data } = await rpc.post("com.atproto.repo.createRecord", {
 				input: {
 					repo: session.info.sub,
 					collection: "app.bsky.feed.post",
-					rkey: postRkey.value, // Use our pre-generated rkey
+					rkey: postRkey,
 					record: postRecord,
 				},
 			});
+			if (!ok) throw new Error(data.message || data.error);
 
 			userText.value = ""; // Clear text on success
-			handleClose();
+			if (dialogRef.current?.open) handleClose();
 		} catch (err) {
 			console.error("Failed to create post:", err);
 			postError.value = `Failed to post: ${err instanceof Error ? err.message : "Unknown error"}`;
@@ -309,9 +239,19 @@ export function QuotePopup() {
 	};
 
 	return (
-		<div
-			className="fixed inset-0 z-20 bg-black/30 flex justify-center items-start pt-16 p-4"
-			onClick={handleClose}
+		<dialog
+			ref={dialogRef}
+			aria-label={initialQuote ? 'Quote this page' : 'Comment on this page'}
+			className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent open:flex justify-center items-start pt-16 p-4 backdrop:bg-black/30"
+			onKeyDown={event => event.stopPropagation()}
+			onClose={handleClose}
+			onCancel={event => {
+				event.preventDefault();
+				if (!isPosting.peek()) handleClose();
+			}}
+			onClick={event => {
+				if (event.target === event.currentTarget && !isPosting.peek()) handleClose();
+			}}
 		>
 			<div
 				className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
@@ -322,14 +262,14 @@ export function QuotePopup() {
 					<button
 						onClick={handleClose}
 						disabled={isPosting.value}
-						className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 font-medium px-2 py-1 rounded disabled:opacity-50"
+						className="min-h-10 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium px-2 py-1 rounded disabled:opacity-50"
 					>
 						Cancel
 					</button>
 					<button
 						onClick={handlePostClick}
 						disabled={isPostDisabled.value}
-						className="px-4 py-1 rounded-full bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[70px]"
+						className="min-h-10 px-4 py-1 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[70px]"
 					>
 						{isPosting.value ? (
 							<svg
@@ -369,7 +309,7 @@ export function QuotePopup() {
 								className="w-10 h-10 rounded-full object-cover"
 							/>
 						) : (
-							<div className="w-10 h-10 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center">
+							<div className="w-10 h-10 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center">
 								<span className="text-white text-sm font-semibold">
 									{userProfile.value?.handle?.charAt(0).toUpperCase() || 'U'}
 								</span>
@@ -387,21 +327,22 @@ export function QuotePopup() {
 							{/* Editable textarea styled like a post */}
 							<textarea
 								id="quote-reply-textarea"
+								autoFocus
 								className="w-full bg-transparent outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 whitespace-pre-wrap break-words"
 								rows={4}
 								style={{ fieldSizing: "content", minHeight: "60px", maxHeight: "300px" }}
-								placeholder={quotedSelection.value ? "Add your comment..." : "Share your thoughts about this page..."}
+								placeholder={initialQuote ? "Add your comment..." : "Share your thoughts about this page..."}
 								value={userText.value}
 								onInput={(e) => {
 									userText.value = (e.target as HTMLTextAreaElement).value;
 									postError.value = null;
 									failedPostText.value = "";
 								}}
-								maxLength={MAX_CHARS * 2}
+								maxLength={MAX_BYTES}
 								disabled={isPosting.value}
 							/>
 							{/* External embed preview */}
-							{previewMetadata.value && currentUrl.value && (
+							{previewMetadata.value && originalUrl && (
 								<div className="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
 									<div className="px-3 pt-2 pb-1 bg-gray-50 dark:bg-gray-900">
 										<div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
@@ -413,7 +354,7 @@ export function QuotePopup() {
 										{/* hr */}
 										<hr className="my-1 border-gray-200 dark:border-gray-700" />
 										<div className="text-xs text-gray-600 dark:text-gray-300 truncate">
-											{new URL(currentUrl.value).hostname}
+											{new URL(originalUrl).hostname}
 										</div>
 									</div>
 								</div>
@@ -439,7 +380,7 @@ export function QuotePopup() {
 								</a>
 							</div>
 						) : (
-							<div className="text-red-500">
+							<div className="text-red-600 dark:text-red-400">
 								{postError.value}
 							</div>
 						)}
@@ -450,10 +391,10 @@ export function QuotePopup() {
 					<div className="flex justify-between items-start">
 						<div className="space-y-1 flex-1">
 							{/* Quote truncation info */}
-							{quotedSelection.value && quotedSelection.value.length > MAX_QUOTE_DISPLAY && (
+							{initialQuote && quotePreview.length > MAX_QUOTE_DISPLAY && (
 								<div className="space-y-2">
 									<div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-										<span>Quote truncated ({quotedSelection.value.length}→{MAX_QUOTE_DISPLAY} chars)</span>
+										<span>Quote truncated ({quotePreview.length}→{MAX_QUOTE_DISPLAY} chars)</span>
 										<button
 											onClick={() => isQuoteExpanded.value = !isQuoteExpanded.value}
 											className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
@@ -474,7 +415,7 @@ export function QuotePopup() {
 											<div className="flex items-start justify-between gap-2 mb-2">
 												<span className="text-xs font-medium text-gray-700 dark:text-gray-300">Full quote:</span>
 												<button
-													onClick={() => navigator.clipboard.writeText(quotedSelection.value || '')}
+													onClick={() => navigator.clipboard.writeText(initialQuote)}
 													className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 flex-shrink-0"
 													aria-label="Copy full quote"
 												>
@@ -485,7 +426,7 @@ export function QuotePopup() {
 												</button>
 											</div>
 											<div className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
-												{quotedSelection.value}
+												{initialQuote}
 											</div>
 										</div>
 									)}
@@ -493,10 +434,10 @@ export function QuotePopup() {
 							)}
 							{/* Henry.ink link info */}
 							{userText.value.includes('[h↗]') && (
-								<div className="text-xs text-gray-500 dark:text-gray-500">
-									<span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded text-xs">[h↗]</span>
-									<span className="ml-1 text-gray-400 dark:text-gray-500">
-										→ <a className="text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-400 font-normal" href={`https://henry.ink/${currentUrl.value || 'your-url'}?post=${postRkey.value}`} target="_blank" rel="noopener noreferrer">henry.ink/{new URL(currentUrl.value || 'https://example.com').hostname}...</a>
+								<div className="text-xs text-gray-600 dark:text-gray-400">
+									<span className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-1 rounded text-xs">[h↗]</span>
+									<span className="ml-1">
+									→ <a className="hover:text-gray-800 dark:hover:text-gray-200 font-normal" href={discussionShareUrl(originalUrl || 'your-url', postRkey)} target="_blank" rel="noopener noreferrer">henry.ink/{new URL(originalUrl || 'https://example.com').hostname}...</a>
 									</span>
 								</div>
 							)}
@@ -504,14 +445,14 @@ export function QuotePopup() {
 						{/* Character count */}
 						<div className="ml-3">
 							<span
-								className={`text-sm ${remainingChars.value < 0 ? "text-red-500 font-semibold" : "text-gray-500 dark:text-gray-400"}`}
+								className={`text-sm ${remainingChars.value < 0 || remainingBytes.value < 0 ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}
 							>
-								{remainingChars.value}
+								{remainingBytes.value < 0 ? `${-remainingBytes.value} bytes over limit` : remainingChars.value}
 							</span>
 						</div>
 					</div>
 				</div>
 			</div>
-		</div>
+		</dialog>
 	);
 }

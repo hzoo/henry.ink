@@ -9,7 +9,7 @@ import {
 import { is } from "@atcute/lexicons";
 import { getPost } from "@/src/lib/utils/postUrls";
 import { currentUrl } from "@/src/lib/messaging";
-import { useSignal } from "@preact/signals-react/runtime";
+import { sameArticle } from "@/src/lib/annotations/anchors";
 
 import { EmbeddedRecordView } from "@/src/components/post/EmbeddedRecordView";
 
@@ -24,143 +24,19 @@ function Info({ children }: { children: React.ReactNode }) {
 	);
 }
 
-// Add normalizeUrl function (similar to PostText.tsx)
-function normalizeUrl(url: string): string {
-	try {
-		const parsed = new URL(url);
-		// Remove www.
-		const hostname = parsed.hostname.replace(/^www\./, "");
-		// Reconstruct without www and trailing slash
-		return `${parsed.protocol}//${hostname}${parsed.pathname.replace(/\/$/, "")}${parsed.search}${parsed.hash}`.toLowerCase();
-	} catch {
-		return url.toLowerCase();
-	}
-}
-
-// Image Embed Component (adapted from example)
 function ImageEmbed({ content }: { content: AppBskyEmbedImages.View }) {
-	const imageCount = content.images.length;
-	const lightboxOpen = useSignal(false);
-	const lightboxImage = useSignal<string | null>(null);
-
-	const openLightbox = (imageUrl: string) => {
-		// Prefer thumb for lightbox if available
-		const imageToOpen = content.images.find((img) => img.thumb === imageUrl);
-		lightboxImage.value = imageToOpen?.thumb || imageUrl; // Fallback to passed URL if thumb not found
-		lightboxOpen.value = true;
-	};
-
-	const closeLightbox = () => {
-		lightboxOpen.value = false;
-		lightboxImage.value = null;
-	};
-
-	const renderLightbox = () => {
-		if (lightboxOpen.value && lightboxImage.value) {
-			return (
-				<div
-					className="fixed inset-0 bg-white dark:bg-black flex items-center justify-center z-50 p-4"
-					onClick={closeLightbox}
-				>
-					<img
-						src={lightboxImage.value}
-						alt="Enlarged view"
-						className="max-w-full max-h-full object-contain rounded-md shadow-lg"
-						onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
-					/>
-				</div>
-			);
-		}
-		return null;
-	};
-
-	if (imageCount === 1) {
-		const img = content.images[0];
-		return (
-			<>
-				<div className="mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-					<img
-						src={img.thumb} // Use thumb for preview
-						alt={img.alt}
-						className="w-full h-auto object-cover max-h-[500px] cursor-pointer"
-						onClick={() => openLightbox(img.thumb)}
-					/>
-				</div>
-				{renderLightbox()}
-			</>
-		);
-	}
-	if (imageCount === 2) {
-		return (
-			<>
-				<div className="mt-2 grid grid-cols-2 gap-1 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-					{content.images.map((image, i) => (
-						<img
-							key={image.thumb || i}
-							src={image.thumb}
-							alt={image.alt}
-							className="aspect-[1/1] w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(image.thumb)}
-						/>
-					))}
-				</div>
-				{renderLightbox()}
-			</>
-		);
-	}
-	if (imageCount === 3) {
-		// Reverting to a structure that works well for 3 images with specific spans
-		return (
-			<>
-				<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-[4/3] border border-slate-200 dark:border-slate-700">
-					<div className="col-span-1 row-span-2">
-						<img
-							src={content.images[0].thumb}
-							alt={content.images[0].alt}
-							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[0].thumb)}
-						/>
-					</div>
-					<div className="col-span-1 row-span-1">
-						<img
-							src={content.images[1].thumb}
-							alt={content.images[1].alt}
-							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[1].thumb)}
-						/>
-					</div>
-					<div className="col-span-1 row-span-1">
-						<img
-							src={content.images[2].thumb}
-							alt={content.images[2].alt}
-							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(content.images[2].thumb)}
-						/>
-					</div>
-				</div>
-				{renderLightbox()}
-			</>
-		);
-	}
-	if (imageCount >= 4) {
-		return (
-			<>
-				<div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1 rounded-lg overflow-hidden aspect-square border border-slate-200 dark:border-slate-700">
-					{content.images.slice(0, 4).map((image, i) => (
-						<img
-							key={image.thumb || i}
-							src={image.thumb}
-							alt={image.alt}
-							className="w-full h-full object-cover cursor-pointer"
-							onClick={() => openLightbox(image.fullsize || image.thumb)}
-						/>
-					))}
-				</div>
-				{renderLightbox()}
-			</>
-		);
-	}
-	return null;
+	const images = content.images.slice(0, 4);
+	const count = images.length;
+	if (!count) return null;
+	return <div className={`mt-2 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 ${count > 1 ? 'grid grid-cols-2 gap-1' : ''} ${count === 3 ? 'grid-rows-2 aspect-[4/3]' : count === 4 ? 'grid-rows-2 aspect-square' : ''}`}>
+		{images.map((image, index) => <a key={image.thumb || index} href={image.fullsize || image.thumb}
+			target="_blank" rel="noopener noreferrer" title="Open full-size image (new tab)"
+			aria-label={image.alt || `Open image ${index + 1}`}
+			className={`block min-h-0 min-w-0 overflow-hidden focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-500 ${count === 3 && index === 0 ? 'row-span-2' : ''}`}>
+			<img src={image.thumb} alt={image.alt} loading="lazy"
+				className={`w-full object-cover ${count === 1 ? 'h-auto max-h-[500px]' : count === 2 ? 'aspect-square' : 'h-full'}`} />
+		</a>)}
+	</div>;
 }
 
 // Helper function to get a nice domain from a URL
@@ -181,7 +57,7 @@ function ExternalEmbed({
 
 	if (
 		content.external.uri &&
-		normalizeUrl(content.external.uri) === normalizeUrl(currentUrl.value)
+		sameArticle(content.external.uri, currentUrl.value)
 	) {
 		return null; // Don't render if the link is the same as the current URL
 	}
@@ -196,6 +72,7 @@ function ExternalEmbed({
 			{content.external.thumb && (
 				<img
 					src={content.external.thumb}
+					loading="lazy"
 					alt={`Thumbnail for ${content.external.title}`}
 					className="w-full aspect-[1.91/1] object-cover border-b border-slate-200 dark:border-slate-700"
 				/>
@@ -219,52 +96,6 @@ function ExternalEmbed({
 	);
 }
 
-// Helper function to clamp a number between a min and max value
-function clamp(num: number, min: number, max: number): number {
-	return Math.max(min, Math.min(num, max));
-}
-
-// Video Embed Component
-function VideoEmbed({
-	content,
-}: { content: import("@atcute/bluesky").AppBskyEmbedVideo.View }) {
-	let aspectRatio = 1; // Default to 1:1 (square)
-
-	if (content.aspectRatio) {
-		const { width, height } = content.aspectRatio;
-		if (height !== 0) {
-			// Avoid division by zero
-			aspectRatio = clamp(width / height, 1 / 1, 3 / 1); // Clamp between 1:1 and 3:1
-		} else {
-			aspectRatio = 16 / 9; // Default to 16:9 if height is 0, or handle as an error
-		}
-	} else {
-		aspectRatio = 16 / 9; // Default aspect ratio if not provided
-	}
-
-	return (
-		<div
-			className="mt-2 w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 relative bg-black"
-			style={{ aspectRatio: `${aspectRatio}` }} // CSS aspect-ratio property
-		>
-			{content.thumbnail && (
-				<img
-					src={content.thumbnail}
-					alt={content.alt || "Video thumbnail"}
-					className="w-full h-full object-cover"
-				/>
-			)}
-			{/* Play icon overlay */}
-			<div className="absolute inset-0 flex items-center justify-center bg-black/30">
-				<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 flex items-center justify-center text-white text-3xl md:text-4xl select-none">
-					▶
-				</div>
-			</div>
-			{/* Normally, clicking this would open a video player or navigate. For now, it's just visual. */}
-		</div>
-	);
-}
-
 export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	const { embed } = post; // Destructure for convenience
 	if (!embed) return null;
@@ -277,7 +108,6 @@ export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 	// Case 2: External link Embed
 	if (is(AppBskyEmbedExternal.viewSchema, embed)) {
 		return <ExternalEmbed content={embed} />;
-		// return <div>External Link: {embed.external.uri}</div>; // Old placeholder
 	}
 
 	// Case 3: Record Embed (Quote post, etc.)
@@ -308,35 +138,27 @@ export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
 				href={getPost(record.uri)} // Assuming all records have a URI we can link to
 				target="_blank"
 				rel="noopener noreferrer"
-				className="mt-2 block text-sm text-blue-500 hover:underline p-2 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800"
+				className="mt-2 block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline p-2 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800"
 			>
 				View Record
 			</a>
 		);
 	}
 
-	// Case 4: Record with Media Embed (To be implemented)
 	if (is(AppBskyEmbedRecordWithMedia.viewSchema, embed)) {
-		// return (
-		//   <div className="flex flex-col gap-2">
-		//     <PostEmbed content={embed.media} labels={post.labels} hideRecord />
-		//     <PostEmbed content={{ $type: 'app.bsky.embed.record#view', record: embed.record.record }} labels={embed.record.record.labels} hideRecord />
-		//   </div>
-		// );
-		return (
-			<div className="text-sm text-gray-500 dark:text-gray-400">
-				[Record with Media]
-			</div>
-		);
+		return <>
+			<PostEmbed post={{ ...post, embed: embed.media }} />
+			<PostEmbed post={{ ...post, embed: { ...embed.record, $type: 'app.bsky.embed.record#view' } }} />
+		</>;
 	}
 
 	// Case 5: Video Embed
 	if (is(AppBskyEmbedVideo.viewSchema, embed)) {
-		// return <VideoEmbed content={embed} />;
 		return (
-			<div className="text-sm text-gray-500 dark:text-gray-400">
-				[Video Embed]
-			</div>
+			<a href={getPost(post.uri)} target="_blank" rel="noopener noreferrer"
+				className="inline-flex min-h-10 items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
+				Watch video on Bluesky
+			</a>
 		);
 	}
 

@@ -1,4 +1,3 @@
-import { useSignal } from "@preact/signals-react/runtime";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingItemList } from "@/src/components/LoadingItem";
 import { ErrorMessage } from "@/src/components/ErrorMessage";
@@ -12,8 +11,8 @@ import { currentUrl } from "@/src/lib/messaging";
  * No external dependencies - fetches its own data based on page content
  */
 export function ArenaChannelList() {
-  const userDismissedError = useSignal(false);
   const contentState = contentStateSignal.value;
+  const url = currentUrl.value;
   const viewMode = arenaViewModeSignal.value;
 
   // Fetch arena matches based on page content
@@ -23,9 +22,9 @@ export function ArenaChannelList() {
     error,
     isError
   } = useQuery({
-    queryKey: arenaQueryKeys.matches(currentUrl.value || null),
-    queryFn: () => fetchArenaMatches(contentState.type === 'success' ? contentState.content : ''),
-    enabled: contentState.type === 'success' && !!contentState.content,
+    queryKey: arenaQueryKeys.matches(url || null),
+    queryFn: ({ signal }) => fetchArenaMatches(contentState.type === 'success' ? contentState.content : '', url, signal),
+    enabled: contentState.type === 'success' && contentState.url === url && !!contentState.content,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
   });
@@ -35,11 +34,6 @@ export function ArenaChannelList() {
     acc[match.matchedText] = (acc[match.matchedText] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
-
-  // Reset dismissed error when query key changes
-  if (isError && error && userDismissedError.value) {
-    userDismissedError.value = false;
-  }
 
   if (contentState.type === 'loading') {
     return (
@@ -56,7 +50,6 @@ export function ArenaChannelList() {
       <div className="p-4">
         <ErrorMessage
           message={contentState.message || 'Failed to load page content'}
-          onDismiss={() => {}}
         />
       </div>
     );
@@ -76,12 +69,11 @@ export function ArenaChannelList() {
     return <LoadingItemList length={3} />;
   }
 
-  if (isError && error && !userDismissedError.value) {
+  if (isError && error) {
     return (
       <div className="p-4">
         <ErrorMessage
           message={error.message}
-          onDismiss={() => userDismissedError.value = true}
         />
       </div>
     );
@@ -103,7 +95,6 @@ export function ArenaChannelList() {
         <ArenaChannelItem
           key={`${match.slug}-${index}`}
           match={match}
-          index={index}
           matchTextCounts={matchTextCounts}
           viewMode={viewMode}
         />

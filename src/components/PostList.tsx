@@ -6,23 +6,31 @@ import { useEffect } from "preact/hooks";
 import { extractQuotesFromPosts } from "@/src/lib/highlights/extractQuotes";
 import {
 	extractedQuotes,
+	quotesUrl,
+	targetPostRkey,
 	type QuoteHighlight,
 } from "@/src/lib/highlights/signals";
-import { showCommentDialog } from "@/src/lib/messaging";
+import { showCommentDialog, currentUrl } from "@/src/lib/messaging";
 import { Icon } from "@/src/components/Icon";
+import { useSignal } from '@preact/signals';
 
 export interface PostListProps {
 	posts: AppBskyFeedDefs.PostView[];
 }
 
 const filters: PostFilter[] = [
-	// Filters.MinInteractionCount(1),
 	Filters.NoPins,
 	Filters.MaxTags(3),
 	Filters.BotPost,
 ];
 
 export function PostList({ posts }: PostListProps) {
+	const url = currentUrl.value;
+	const visibleCount = useSignal(20);
+	const target = targetPostRkey.value;
+	const targetIndex = target ? posts.findIndex(post => post.uri.split('/').at(-1) === target) : -1;
+	const shown = Math.max(visibleCount.value, targetIndex + 1);
+	useEffect(() => { visibleCount.value = 20; }, [url]);
 	// Extract quotes from posts when they change (only in website contexts, not extension)
 	useEffect(() => {
 		// Skip quote extraction in extension contexts
@@ -45,7 +53,6 @@ export function PostList({ posts }: PostListProps) {
 					id: `${post.uri}-${index}`, // Unique ID for each quote
 					postUri: post.uri,
 					quote,
-					ranges: [], // Will be populated when content is matched
 					postData: post,
 				});
 			});
@@ -53,18 +60,21 @@ export function PostList({ posts }: PostListProps) {
 
 		// Update the signal with extracted quotes
 		extractedQuotes.value = highlights;
-	}, [posts]);
+		quotesUrl.value = url;
+	}, [posts, url]);
 
 	return (
 		<>
-			{posts.map((post: AppBskyFeedDefs.PostView) => (
+			{posts.slice(0, shown).map((post: AppBskyFeedDefs.PostView) => (
 				<FullPost
 					key={post.cid}
 					postUri={post.uri}
+					initialPost={post}
 					filters={filters}
 					displayItems={["avatar", "handle"]}
 				/>
 			))}
+			{posts.length > shown && <button className="p-4 text-sm underline" onClick={() => { visibleCount.value = shown + 20; }}>Show more discussions</button>}
 			
 			{/* Add comment section */}
 			<div className="p-4 mb-96">

@@ -1,13 +1,12 @@
 import { useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import {
 	startLoginProcess,
 	logout,
 	atCuteState,
 	isLoadingSession,
 } from "@/demo/lib/oauth";
-import type { JSX } from "preact/jsx-runtime";
-import { sleep } from "@/src/lib/utils/sleep";
+import { ProviderLogo } from "@/src/components/ProviderLogo";
 
 const getStorageKey = (did: string) => `bskyUserHandle_${did}`;
 const getAvatarStorageKey = (did: string) => `bskyUserAvatar_${did}`;
@@ -16,119 +15,69 @@ export function LoginButton() {
 	const userHandle = useSignal<string | null>(null);
 	const userAvatar = useSignal<string | null>(null);
 	const isFetchingProfile = useSignal(false);
-	const prevAtCuteValue = useRef(atCuteState.value);
 	const currentAtCute = atCuteState.value;
 	const isDropdownOpen = useSignal(false);
+	const accountRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const dropdownId = useId();
 
 	useEffect(() => {
-		if (!currentAtCute) {
-			userHandle.value = null;
-			userAvatar.value = null;
-		} else {
-			const did = currentAtCute.session.info.sub;
-			const cachedHandle = localStorage.getItem(getStorageKey(did));
-			const cachedAvatar = localStorage.getItem(getAvatarStorageKey(did));
+		const controller = new AbortController();
+		isDropdownOpen.value = false;
+		userHandle.value = null;
+		userAvatar.value = null;
+		isFetchingProfile.value = false;
+		if (!currentAtCute) return;
 
-			if (cachedHandle) {
-				userHandle.value = cachedHandle;
-			} else {
-				userHandle.value = null;
-			}
+		const did = currentAtCute.session.info.sub;
+		const storageKey = getStorageKey(did);
+		const avatarStorageKey = getAvatarStorageKey(did);
+		try {
+			userHandle.value = localStorage.getItem(storageKey);
+			userAvatar.value = localStorage.getItem(avatarStorageKey);
+		} catch { /* The profile cache is optional. */ }
+		if (userHandle.value) return;
 
-			if (cachedAvatar) {
-				userAvatar.value = cachedAvatar;
-			} else {
-				userAvatar.value = null;
-			}
-		}
-		prevAtCuteValue.current = currentAtCute;
-	}, [currentAtCute, userHandle, userAvatar]);
+		isFetchingProfile.value = true;
+		const fetchProfile = async () => {
+			try {
+				const { ok, data } = await currentAtCute.rpc.get("app.bsky.actor.getProfile", {
+					params: { actor: did }, signal: controller.signal,
+				});
+				if (controller.signal.aborted || atCuteState.peek() !== currentAtCute) return;
+				if (!ok) throw new Error(`Error fetching profile: ${data.error}`);
 
-	useEffect(() => {
-		if (currentAtCute && !isFetchingProfile.value && !userHandle.value) {
-			const did = currentAtCute.session.info.sub;
-			const storageKey = getStorageKey(did);
-
-			const fetchProfile = async () => {
-				isFetchingProfile.value = true;
+				userHandle.value = data.handle || null;
+				userAvatar.value = data.avatar || null;
 				try {
-					await sleep(100);
-					const { ok, data } = await currentAtCute.rpc.get(
-						"app.bsky.actor.getProfile",
-						{
-							params: { actor: did },
-						},
-					);
-
-					if (!ok) {
-						throw new Error(`Error fetching profile: ${data.error}`);
-					}
-
-					const fetchedHandle = data.handle;
-					const fetchedAvatar = data.avatar;
-					const avatarStorageKey = getAvatarStorageKey(did);
-
-					if (fetchedHandle) {
-						userHandle.value = fetchedHandle;
-						userAvatar.value = fetchedAvatar || null;
-						localStorage.setItem(storageKey, fetchedHandle);
-
-						if (fetchedAvatar) {
-							localStorage.setItem(avatarStorageKey, fetchedAvatar);
-						} else {
-							localStorage.removeItem(avatarStorageKey);
-						}
-					} else {
-						localStorage.removeItem(storageKey);
-						localStorage.removeItem(avatarStorageKey);
-					}
-				} catch (error) {
-					console.error("Failed to fetch user profile handle:", error);
-					const avatarStorageKey = getAvatarStorageKey(did);
-					localStorage.removeItem(storageKey);
-					localStorage.removeItem(avatarStorageKey);
-					if (
-						error instanceof Error &&
-						error.message.includes("invalid_token")
-					) {
-						console.error(
-							"Authentication error detected during profile fetch, logging out.",
-						);
-						logout();
-					}
-				} finally {
-					isFetchingProfile.value = false;
-				}
-			};
-			fetchProfile();
-		}
-	}, [currentAtCute, isFetchingProfile, userHandle, userAvatar]);
-
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (isDropdownOpen.value) {
-				isDropdownOpen.value = false;
+					if (data.handle) localStorage.setItem(storageKey, data.handle);
+					else localStorage.removeItem(storageKey);
+					if (data.avatar) localStorage.setItem(avatarStorageKey, data.avatar);
+					else localStorage.removeItem(avatarStorageKey);
+				} catch { /* Keep the fetched profile when storage is unavailable. */ }
+			} catch (error) {
+				if (controller.signal.aborted || atCuteState.peek() !== currentAtCute) return;
+				console.error("Failed to fetch user profile handle:", error);
+				if (error instanceof Error && error.message.includes("invalid_token")) logout();
+			} finally {
+				if (!controller.signal.aborted && atCuteState.peek() === currentAtCute) isFetchingProfile.value = false;
 			}
 		};
+		fetchProfile();
+		return () => controller.abort();
+	}, [currentAtCute]);
 
-		if (isDropdownOpen.value) {
-			document.addEventListener("click", handleClickOutside);
-			return () => document.removeEventListener("click", handleClickOutside);
-		}
+	useEffect(() => {
+		if (!isDropdownOpen.value) return;
+		const controller = new AbortController();
+		document.addEventListener("pointerdown", event => {
+			if (!accountRef.current?.contains(event.target as Node)) isDropdownOpen.value = false;
+		}, { signal: controller.signal });
+		return () => controller.abort();
 	}, [isDropdownOpen.value]);
 
 	const handleSignIn = () => {
 		startLoginProcess();
-	};
-
-	const handleLogout = () => {
-		if (currentAtCute) {
-			const did = currentAtCute.session.info.sub;
-			localStorage.removeItem(getStorageKey(did));
-			localStorage.removeItem(getAvatarStorageKey(did));
-		}
-		logout();
 	};
 
 	const displayName = currentAtCute
@@ -139,14 +88,26 @@ export function LoginButton() {
 	return (
 		<>
 			{currentAtCute ? (
-				<div className="relative">
+				<div ref={accountRef} className="relative"
+					onFocusOut={event => {
+						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) isDropdownOpen.value = false;
+					}}
+					onKeyDown={event => {
+						if (event.key !== 'Escape' || !isDropdownOpen.value) return;
+						event.preventDefault();
+						event.stopPropagation();
+						isDropdownOpen.value = false;
+						triggerRef.current?.focus();
+					}}>
 					<button
-						onClick={(e) => {
-							e.stopPropagation();
+						ref={triggerRef}
+						onClick={() => {
 							isDropdownOpen.value = !isDropdownOpen.value;
 						}}
-						className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+						className="flex min-h-10 min-w-10 items-center justify-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
 						aria-label="Account menu"
+						aria-expanded={isDropdownOpen.value}
+						aria-controls={dropdownId}
 					>
 						{userAvatar.value ? (
 							<img
@@ -161,13 +122,13 @@ export function LoginButton() {
 						)}
 					</button>
 					{isDropdownOpen.value && (
-						<div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[120px]">
-							<div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+						<div id={dropdownId} className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[120px] w-max max-w-[min(16rem,calc(100vw-9rem))]">
+							<div className="break-all px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
 								{displayName}
 							</div>
 							<button
-								onClick={handleLogout}
-								className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+								onClick={() => { void logout(); }}
+								className="min-h-10 w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
 							>
 								Logout
 							</button>
@@ -177,12 +138,12 @@ export function LoginButton() {
 			) : (
 				<button
 					onClick={handleSignIn}
-					className="flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-400 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/80 disabled:opacity-50 transition-colors"
+					className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 disabled:opacity-50 transition-colors"
 					disabled={isLoadingSession.value}
 					aria-label="Sign in with Bluesky"
 				>
-					<span className="text-base">🦋</span>
-					Sign in
+					<ProviderLogo provider="Bluesky" />
+					<span className="hidden min-[360px]:inline">Sign in</span>
 				</button>
 			)}
 		</>

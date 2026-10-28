@@ -5,7 +5,7 @@ import type { ResourceUri } from "@atcute/lexicons";
 
 import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
 import { likePost, unlikePost } from "@/src/lib/postActions";
-import { getRootPostUri } from "@/src/lib/threadUtils"; // Assuming getRootPostUri is moved or accessible
+import { updatePostActionCache } from "@/src/lib/queryClient";
 
 interface UseLikeProps {
 	post: AppBskyFeedDefs.PostView;
@@ -43,6 +43,7 @@ export function useLike({ post, options }: UseLikeProps) {
 				setLikeUri(undefined);
 				try {
 					await unlikePost(previousLikeUri, currentState as AtCuteState);
+					updatePostActionCache(queryClient, currentState.session.info.sub, post.uri, 'like');
 					return {};
 				} catch (err) {
 					setLiked(true); // Revert optimistic update
@@ -54,6 +55,7 @@ export function useLike({ post, options }: UseLikeProps) {
 				setLiked(true);
 				try {
 					const result = await likePost(post, currentState as AtCuteState);
+					updatePostActionCache(queryClient, currentState.session.info.sub, post.uri, 'like', result);
 					setLikeUri(result); // Set the new like URI
 					return { uri: result };
 				} catch (err) {
@@ -62,11 +64,6 @@ export function useLike({ post, options }: UseLikeProps) {
 					throw err;
 				}
 			}
-		},
-		onSettled: () => {
-			const rootUri = getRootPostUri(post);
-			queryClient.invalidateQueries({ queryKey: ["thread", rootUri] });
-			queryClient.refetchQueries({ queryKey: ["thread", rootUri] });
 		},
 		onError: (error: Error) => {
 			options?.onError?.(error);

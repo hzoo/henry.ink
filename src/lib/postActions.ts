@@ -40,7 +40,7 @@ export async function submitReply(
 	};
 
 	// Use the rpc instance from the global state with the 2-argument pattern
-	return rpc.post(
+	const { ok, data } = await rpc.post(
 		"com.atproto.repo.createRecord", // nsid
 		{
 			input: {
@@ -50,6 +50,8 @@ export async function submitReply(
 			},
 		},
 	);
+	if (!ok) throw new Error(data.message || data.error);
+	return data;
 }
 
 /**
@@ -118,13 +120,15 @@ export async function unlikePost(likeUri: string, state: AtCuteState) {
 		throw new Error("Could not extract rkey from like URI.");
 	}
 
-	return rpc.post("com.atproto.repo.deleteRecord", {
+	const { ok, data } = await rpc.post("com.atproto.repo.deleteRecord", {
 		input: {
 			repo: session.info.sub,
 			collection: "app.bsky.feed.like",
 			rkey: rkey,
 		},
 	});
+	if (!ok) throw new Error(data.message || data.error);
+	return data;
 }
 
 /**
@@ -192,11 +196,13 @@ export async function deleteRepost(repostUri: string, state: AtCuteState) {
 		throw new Error("Could not extract rkey from repost URI.");
 	}
 
-	return rpc.post("com.atproto.repo.deleteRecord", {
+	const { ok, data } = await rpc.post("com.atproto.repo.deleteRecord", {
 		input: {
 			repo: session.info.sub,
 			collection: "app.bsky.feed.repost",
 			rkey: rkey,
 		},
 	});
+	if (!ok) throw new Error(data.message || data.error);
+	return data;
 }

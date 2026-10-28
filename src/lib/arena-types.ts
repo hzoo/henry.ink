@@ -34,12 +34,6 @@ export interface ArenaMatch {
   updated_at?: string;
 }
 
-// Arena match with position data (for navigation)
-export interface ArenaMatchWithPosition extends ArenaMatch {
-  position: number;
-  endPosition: number;
-}
-
 // Arena block types
 export interface ResizedImage {
   src_1x: string;

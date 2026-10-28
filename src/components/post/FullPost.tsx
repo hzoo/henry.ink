@@ -21,6 +21,8 @@ import type { PostFilter } from "@/src/lib/postFilters";
 import { applyFilters } from "@/src/lib/postFilters";
 import type { Signal } from "@preact/signals-react";
 import { hasShownError } from "@/src/lib/signals";
+import type { AppBskyFeedDefs } from '@atcute/bluesky';
+import { atCuteState } from "@/demo/lib/oauth";
 
 export type DisplayableItem = "avatar" | "displayName" | "handle";
 
@@ -29,6 +31,7 @@ interface FullPostProps {
 	postUri?: string;
 	filters?: PostFilter[];
 	displayItems: DisplayableItem[];
+	initialPost?: AppBskyFeedDefs.PostView;
 }
 
 function CollapsePost({
@@ -37,8 +40,11 @@ function CollapsePost({
 	isExpanded: Signal<boolean>;
 }) {
 	return (
-		<span
-			className="font-mono flex items-center gap-0.5 text-xs pt-0.5"
+		<button
+			type="button"
+			aria-label={isExpanded.value ? 'Hide replies' : 'Load replies'}
+			aria-expanded={isExpanded.value}
+			className="inline-flex min-h-10 items-center gap-1 rounded px-2 text-xs hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-gray-500 dark:hover:bg-gray-800"
 			onClick={() => (isExpanded.value = !isExpanded.value)}
 		>
 			{isExpanded.value ? (
@@ -46,7 +52,8 @@ function CollapsePost({
 			) : (
 				<Icon name="plusCircle" className="size-4" />
 			)}
-		</span>
+			Replies
+		</button>
 	);
 }
 
@@ -55,6 +62,7 @@ export function FullPost({
 	uri,
 	filters,
 	displayItems,
+	initialPost,
 }: FullPostProps) {
 	let finalPostUri: string | undefined;
 	if (initialPostUri) {
@@ -75,27 +83,32 @@ export function FullPost({
 		);
 	}
 
+	const isExpanded = useSignal(!initialPost);
+	const state = atCuteState.value;
+	const rpc = state?.rpc ?? null;
 	const {
 		data: threadData,
 		isLoading,
+		isFetching,
+		refetch,
 		error,
 	} = useQuery<Thread, Error>({
-		queryKey: ["thread", finalPostUri],
-		queryFn: () => {
-			return fetchProcessedThread(finalPostUri!);
+		queryKey: ["thread", finalPostUri, state?.session.info.sub ?? null],
+		queryFn: ({ signal }) => {
+			return fetchProcessedThread(finalPostUri!, signal, rpc);
 		},
 		staleTime: 1000 * 60,
+		enabled: !initialPost || isExpanded.value,
 	});
 
-	const post = threadData?.post;
+	const post = threadData?.post || initialPost;
 	const replies = threadData?.replies;
-	const isExpanded = useSignal(true);
 
-	if (isLoading) {
+	if (isLoading && !initialPost) {
 		return null;
 	}
 
-	if (error) {
+	if (error && !initialPost) {
 		if (!hasShownError.value) {
 			hasShownError.value = true;
 		} else {
@@ -149,19 +162,20 @@ export function FullPost({
 					<div className="flex items-center pb-1">
 						{displayItems.includes("avatar") && post.author.avatar && (
 							<img
+								loading="lazy"
 								src={post.author.avatar}
 								alt={authorName}
 								className="w-[42px] h-[42px] rounded-full mr-2.5 flex-shrink-0"
 							/>
 						)}
-						<div className="flex flex-col text-sm">
+						<div className="min-w-0 flex-1 flex flex-col text-sm">
 							<div className="flex items-center flex-wrap gap-x-1 min-w-0">
 								{displayItems.includes("displayName") && (
 									<a
 										href={postAuthorUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="font-semibold truncate hover:underline"
+										className="max-w-full font-semibold truncate hover:underline"
 									>
 										{authorName}
 									</a>
@@ -171,7 +185,7 @@ export function FullPost({
 										href={postAuthorUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="text-gray-500"
+										className="max-w-full break-all text-gray-500"
 									>
 										{post.author.handle}
 									</a>
@@ -205,7 +219,7 @@ export function FullPost({
 										Reply
 									</a>
 								)}
-								{replies && replies.length > 0 && (
+								{((post.replyCount ?? 0) > 0 || !!replies?.length) && (
 									<CollapsePost isExpanded={isExpanded} />
 								)}
 							</div>
@@ -224,6 +238,12 @@ export function FullPost({
 				filters={filters}
 				displayItems={displayItems}
 			/>
+			{isLoading && initialPost && isExpanded.value && <p className="p-3 text-xs text-gray-500" role="status">Loading replies…</p>}
+			{error && initialPost && isExpanded.value && <div className="p-3 text-xs text-gray-600 dark:text-gray-400" role="alert">
+				<p>Replies could not be loaded.</p>
+				<button type="button" disabled={isFetching} onClick={() => { void refetch(); }}
+					className="min-h-10 rounded px-2 underline focus-visible:outline-2 focus-visible:outline-gray-500 disabled:opacity-50">Try again</button>
+			</div>}
 		</article>
 	);
 }

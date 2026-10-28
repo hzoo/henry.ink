@@ -4,7 +4,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import type { ArenaChannel } from "./arena-api-types";
+import type { ArenaChannel } from "@/api/arena/arena-api-types";
 
 export interface StoredChannel {
   id: number;
@@ -30,6 +30,7 @@ export interface ChannelPattern {
 
 export class ChannelStorage {
   private db: Database;
+  private revision = 0;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
@@ -65,15 +66,6 @@ export class ChannelStorage {
       // Column already exists, ignore error
     }
 
-    // Metadata table for sync tracking
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-
     // Create indexes for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_channels_contents ON channels(contents_count) WHERE contents_count > 0;
@@ -94,10 +86,18 @@ export class ChannelStorage {
     
     // Build bulk INSERT with multiple VALUES
     const placeholders = channels.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-    const bulkInsert = this.db.prepare(`
-      INSERT OR REPLACE INTO channels (
-        id, slug, title, author_name, author_slug, contents_count, last_checked, created_at, updated_at
-      ) VALUES ${placeholders}
+    const hasChanges = this.db.prepare(`
+      WITH incoming(id, slug, title, author_name, author_slug, contents_count, last_checked, created_at, updated_at)
+        AS (VALUES ${placeholders})
+      SELECT 1 FROM incoming
+      WHERE NOT EXISTS (
+        SELECT 1 FROM channels WHERE channels.id = incoming.id
+          AND (channels.slug, channels.title, channels.author_name, channels.author_slug,
+               channels.contents_count, channels.created_at, channels.updated_at)
+            IS (incoming.slug, incoming.title, incoming.author_name, incoming.author_slug,
+                incoming.contents_count, incoming.created_at, incoming.updated_at)
+      )
+      LIMIT 1
     `);
 
     // Flatten all channel data into a single array
@@ -117,68 +117,27 @@ export class ChannelStorage {
     }
 
     const transaction = this.db.transaction(() => {
-      bulkInsert.run(...values);
+      if (hasChanges.get(...values)) {
+        // Keep batch replacement order, including conflicting IDs and slugs.
+        return this.db.prepare(`
+          INSERT OR REPLACE INTO channels (
+            id, slug, title, author_name, author_slug, contents_count, last_checked, created_at, updated_at
+          ) VALUES ${placeholders}
+        `).run(...values).changes;
+      }
+      // Keep sync timestamps fresh without invalidating patterns for identical data.
+      this.db.prepare(`UPDATE channels SET last_checked = ? WHERE id IN (${channels.map(() => '?').join(',')})`)
+        .run(now, ...channels.map(channel => channel.id));
+      return 0;
     });
 
-    transaction();
-
-    // Update sync metadata
-    this.db.prepare(`
-      INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
-      VALUES ('last_sync', ?, ?)
-    `).run(now, now);
+    if (transaction() > 0) this.revision++;
   }
 
-  /**
-   * Save sync progress to a metadata table
-   */
-  saveSyncProgress(apiType: string = 'graphql', page: number, totalChannels: number, timestamp: string = new Date().toISOString()): void {
-    const insert = this.db.prepare(`
-      INSERT OR REPLACE INTO sync_metadata (key, value, updated_at)
-      VALUES (?, ?, ?)
-    `);
-
-    insert.run(`${apiType}_sync_page`, page.toString(), timestamp);
-    insert.run(`${apiType}_sync_total_channels`, totalChannels.toString(), timestamp);
-    
-    console.log(`📊 ${apiType.toUpperCase()} Progress saved: page ${page}, ${totalChannels} channels total`);
-  }
-
-  /**
-   * Clear sync progress (for fresh start)
-   */
-  clearSyncProgress(): void {
-    this.db.prepare(`DELETE FROM sync_metadata WHERE key IN ('sync_page', 'sync_total_channels')`).run();
-    console.log('🗑️ Cleared sync progress - starting fresh');
-  }
-
-  /**
-   * Get the last sync progress for specific API type
-   */
-  getLastSyncProgress(apiType: string = 'graphql'): { page: number; totalChannels: number; timestamp: string } | null {
-    try {
-      const pageQuery = this.db.prepare(`
-        SELECT value, updated_at FROM sync_metadata WHERE key = ?
-      `);
-      const totalQuery = this.db.prepare(`
-        SELECT value FROM sync_metadata WHERE key = ?
-      `);
-      
-      const pageResult = pageQuery.get(`${apiType}_sync_page`) as any;
-      const totalResult = totalQuery.get(`${apiType}_sync_total_channels`) as any;
-      
-      if (pageResult && totalResult) {
-        return {
-          page: parseInt(pageResult.value),
-          totalChannels: parseInt(totalResult.value),
-          timestamp: pageResult.updated_at
-        };
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
+  getPatternVersion(): string {
+    // data_version catches commits from other connections, including sync jobs.
+    const { data_version } = this.db.query('PRAGMA data_version').get() as { data_version: number };
+    return `${this.revision}:${data_version}`;
   }
 
   /**
@@ -348,43 +307,6 @@ export class ChannelStorage {
   }
 
   /**
-   * Debug normalization: show examples of how text gets normalized
-   * Useful for understanding why patterns might not match
-   */
-  debugNormalization(sampleTexts: string[] = []): void {
-    // Use provided samples or get some from our channel titles
-    let textsToTest = sampleTexts;
-    
-    if (textsToTest.length === 0) {
-      // Get a sample of channel titles for testing
-      const sampleChannels = this.db.prepare(`
-        SELECT title FROM channels 
-        WHERE contents_count >= 3 
-        ORDER BY contents_count DESC 
-        LIMIT 20
-      `).all() as { title: string }[];
-      
-      textsToTest = sampleChannels.map(c => c.title);
-    }
-    
-    console.group('🔍 Normalization Debug');
-    console.log('Examples of text normalization:');
-    
-    for (const text of textsToTest.slice(0, 10)) {
-      const normalized = this.normalizeForMatching(text);
-      const cleaned = this.cleanChannelTitle(text);
-      
-      console.log(`  "${text}"`);
-      console.log(`    → normalized: "${normalized}"`);
-      console.log(`    → cleaned: [${cleaned.join(', ')}]`);
-      console.log('');
-    }
-    
-    console.groupEnd();
-  }
-
-
-  /**
    * Get channel info by slug for link generation
    */
   getChannelBySlug(slug: string): StoredChannel | null {
@@ -396,26 +318,12 @@ export class ChannelStorage {
   }
 
   /**
-   * Get channels by multiple slugs efficiently
-   */
-  getChannelsBySlug(slugs: string[]): StoredChannel[] {
-    if (slugs.length === 0) return [];
-    
-    const placeholders = slugs.map(() => '?').join(',');
-    const query = `
-      SELECT * FROM channels 
-      WHERE slug IN (${placeholders}) AND contents_count >= 3
-    `;
-    
-    return this.db.prepare(query).all(...slugs) as StoredChannel[];
-  }
-
-  /**
    * Remove a channel by slug (for dead/404 channels)
    */
   removeChannelBySlug(slug: string): void {
     const result = this.db.prepare(`DELETE FROM channels WHERE slug = ?`).run(slug);
     if (result.changes > 0) {
+      this.revision++;
       console.log(`🗑️ Removed dead channel: ${slug}`);
     }
   }
@@ -428,9 +336,11 @@ export class ChannelStorage {
       UPDATE channels 
       SET author_name = ?, author_slug = ?, last_checked = ? 
       WHERE slug = ?
+        AND (author_name, author_slug) IS NOT (?, ?)
     `);
     
-    update.run(authorName, authorSlug || null, new Date().toISOString(), slug);
+    const result = update.run(authorName, authorSlug || null, new Date().toISOString(), slug, authorName, authorSlug || null);
+    if (result.changes > 0) this.revision++;
     // if (result.changes > 0) {
     //   console.log(`📝 Updated author for ${slug}: ${authorName} (@${authorSlug})`);
     // }

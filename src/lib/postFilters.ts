@@ -15,24 +15,6 @@ export const Filters = {
     }
     return false;
   },
-  MinInteractionCount: (minInteractions: number) => (post: AppBskyFeedDefs.PostView): boolean => {
-    return ((post.replyCount || 0) + (post.likeCount || 0) + (post.repostCount || 0) + (post.quoteCount || 0)) < minInteractions;
-  },
-  MinCharacterCount: (minChars: number) => (post: AppBskyFeedDefs.PostView): boolean => {
-    if (post.record && typeof post.record === 'object' && 'text' in post.record) {
-      const text = (post.record as { text: string }).text;
-      return text.length < minChars;
-    }
-    return false;
-  },
-  TextContains: (searchText: string | string[]) => (post: AppBskyFeedDefs.PostView): boolean => {
-    if (post.record && typeof post.record === 'object' && 'text' in post.record) {
-      const text = (post.record as { text: string }).text.toLowerCase();
-      const searchTerms = Array.isArray(searchText) ? searchText.map(s => s.toLowerCase()) : [searchText.toLowerCase()];
-      return searchTerms.some(term => text.includes(term));
-    }
-    return false;
-  },
   MaxTags: (maxTags: number) => (post: AppBskyFeedDefs.PostView): boolean => {
     if (post.record && typeof post.record === 'object' && 'text' in post.record) {
       const text = (post.record as { text: string }).text;
@@ -68,4 +50,4 @@ export function applyFilters(post: AppBskyFeedDefs.PostView, filters?: PostFilte
     }
   }
   return false;
-} 
+}

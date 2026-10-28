@@ -8,25 +8,10 @@ import {
 import { isRecord } from "@/src/lib/postActions";
 import { getPost } from "@/src/lib/utils/postUrls";
 import { currentUrl } from "@/src/lib/messaging";
-
-function normalizeUrl(url: string): string {
-	try {
-		const parsed = new URL(url);
-		// Remove www.
-		const hostname = parsed.hostname.replace(/^www\./, "");
-		// Reconstruct without www and trailing slash
-		return `${parsed.protocol}//${hostname}${parsed.pathname.replace(/\/$/, "")}${parsed.search}${parsed.hash}`.toLowerCase();
-	} catch {
-		return url.toLowerCase();
-	}
-}
+import { sameArticle } from "@/src/lib/annotations/anchors";
 
 interface Props {
 	post: AppBskyFeedDefs.PostView;
-}
-
-function getHandle(mention: string) {
-	return mention.slice(1);
 }
 
 export function PostText(props: Props) {
@@ -51,10 +36,10 @@ export function PostText(props: Props) {
 					<>
 						{feature.did && (
 							<a
-								className="text-blue-500 hover:text-blue-500 hover:underline break-after-auto"
+								className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline dark:underline break-after-auto"
 								target="_blank"
 								rel="noopener noreferrer"
-								href={`https://bsky.app/profile/${getHandle(segment.text)}`}
+								href={`https://bsky.app/profile/${encodeURIComponent(feature.did)}`}
 								onClick={(e: MouseEvent) => e.stopPropagation()}
 							>
 								{segment.text}
@@ -65,7 +50,7 @@ export function PostText(props: Props) {
 			});
 		} else if (feature && feature.$type === "app.bsky.richtext.facet#link") {
 			const url = feature.uri;
-			if (url && normalizeUrl(url) === normalizeUrl(currentUrl.value)) {
+			if (url && sameArticle(url, currentUrl.value)) {
 				const postUrl = getPost(post.uri);
 				content.push({
 					text: "",
@@ -74,7 +59,9 @@ export function PostText(props: Props) {
 							href={postUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-blue-400 hover:text-blue-500 hover:underline text-xs"
+							aria-label="Open post on Bluesky"
+							title="Open post on Bluesky"
+							className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline text-xs"
 							onClick={(e: MouseEvent) => e.stopPropagation()}
 						>
 							[↗]
@@ -87,7 +74,7 @@ export function PostText(props: Props) {
 				text: segment.text,
 				component: (
 					<a
-						className="text-blue-500 hover:text-blue-500 hover:underline break-all"
+						className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline dark:underline break-all"
 						href={feature.uri}
 						target="_blank"
 						rel="noopener noreferrer"
@@ -106,7 +93,7 @@ export function PostText(props: Props) {
 						href={`https://bsky.app/hashtag/${encodedTag}`}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="text-blue-500 hover:text-blue-500 hover:underline"
+						className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline dark:underline"
 						onClick={(e: MouseEvent) => e.stopPropagation()}
 					>
 						{segment.text}
@@ -114,16 +101,6 @@ export function PostText(props: Props) {
 				),
 			});
 		} else {
-			if (
-				currentUrl.value &&
-				segment.text.includes(normalizeUrl(currentUrl.value))
-			) {
-				segment.text = segment.text.replace(
-					normalizeUrl(currentUrl.value),
-					"↗",
-				);
-			}
-
 			content.push({
 				text: segment.text,
 				component: <span>{segment.text}</span>,
@@ -144,7 +121,7 @@ export function PostText(props: Props) {
 					{tags.map((tag: string) => (
 						<span
 							key={tag}
-							className="text-blue-500 hover:text-blue-500 hover:underline text-sm"
+							className="text-blue-600 dark:text-blue-400 text-sm"
 						>
 							#{tag}
 						</span>

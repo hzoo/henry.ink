@@ -32,4 +32,7 @@ dist-npm
 .dev.vars
 
 channels.db*
+trails.db*
+archive-snapshots.db*
 .wrangler
+test-results/

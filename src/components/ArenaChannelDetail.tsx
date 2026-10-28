@@ -1,73 +1,49 @@
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { arenaQueryKeys, formatRelativeTime } from "@/src/lib/arena-api";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { arenaQueryKeys, fetchChannelBlocks, formatRelativeTime } from "@/src/lib/arena-api";
 import { navigateToChannelList } from "@/src/lib/arena-navigation";
-import type { ArenaMatch, ArenaBlock } from "@/src/lib/arena-types";
-import type { ArenaChannelBlocksResponse } from "@/api/arena/routes";
+import type { ArenaMatch, ArenaBlock, ArenaChannelWithBlocks } from "@/src/lib/arena-types";
 import { ArenaBlockItem } from "./ArenaChannelItem";
 import { useEffect, useRef } from "preact/hooks";
+import { BlockViewerOverlay } from "@/src/components/BlockViewerOverlay";
+import { ErrorMessage } from "@/src/components/ErrorMessage";
+import { LoadingItemList } from "@/src/components/LoadingItem";
 
 interface ArenaChannelDetailProps {
-  channel: ArenaMatch;
+  channelSlug: string;
 }
 
-export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
+export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  const initialData = queryClient.getQueryData(arenaQueryKeys.blocks(channel.slug, 24, 1));
+  const initialData = queryClient.getQueryData<ArenaChannelWithBlocks>(arenaQueryKeys.blocks(channelSlug, 24, 1));
 
   const {
     data,
     isLoading,
     error,
+    refetch,
     fetchNextPage,
     hasNextPage,
-    isFetchingNextPage
-  } = useInfiniteQuery<ArenaChannelBlocksResponse, Error>({
-    queryKey: arenaQueryKeys.blocks(channel.slug),
+    isFetchingNextPage,
+    isFetchNextPageError,
+    isFetching,
+  } = useInfiniteQuery<ArenaChannelWithBlocks, Error>({
+    queryKey: arenaQueryKeys.blocks(channelSlug),
     initialPageParam: 1,
     initialData: initialData ? {
-      pages: [initialData as ArenaChannelBlocksResponse],
+      pages: [initialData],
       pageParams: [1]
     } : undefined,
+    initialDataUpdatedAt: queryClient.getQueryState(arenaQueryKeys.blocks(channelSlug, 24, 1))?.dataUpdatedAt,
     persister: undefined, // Disable persistence for infinite queries
-    queryFn: async ({ pageParam = 1 }) => {
-      const apiUrl = import.meta.env.VITE_ARENA_API_URL || 'http://localhost:3000';
-      
-      const response = await fetch(`${apiUrl}/api/arena/channel-blocks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          slug: channel.slug, 
-          per: 24,
-          page: pageParam 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Arena service returned ${response.status}`);
-      }
-
-      const result = await response.json() as ArenaChannelBlocksResponse;
-      
-      if (!result || typeof result !== 'object') {
-        return { blocks: [] };
-      }
-      
-      if (result.error) {
-        throw new Error(result.message || result.error);
-      }
-      
-      if (!result.blocks || !Array.isArray(result.blocks)) {
-        return { ...result, blocks: [] };
-      }
-
+    queryFn: async ({ pageParam = 1, signal }) => {
+      const result = await fetchChannelBlocks(channelSlug, 24, pageParam as number, signal);
+      if (!result) throw new Error('Channel not found');
       return result;
     },
     getNextPageParam: (lastPage, allPages, lastPageParam) => {
-      if (!lastPage?.blocks || lastPage.blocks.length < 24) {
+      if (!lastPage?.blocks || lastPage.blocks.length < 24 || (lastPageParam as number) * 24 >= lastPage.length) {
         return undefined;
       }
       return (lastPageParam as number) + 1;
@@ -77,10 +53,22 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
     retry: 1,
   });
 
-  const blocks = data?.pages?.flatMap((page: ArenaChannelBlocksResponse) => page?.blocks || []) || [];
+  const channelData = data?.pages[0];
+  const channel: ArenaMatch | undefined = channelData ? {
+    slug: channelSlug,
+    title: channelData.title,
+    url: `https://are.na/channels/${channelSlug}`,
+    author_name: channelData.user.name,
+    author_slug: channelData.user.slug,
+    contents_count: channelData.length,
+    updated_at: channelData.updated_at,
+    matchedText: '',
+    context: '',
+  } : undefined;
+  const blocks = data?.pages.flatMap(page => page.blocks) || [];
 
   useEffect(() => {
-    if (!loadMoreRef.current || !hasNextPage) return;
+    if (!loadMoreRef.current || !hasNextPage || error) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -93,10 +81,21 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
 
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, error]);
+
+  if (isLoading) return <LoadingItemList />;
+  if (!channel) return (
+    <div className="p-4">
+      <ErrorMessage message={error?.message || 'Channel not found'} />
+      <button onClick={navigateToChannelList} className="mt-4 min-h-10 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+        ← Back to channels
+      </button>
+    </div>
+  );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-w-0 flex-col h-full">
+      <BlockViewerOverlay channel={channel} blocks={blocks} />
       {/* Header with back button */}
       <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-3 z-10">
         <button
@@ -110,7 +109,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
         </button>
         
         <div>
-          <h2 className="text-lg font-semibold">
+          <h2 className="break-words text-lg font-semibold">
             <a 
               href={channel.url}
               target="_blank"
@@ -123,8 +122,8 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
               </svg>
             </a>
           </h2>
-          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <span>
+          <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <span className="min-w-0 max-w-full break-words">
               by{' '}
               {channel.author_slug ? (
                 <a
@@ -153,20 +152,7 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
 
       {/* Blocks grid */}
       <div className="flex-1 overflow-y-auto p-3">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-green-500 rounded-full animate-spin" />
-            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-              Loading blocks...
-            </span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {error.message?.includes("404") ? "Channel not accessible" : "Failed to load blocks"}
-            </div>
-          </div>
-        ) : blocks.length === 0 ? (
+        {blocks.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               No blocks in this channel
@@ -181,6 +167,13 @@ export function ArenaChannelDetail({ channel }: ArenaChannelDetailProps) {
             ))}
           </div>
         )}
+
+        {error && <div role="alert" className="py-4 text-center text-sm text-gray-600 dark:text-gray-400">
+          <p>{isFetchNextPageError ? 'More blocks could not be loaded.' : 'Channel could not be refreshed.'}</p>
+          <button type="button" disabled={isFetching}
+            onClick={() => { void (isFetchNextPageError ? fetchNextPage() : refetch()); }}
+            className="mt-1 min-h-10 rounded px-3 underline focus-visible:outline-2 focus-visible:outline-green-600 disabled:opacity-50">Try again</button>
+        </div>}
 
         {/* Infinite scroll trigger and loading indicator */}
         <div 

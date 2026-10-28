@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import preact from "@preact/preset-vite";
 import svgr from "vite-plugin-svgr";
+import { validateApiEnv } from '../scripts/api-env-plugin';
 import {
 	injectOauthEnv,
 	SERVER_HOST,
@@ -16,7 +17,7 @@ export default defineConfig({
 		outDir: "dist",
 		emptyOutDir: true,
 	},
-	plugins: [preact(), tailwindcss(), svgr(), injectOauthEnv()], // defaults to 'annotation-demo'
+	plugins: [preact(), tailwindcss(), svgr(), injectOauthEnv(), validateApiEnv()], // defaults to 'annotation-demo'
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "../"),

@@ -3,12 +3,8 @@
  * Main orchestration for enhancing content with Arena channel links
  */
 
-import type { ChannelStorage } from './channel-storage.ts';
-import type { ChannelPatternMatcher, MatchResult } from './pattern-matcher.ts';
-
-export interface EnhancementOptions {
-  maxLinksPerChannel?: number;
-}
+import type { ChannelStorage } from '@/api/arena/channel-storage';
+import type { ChannelPatternMatcher, MatchResult } from '@/api/arena/pattern-matcher';
 
 export interface EnhancementResult {
   matches: MatchResult[];
@@ -18,7 +14,7 @@ export interface EnhancementResult {
 export class LinkEnhancer {
   private storage: ChannelStorage;
   private matcher: ChannelPatternMatcher;
-  private isInitialized = false;
+  private patternVersion?: string;
 
   constructor(
     storage: ChannelStorage,
@@ -32,90 +28,31 @@ export class LinkEnhancer {
    * Initialize the enhancer by building pattern matcher
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-    
-    // Get patterns from storage and build matcher
-    const patterns = this.storage.getChannelPatterns();
-    this.matcher.buildFromPatterns(patterns, this.storage.normalizeForMatching.bind(this.storage));
-    
-    this.isInitialized = true;
+    await this.refreshPatterns();
   }
 
   /**
-   * Force refresh patterns from database (invalidate cache)
+   * Refresh only when stored channel data has changed.
    */
   async refreshPatterns(): Promise<void> {
-    // Get fresh patterns from storage and rebuild matcher
+    const version = this.storage.getPatternVersion();
+    if (version === this.patternVersion) return;
     const patterns = this.storage.getChannelPatterns();
     this.matcher.buildFromPatterns(patterns, this.storage.normalizeForMatching.bind(this.storage));
-    // console.log(`✅ Refreshed ${patterns.length} channel patterns`);
+    this.patternVersion = version;
   }
 
   /**
    * Enhance content directly
    */
-  async findChannelMatches(content: string, options: EnhancementOptions = {}): Promise<EnhancementResult> {
+  async findChannelMatches(content: string): Promise<EnhancementResult> {
     await this.initialize();
 
     // Find all channel matches in content
     const matches = this.matcher.findMatches(content, this.storage.normalizeForMatching.bind(this.storage));
-    // Filter matches based on options
-    const filteredMatches = this.filterMatches(matches, options);
-
-    return {
-      matches: filteredMatches,
-    };
-  }
-
-  /**
-   * Filter matches based on options and quality
-   */
-  private filterMatches(matches: MatchResult[], options: EnhancementOptions): MatchResult[] {
-    const { maxLinksPerChannel = 1 } = options;
-
-    // Sort matches by position (reading order) and content count (quality)
-    const sortedMatches = matches
-      .sort((a, b) => {
-        // Earlier in text first (reading order)
-        const positionDiff = a.bestMatch.position - b.bestMatch.position;
-        if (positionDiff !== 0) return positionDiff;
-        
-        // If same position, prefer higher quality
-        return b.contents_count - a.contents_count;
-      });
-
-    // Filter to only include best matches per channel
-    const filteredMatches: MatchResult[] = [];
-    const channelCounts = new Map<string, number>();
-
-    for (const match of sortedMatches) {
-      const currentCount = channelCounts.get(match.slug) || 0;
-      if (currentCount >= maxLinksPerChannel) {
-        continue;
-      }
-
-      // Verify channel exists in storage
-      const channel = this.storage.getChannelBySlug(match.slug);
-      if (!channel) {
-        continue;
-      }
-
-      filteredMatches.push(match);
-      channelCounts.set(match.slug, currentCount + 1);
-    }
-
-    return filteredMatches;
-  }
-
-
-
-
-
-  /**
-   * Preview matches without applying enhancements
-   */
-  async previewMatches(content: string): Promise<MatchResult[]> {
-    await this.initialize();
-    return this.matcher.findMatches(content, this.storage.normalizeForMatching.bind(this.storage));
+    // The matcher already selects one result per channel; show them in reading order.
+    matches.sort((a, b) => a.bestMatch.position - b.bestMatch.position
+      || b.contents_count - a.contents_count);
+    return { matches };
   }
 }

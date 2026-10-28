@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
 import { repostPost, deleteRepost } from "@/src/lib/postActions";
-import { getRootPostUri } from "@/src/lib/threadUtils";
+import { updatePostActionCache } from "@/src/lib/queryClient";
 
 interface UseRepostProps {
 	post: AppBskyFeedDefs.PostView;
@@ -44,6 +44,7 @@ export function useRepost({ post, options }: UseRepostProps) {
 				setRepostUri(undefined);
 				try {
 					await deleteRepost(previousRepostUri, currentState as AtCuteState);
+					updatePostActionCache(queryClient, currentState.session.info.sub, post.uri, 'repost');
 					return {};
 				} catch (err) {
 					setReposted(true); // Revert optimistic update
@@ -55,6 +56,7 @@ export function useRepost({ post, options }: UseRepostProps) {
 				setReposted(true);
 				try {
 					const result = await repostPost(post, currentState as AtCuteState);
+					updatePostActionCache(queryClient, currentState.session.info.sub, post.uri, 'repost', result);
 					setRepostUri(result);
 					return { uri: result };
 				} catch (err) {
@@ -63,11 +65,6 @@ export function useRepost({ post, options }: UseRepostProps) {
 					throw err;
 				}
 			}
-		},
-		onSettled: () => {
-			const rootUri = getRootPostUri(post);
-			queryClient.invalidateQueries({ queryKey: ["thread", rootUri] });
-			queryClient.refetchQueries({ queryKey: ["thread", rootUri] });
 		},
 		onError: (error: Error) => {
 			options?.onError?.(error);
