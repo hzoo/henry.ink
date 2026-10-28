@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { RefObject, ComponentChildren } from "preact";
+import type { ComponentChildren } from "preact";
 import { contentStateSignal } from "@/henry-ink/signals";
 import { currentUrl } from "@/src/lib/messaging";
 import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
@@ -14,8 +14,6 @@ import { observeSourceFragment } from '@/henry-ink/reader/fragments';
 
 interface ArenaEnhancedContentProps {
   htmlContent: string;
-  contentRef: RefObject<HTMLDivElement>;
-  mode: 'md' | 'archive';
   renderContent?: (html: string, matches: ArenaMatch[]) => ComponentChildren;
 }
 
@@ -25,14 +23,13 @@ const EMPTY_MATCHES: ArenaMatch[] = [];
  * Component that enhances HTML content with Arena channel links
  * Uses text matching instead of positions for accuracy
  */
-export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderContent }: ArenaEnhancedContentProps) {
+export function ArenaEnhancedContent({ htmlContent, renderContent }: ArenaEnhancedContentProps) {
   const contentState = contentStateSignal.value;
   const url = currentUrl.value;
   const textRoot = useSignal<HTMLDivElement | null>(null);
   const setTextRoot = useCallback((root: HTMLDivElement | null) => {
-    contentRef.current = root;
     textRoot.value = root;
-  }, [contentRef]);
+  }, [textRoot]);
 
   // Use shared query with URL-based key (much smaller than content)
   const { data: arenaMatches = EMPTY_MATCHES } = useQuery({
@@ -55,7 +52,7 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderCont
 
   // Add click handlers for arena channel links
   useEffect(() => {
-    const element = contentRef.current;
+    const element = textRoot.value;
     if (!element) return;
 
     const handleChannelClick = (event: Event) => {
@@ -72,13 +69,12 @@ export function ArenaEnhancedContent({ htmlContent, contentRef, mode, renderCont
     return () => controller.abort();
   }, [textRoot.value]);
 
-  // Both modes now use regular rendering - CSS isolation handled at parent level
   if (renderContent) return <>{renderContent(htmlContent, arenaMatches)}</>;
   return (
     <>
     <div
       ref={setTextRoot}
-      className={mode === 'archive' ? 'max-w-none' : 'prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words'}
+      className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
       dangerouslySetInnerHTML={{ __html: htmlContent }}
     />
