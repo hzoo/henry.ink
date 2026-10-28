@@ -115,10 +115,10 @@ export function ProfilePage() {
 						{/* Posts Section */}
 						<div className="mb-3 sm:mb-4">
 							<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-								Annotations
-								<span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+								Annotations in recent activity
+								{feedQuery.data && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
 									({filteredPosts.length} posts)
-								</span>
+								</span>}
 							</h2>
 						</div>
 
@@ -135,10 +135,7 @@ export function ProfilePage() {
 							</div>
 						) : feedQuery.data && (
 							<div className="text-center p-8 text-gray-500 dark:text-gray-400">
-								<p className="text-lg mb-2">No posts with links + quotes found</p>
-								<p className="text-sm">
-									This user hasn't posted any content that combines both links and quotes yet.
-								</p>
+								<p className="text-lg">No annotations found in recent activity.</p>
 							</div>
 						)}
 

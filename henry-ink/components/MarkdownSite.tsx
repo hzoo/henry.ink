@@ -64,7 +64,6 @@ function OpenPageForm() {
 export function MarkdownSite() {
 	const contentState = contentStateSignal.value;
 	const contentMode = contentModeSignal.value;
-	const contentRef = useRef<HTMLDivElement>(null);
 	const renderedHtml = useRef<{ source: string; doc: Document; html: string } | null>(null);
 	const videoId = contentMode === 'embed' ? extractYouTubeVideoId(currentUrl.value) : null;
 	const embedContent = contentState.type === 'success' && contentState.url === currentUrl.value ? contentState.embed : undefined;
@@ -96,8 +95,6 @@ export function MarkdownSite() {
 						{contentMode === 'archive' && contentState.html ? (
 									<ArenaEnhancedContent
 										htmlContent={contentState.html}
-										contentRef={contentRef}
-										mode="archive"
 										renderContent={(html, arenaMatches) => <ArchiveDocument key={contentState.url} html={html} css={contentState.css || ''} arenaMatches={arenaMatches}
 											article={contentState}
 											documentMode={readerDocumentMode(contentState.html || '')}
@@ -107,8 +104,6 @@ export function MarkdownSite() {
 						) : (
 							<ArenaEnhancedContent
 									htmlContent={prepareReadableHtml(contentState.html || '')}
-								contentRef={contentRef}
-								mode="md"
 							/>
 						)}
 					</div>
