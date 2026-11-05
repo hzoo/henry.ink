@@ -223,7 +223,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
     };
 
     // Process img[src] attributes
-    images.forEach((img: Element, index: number) => {
+    images.forEach((img: Element) => {
       const src = img.getAttribute('src');
       // console.log(`🖼️ img[${index + 1}]: ${src}`);
 
@@ -234,7 +234,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
     });
 
     // Process source[srcset] attributes
-    sources.forEach((source: Element, index: number) => {
+    sources.forEach((source: Element) => {
       const srcset = source.getAttribute('srcset');
       // console.log(`🖼️ source[${index + 1}] srcset: ${srcset}`);
 

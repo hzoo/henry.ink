@@ -62,7 +62,7 @@ export class ChannelStorage {
     try {
       this.db.exec(`ALTER TABLE channels ADD COLUMN author_slug TEXT`);
       console.log('✅ Added author_slug column to existing database');
-    } catch (error) {
+    } catch {
       // Column already exists, ignore error
     }
 

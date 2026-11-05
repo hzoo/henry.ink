@@ -81,7 +81,7 @@ browser.runtime.onMessage.addListener(
 			type: "PING_SIDEPANEL";
 			from: "content";
 		},
-		sender: any,
+		_sender: any,
 		sendResponse: (response?: object) => void,
 	) => {
 		if (message.type === "PING_SIDEPANEL") {

@@ -122,7 +122,7 @@ export const useAtCute = () => {
 						} else {
 							localStorage.removeItem("atcute-oauth:did");
 						}
-					} catch (error) {
+					} catch {
 						if (isMounted) localStorage.removeItem("atcute-oauth:did");
 					}
 				}

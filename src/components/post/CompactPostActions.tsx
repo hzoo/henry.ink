@@ -110,7 +110,7 @@ function PostActions({ post }: CompactPostActionsProps) {
 	const handleSubmitReply = async (text: string) => {
 		try {
 			await replyMutation.mutateAsync({ text });
-		} catch (error) {
+		} catch {
 			// error is handled by replyMutation.error and displayed in ReplyInput
 		}
 	};

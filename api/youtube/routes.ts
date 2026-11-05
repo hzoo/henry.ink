@@ -147,7 +147,7 @@ class YoutubeTranscript {
 
   private async processTranscriptFromCaptions(
     captions: any,
-    videoId: string,
+    _videoId: string,
     config?: { lang?: string }
   ): Promise<TranscriptResponse[]> {
     if (!captions) {

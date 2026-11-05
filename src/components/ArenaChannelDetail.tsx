@@ -49,7 +49,7 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
       if (!result) throw new Error('Channel not found');
       return result;
     },
-    getNextPageParam: (lastPage, allPages, lastPageParam) => {
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       if (!lastPage?.blocks || lastPage.blocks.length < 24 || (lastPageParam as number) * 24 >= lastPage.length) {
         return undefined;
       }

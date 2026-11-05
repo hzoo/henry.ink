@@ -40,7 +40,7 @@ function toNiceDomain(url: string): string {
 	try {
 		const urlp = new URL(url);
 		return urlp.host ? urlp.host.replace(/^www\./, "") : url;
-	} catch (e) {
+	} catch {
 		return url; // Return original URL if parsing fails
 	}
 }

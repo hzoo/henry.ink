@@ -518,7 +518,6 @@ export function FileView({ navigator, displayItems, filters }: FileViewProps) {
 						{threadPath.value.map((post) => {
 							const isActiveNode = post.uri === navigator.cursor.value;
 							const node = navigator.getNode(post.uri);
-							const isLeaf = node && node.childUris.length === 0;
 
 							return (
 								<div
