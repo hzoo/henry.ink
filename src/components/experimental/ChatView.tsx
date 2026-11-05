@@ -2,7 +2,7 @@ import {
 	useSignal,
 	useComputed,
 	useSignalEffect,
-} from "@preact/signals-react/runtime";
+} from "@preact/signals";
 import { useRef, useState, useEffect } from "react";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { PostText } from "@/src/components/post/PostText";

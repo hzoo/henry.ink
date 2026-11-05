@@ -1,4 +1,4 @@
-import { useSignal, useComputed } from "@preact/signals-react/runtime";
+import { useSignal, useComputed } from "@preact/signals";
 import { FullPost } from "@/src/components/post/FullPost";
 import type { DisplayableItem } from "@/src/components/post/FullPost";
 import { Icon } from "@/src/components/Icon";

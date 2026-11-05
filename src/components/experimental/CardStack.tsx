@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import { useComputed } from "@preact/signals";
 import { useEffect, useRef } from "react";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";

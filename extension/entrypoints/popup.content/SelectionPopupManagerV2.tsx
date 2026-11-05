@@ -1,5 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
-import { batch } from "@preact/signals-core";
+import { batch, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import type { RefObject } from "preact";
 import MultiButtonSelectionPopup, { type PopupAction } from "./MultiButtonSelectionPopup";

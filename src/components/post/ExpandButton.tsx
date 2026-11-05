@@ -1,4 +1,4 @@
-import type { Signal } from "@preact/signals-core";
+import type { Signal } from "@preact/signals";
 import { Icon } from "@/src/components/Icon";
 
 interface ExpandButtonProps {

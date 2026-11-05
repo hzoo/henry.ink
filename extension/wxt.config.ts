@@ -4,14 +4,14 @@ import preact from "@preact/preset-vite";
 import svgr from "vite-plugin-svgr";
 import { version } from "./package.json";
 import { injectOauthEnvForExtension } from "../scripts/inject-oauth-plugin";
-import { resolve } from "node:path";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
-	alias: {
-		"@": resolve(__dirname, "..")
-	},
-	entrypointsDir: "./entrypoints",
+	// WXT always maps "@" to srcDir, so srcDir is the repo root to share
+	// "@/src/..." with henry.ink. Entrypoints and public stay in extension/.
+	srcDir: "..",
+	entrypointsDir: "extension/entrypoints",
+	publicDir: "extension/public",
 	manifest: (env) => ({
 		name: "Bluesky Sidebar",
 		description: "See what people are saying about the site you're on",

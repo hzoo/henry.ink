@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useQuery } from "@tanstack/react-query";
 

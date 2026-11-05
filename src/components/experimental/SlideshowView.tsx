@@ -2,7 +2,7 @@ import {
 	useSignal,
 	useComputed,
 	useSignalEffect,
-} from "@preact/signals-react/runtime";
+} from "@preact/signals";
 import { useEffect, useRef } from "react";
 import { PostText } from "@/src/components/post/PostText";
 import { PostEmbed } from "@/src/components/post/PostEmbed";
