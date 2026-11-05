@@ -66,7 +66,6 @@ export function MarkdownSite() {
 	const contentMode = contentModeSignal.value;
 	const renderedHtml = useRef<{ source: string; doc: Document; html: string } | null>(null);
 	const videoId = contentMode === 'embed' ? extractYouTubeVideoId(currentUrl.value) : null;
-	const embedContent = contentState.type === 'success' && contentState.url === currentUrl.value ? contentState.embed : undefined;
 	const prepareReadableHtml = (source: string) => {
 		const cached = renderedHtml.current;
 		if (cached?.source === source && cached.doc === document) return cached.html;
@@ -84,7 +83,7 @@ export function MarkdownSite() {
 		<div className="flex-1 h-full min-h-0 flex flex-col min-w-0">
 			{!videoId && contentState.type === 'loading' && <ReaderLoading key={`${currentUrl.value}:${contentMode}:${contentRevision.value}`} label={contentState.message} />}
 			{!videoId && contentState.type === 'error' && <ReaderError message={contentState.message} source={currentUrl.value} onRetry={() => contentRevision.value++} />}
-			{videoId && <YouTubePlayer key={videoId} videoId={videoId} title={embedContent?.title} />}
+			{videoId && <YouTubePlayer key={videoId} videoId={videoId} />}
 
 			{!videoId && contentState.type === "success" && contentState.url === currentUrl.value && contentState.mode === contentMode && (
 				<>
@@ -118,16 +117,16 @@ export function MarkdownSite() {
 							alt="Henry's Note"
 							className="w-20 h-20 mx-auto mb-6 object-contain dark:filter dark:invert"
 						/>
-						<h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+						<h1 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
 							Henry's Note
-						</h2>
+						</h1>
 						<p className="text-gray-600 dark:text-gray-400 mb-8">
 							A social annotation layer for the web
 						</p>
 
 						<OpenPageForm />
 						<nav aria-label="Example articles" className="mb-7 text-left">
-							<h3 className="mb-2 text-xs text-gray-500 dark:text-gray-400">Or try an article</h3>
+							<h2 className="mb-2 text-xs text-gray-500 dark:text-gray-400">Or try an article</h2>
 							{examples.map(example => <a key={example.url} href={example.url}
 								className="flex min-h-11 items-center justify-between gap-3 rounded-md py-2 text-sm text-gray-700 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
 								<span>{example.title}</span><span className="shrink-0 text-xs text-gray-600 dark:text-gray-400 max-sm:hidden">{example.domain}</span>

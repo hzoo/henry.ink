@@ -6,7 +6,7 @@ import type { AtCuteState } from '@/demo/lib/oauth';
 import { submitReply, unlikePost, deleteRepost } from '@/src/lib/postActions';
 import { appPersister, updatePostActionCache } from '@/src/lib/queryClient';
 
-test('rejected writes reach draft error handling and optimistic rollback', async () => {
+test('reply, unlike, and repost deletion propagate rejected writes', async () => {
   const state = {
     agent: {}, session: { info: { sub: 'did:plc:test' } },
     rpc: new Client({ handler: async () => Response.json({ error: 'InvalidRecord' }, { status: 400 }) }),
