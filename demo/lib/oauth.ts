@@ -1,39 +1,35 @@
 import { signal } from "@preact/signals";
 import { Client } from "@atcute/client";
-import {
-	configureOAuth,
-	createAuthorizationUrl,
-	finalizeAuthorization,
-	getSession,
-	deleteStoredSession,
-	OAuthUserAgent,
-	resolveFromService,
-} from "@atcute/oauth-browser-client";
+import type { OAuthUserAgent, Session } from "@atcute/oauth-browser-client";
 import { useEffect } from "preact/hooks";
 import { oauthCallbackParams } from '@/src/lib/oauth-callback';
 
 const isBrowserExtension =
 	typeof browser !== "undefined" && !!browser.runtime?.id;
 
-let isOAuthInitialized = false;
-
-export function initializeOAuth() {
-	if (typeof window !== "undefined" && !isOAuthInitialized) {
-		configureOAuth({
+// Signed-out readers never need the OAuth client, so it loads only for a
+// stored session, an OAuth callback, sign-in, or sign-out.
+let oauthModule: Promise<typeof import("@atcute/oauth-browser-client")> | undefined;
+function loadOAuth() {
+	oauthModule ??= import("@atcute/oauth-browser-client").then((oauth) => {
+		oauth.configureOAuth({
 			metadata: {
 				client_id: import.meta.env.VITE_OAUTH_CLIENT_ID,
 				redirect_uri: import.meta.env.VITE_OAUTH_REDIRECT_URI,
 			},
 		});
-		isOAuthInitialized = true;
-	}
+		return oauth;
+	}, (error) => {
+		oauthModule = undefined;
+		throw error;
+	});
+	return oauthModule;
 }
 
-type AtCuteSessionData = Awaited<ReturnType<typeof finalizeAuthorization>>;
 export interface AtCuteState {
 	agent: OAuthUserAgent;
 	rpc: Client;
-	session: AtCuteSessionData;
+	session: Session;
 }
 
 export const atCuteState = signal<AtCuteState | null>(null);
@@ -78,13 +74,12 @@ export const useAtCute = () => {
 		let isMounted = true;
 
 		const loadSession = async () => {
-			initializeOAuth();
-
 			const params = oauthCallbackParams(new URL(window.location.href), import.meta.env.VITE_OAUTH_REDIRECT_URI);
 			if (params) {
 				try {
 					history.replaceState(null, "", location.pathname);
 					
+					const { finalizeAuthorization, OAuthUserAgent } = await loadOAuth();
 					const session = await finalizeAuthorization(params);
 					const agent = new OAuthUserAgent(session);
 					const rpc = new Client({ handler: agent });
@@ -109,6 +104,7 @@ export const useAtCute = () => {
 				const persistedDid = localStorage.getItem("atcute-oauth:did");
 				if (persistedDid) {
 					try {
+						const { getSession, OAuthUserAgent } = await loadOAuth();
 						const session = await getSession(
 							persistedDid as `did:${string}:${string}`,
 							{ allowStale: false }
@@ -144,8 +140,8 @@ export const useAtCute = () => {
 // Start login process - always generic
 export const startLoginProcess = async () => {
 	try {
-		initializeOAuth();
-		
+		const { createAuthorizationUrl, finalizeAuthorization, OAuthUserAgent, resolveFromService } = await loadOAuth();
+
 		// Store current URL if not on home page
 		if (window.location.pathname !== '/') {
 			storeReturnUrl(window.location.href);
@@ -213,7 +209,7 @@ export const logout = async () => {
 	// Clean up stored session (optional, for completeness)
 	if (did) {
 		try {
-			deleteStoredSession(did);
+			(await loadOAuth()).deleteStoredSession(did);
 		} catch {}
 	}
 	
