@@ -8,6 +8,9 @@ import type {
 } from "@atcute/lexicons";
 import { extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
 
+// Same default as the API base: a build without .env must still search.
+const searchWorkerUrl = import.meta.env.VITE_WORKER_URL || "https://bsky-search.henry.ink";
+
 const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
 });
@@ -85,7 +88,7 @@ export async function searchBskyPosts(
 
 		if (!client) {
 			// Use the worker for search, it handles caching and auth forwarding
-			const workerUrl = `${import.meta.env.VITE_WORKER_URL}?url=${encodeURIComponent(url)}`;
+			const workerUrl = `${searchWorkerUrl}?url=${encodeURIComponent(url)}`;
 			const res = await fetch(workerUrl, {
 				method: "GET",
 				signal: options?.signal,
