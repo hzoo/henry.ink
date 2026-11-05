@@ -117,3 +117,17 @@ test('external SQLite writes refresh matcher metadata and remove deleted matches
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('match positions and text come from the original content', async () => {
+  const storage = new ChannelStorage(':memory:');
+  const enhancer = new LinkEnhancer(storage, new ChannelPatternMatcher());
+  try {
+    await storage.storeChannels([channel()]);
+    const content = '\n    Notes on storage TEST here';
+    const [match] = (await enhancer.findChannelMatches(content)).matches;
+    expect(match.bestMatch.matchedText).toBe('storage TEST');
+    expect(content.slice(match.bestMatch.position, match.bestMatch.endPosition + 1)).toBe('storage TEST');
+  } finally {
+    storage.close();
+  }
+});
