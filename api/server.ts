@@ -22,6 +22,8 @@ const PORT = parseInt(process.env.API_PORT || '3000');
 const server = serve({
   hostname: "127.0.0.1",
   port: PORT,
+  // Every POST body is small JSON; the largest is article text for Arena matching.
+  maxRequestBodySize: 4 * 1024 * 1024,
   
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);

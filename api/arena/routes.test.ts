@@ -164,3 +164,11 @@ test('channel blocks without a local channel do not make an author lookup reques
   expect((await routes.channelBlocksRoute(request({ slug: 'channel-9' }))).status).toBe(200);
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+test('enhance rejects non-string and oversized content without matching', async () => {
+  const matches = spyOn(ChannelPatternMatcher.prototype, 'findMatches');
+  restorers.push(matches);
+  expect((await routes.enhanceRoute(request({ content: 42, url: 'https://example.com' }))).status).toBe(400);
+  expect((await routes.enhanceRoute(request({ content: 'a'.repeat(1_000_001), url: 'https://example.com' }))).status).toBe(413);
+  expect(matches).not.toHaveBeenCalled();
+});
