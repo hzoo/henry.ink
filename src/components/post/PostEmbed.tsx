@@ -1,12 +1,8 @@
-import {
-	type AppBskyFeedDefs,
-	AppBskyEmbedImages,
-	AppBskyEmbedRecord,
+import type {
 	AppBskyEmbedExternal,
-	AppBskyEmbedRecordWithMedia,
-	AppBskyEmbedVideo,
+	AppBskyEmbedImages,
+	AppBskyFeedDefs,
 } from "@atcute/bluesky";
-import { is } from "@atcute/lexicons";
 import { getPost } from "@/src/lib/utils/postUrls";
 import { currentUrl } from "@/src/lib/messaging";
 import { sameArticle } from "@/src/lib/annotations/anchors";
@@ -52,7 +48,7 @@ function toNiceDomain(url: string): string {
 // External Link Embed Component
 function ExternalEmbed({
 	content,
-}: { content: import("@atcute/bluesky").AppBskyEmbedExternal.View }) {
+}: { content: AppBskyEmbedExternal.View }) {
 	// For now, we won't implement labelInfo from the example.
 
 	if (
@@ -96,81 +92,53 @@ function ExternalEmbed({
 	);
 }
 
+// AppView embeds always carry $type. Switching on it keeps lexicon schemas out
+// of the bundle and avoids deep-validating every embed on each render.
 export function PostEmbed({ post }: { post: AppBskyFeedDefs.PostView }) {
-	const { embed } = post; // Destructure for convenience
+	const { embed } = post;
 	if (!embed) return null;
 
-	// Case 1: Image Embed
-	if (is(AppBskyEmbedImages.viewSchema, embed)) {
-		return <ImageEmbed content={embed} />;
-	}
-
-	// Case 2: External link Embed
-	if (is(AppBskyEmbedExternal.viewSchema, embed)) {
-		return <ExternalEmbed content={embed} />;
-	}
-
-	// Case 3: Record Embed (Quote post, etc.)
-	if (is(AppBskyEmbedRecord.viewSchema, embed)) {
-		const { record } = embed;
-
-		// Sub-case: Standard Record (e.g. a post)
-		if (is(AppBskyEmbedRecord.viewRecordSchema, record)) {
-			// Use the new EmbeddedRecordView component to render the quoted post
-			return <EmbeddedRecordView record={record} />;
+	switch (embed.$type) {
+		case "app.bsky.embed.images#view":
+			return <ImageEmbed content={embed} />;
+		case "app.bsky.embed.external#view":
+			return <ExternalEmbed content={embed} />;
+		case "app.bsky.embed.record#view": {
+			const { record } = embed;
+			switch (record.$type) {
+				case "app.bsky.embed.record#viewRecord":
+					return <EmbeddedRecordView record={record} />;
+				case "app.bsky.embed.record#viewNotFound":
+					return <Info>Quoted post not found, it may have been deleted.</Info>;
+				case "app.bsky.embed.record#viewBlocked":
+					return <Info>The quoted post is blocked.</Info>;
+			}
+			// Lists, feeds and other records link out until they have a view.
+			return (
+				<a
+					href={getPost(record.uri)}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="mt-2 block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline p-2 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800"
+				>
+					View Record
+				</a>
+			);
 		}
-		// Sub-case: Record Not Found
-		if (is(AppBskyEmbedRecord.viewNotFoundSchema, record)) {
-			return <Info>Quoted post not found, it may have been deleted.</Info>;
-		}
-		// Sub-case: Record Blocked
-		if (is(AppBskyEmbedRecord.viewBlockedSchema, record)) {
-			return <Info>The quoted post is blocked.</Info>;
-		}
-		// Sub-case: Record Detached (rare, typically for migration/system reasons)
-		// if (AppBskyEmbedRecord.isViewDetached(record)) {
-		//   return <Info>This quoted content is currently detached.</Info>;
-		// }
-
-		// Fallback for other record types (lists, feeds, etc.) until implemented
-		return (
-			<a
-				href={getPost(record.uri)} // Assuming all records have a URI we can link to
-				target="_blank"
-				rel="noopener noreferrer"
-				className="mt-2 block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline p-2 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800"
-			>
-				View Record
-			</a>
-		);
+		case "app.bsky.embed.recordWithMedia#view":
+			return <>
+				<PostEmbed post={{ ...post, embed: embed.media }} />
+				<PostEmbed post={{ ...post, embed: { ...embed.record, $type: "app.bsky.embed.record#view" } }} />
+			</>;
+		case "app.bsky.embed.video#view":
+			return (
+				<a href={getPost(post.uri)} target="_blank" rel="noopener noreferrer"
+					className="inline-flex min-h-10 items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
+					Watch video on Bluesky
+				</a>
+			);
 	}
 
-	if (is(AppBskyEmbedRecordWithMedia.viewSchema, embed)) {
-		return <>
-			<PostEmbed post={{ ...post, embed: embed.media }} />
-			<PostEmbed post={{ ...post, embed: { ...embed.record, $type: 'app.bsky.embed.record#view' } }} />
-		</>;
-	}
-
-	// Case 5: Video Embed
-	if (is(AppBskyEmbedVideo.viewSchema, embed)) {
-		return (
-			<a href={getPost(post.uri)} target="_blank" rel="noopener noreferrer"
-				className="inline-flex min-h-10 items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
-				Watch video on Bluesky
-			</a>
-		);
-	}
-
-	// Fallback for any other unknown embed type
-	// If we've reached here, it's an embed type we haven't explicitly handled.
-	// We know `embed` is not undefined (checked at the start) and should be one of the
-	// valid embed view objects from the union, all of which have a $type property.
-	const unknownEmbed = embed as { $type: string; [k: string]: unknown };
-	// It's possible $type might not exist if the object is malformed, though unlikely for valid views.
-	if (unknownEmbed?.$type) {
-		return <Info>Unsupported embed type: {unknownEmbed.$type}</Info>;
-	}
-
-	return null;
+	const unknownType = (embed as { $type?: string }).$type;
+	return unknownType ? <Info>Unsupported embed type: {unknownType}</Info> : null;
 }
