@@ -47,14 +47,7 @@ function ProgressiveImage({ lowResUrl, highResUrl, alt }: ProgressiveImageProps)
 
 interface BlockViewerProps { channel: ArenaMatch; blocks: ArenaBlock[] }
 
-export function BlockViewerOverlay({ channel, blocks }: BlockViewerProps) {
-  const state = arenaUrlState.value;
-  const index = blocks.findIndex(block => block.id === state.blockId);
-  if (state.channelSlug !== channel.slug || index < 0) return null;
-  return <BlockViewer channel={channel} blocks={blocks} index={index} />;
-}
-
-function BlockViewer({ channel, blocks: allBlocks, index }: BlockViewerProps & { index: number }) {
+export function BlockViewer({ channel, blocks: allBlocks, index }: BlockViewerProps & { index: number }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const blockData = { block: allBlocks[index], index };
   const navigate = (offset: number) => {
