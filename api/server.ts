@@ -34,43 +34,44 @@ const server = serve({
       return optionsResponse(req);
     }
 
+    // Await so a rejected handler still gets the CORS-bearing 500 below.
     try {
       // Archive service routes
       if (path === '/api/archive') {
         if (req.method === 'GET') {
-          return createArchiveRoute(req);
+          return await createArchiveRoute(req);
         }
       } else if (path === '/api/asset-proxy') {
         if (req.method === 'GET') {
-          return assetProxyRoute(req);
+          return await assetProxyRoute(req);
         }
       }
 
       else if (path === '/api/annotations/margin') {
         if (req.method === 'GET') {
-          return marginAnnotationsRoute(req);
+          return await marginAnnotationsRoute(req);
         }
       }
 
       // YouTube transcript route
       else if (path === '/api/youtube/transcript') {
         if (req.method === 'GET') {
-          return youtubeTranscriptRoute(req);
+          return await youtubeTranscriptRoute(req);
         }
       }
 
       // Arena service routes  
       else if (path === '/api/arena/enhance') {
         if (req.method === 'POST') {
-          return enhanceRoute(req);
+          return await enhanceRoute(req);
         }
       } else if (path === '/api/arena/search') {
         if (req.method === 'POST') {
-          return arenaSearchRoute(req);
+          return await arenaSearchRoute(req);
         }
       } else if (path === '/api/arena/channel-blocks') {
         if (req.method === 'POST') {
-          return channelBlocksRoute(req);
+          return await channelBlocksRoute(req);
         }
       }
       
