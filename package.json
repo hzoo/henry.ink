@@ -16,6 +16,7 @@
     "dev": "bun --filter atproto-extension dev",
     "build": "bun --filter atproto-extension build",
     "compile": "tsc --noEmit",
+    "lint": "biome lint .",
     "compile:api": "tsc --noEmit -p api/tsconfig.json",
     "test": "bun test api src/lib scripts/repair-pm2-startup.test.ts",
     "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test api src/lib scripts/repair-pm2-startup.test.ts",
@@ -50,6 +51,7 @@
     "preact-iso": "^2.10.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.1.1",
     "@cloudflare/workers-types": "^4.20250826.0",
     "@preact/preset-vite": "^2.10.2",
     "@types/bun": "^1.2.21",

@@ -101,7 +101,7 @@ test("capture admits at most four network downloads from a 39-stylesheet burst",
 test("capture budget overflow aborts active downloads and rejects queued ones without starting them", async () => {
   const controller = new AbortController();
   const started: Array<{ options: PublicFetchOptions; resolve: (value: PublicResource) => void }> = [];
-  const download = createCaptureDownloader((url, options) => new Promise(resolve => started.push({ options, resolve })), controller);
+  const download = createCaptureDownloader((_url, options) => new Promise(resolve => started.push({ options, resolve })), controller);
   const results = Promise.allSettled(Array.from({ length: 39 }, (_, i) => download(`https://source.example/${i}.css`, "stylesheet")));
   await Promise.resolve();
   expect(started).toHaveLength(4);
