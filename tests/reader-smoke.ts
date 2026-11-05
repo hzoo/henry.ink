@@ -323,9 +323,9 @@ async function websiteFlows(width: number) {
     await page.getByText('Arena service returned 503', { exact: true }).waitFor();
     const failedRequests = channelPages.length;
     channelUnavailable = false;
-    await page.getByRole('button', { name: 'Refresh Arena channel', exact: true }).click();
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
     await page.getByRole('button', { name: 'Back to Channels', exact: true }).waitFor();
-    assert(channelPages.length > failedRequests, 'Refreshing a failed channel must retry its blocks');
+    assert(channelPages.length > failedRequests, 'Retrying a failed channel must fetch its blocks');
     await page.getByRole('tab', { name: /^Arena/, selected: true }).waitFor();
     if (width < 1024) await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Text', exact: true }).click();
@@ -418,6 +418,25 @@ async function websiteFlows(width: number) {
     await page.reload();
     await page.getByRole('button', { name: 'Back to Channels', exact: true }).waitFor();
     assert(archiveRequests.every(url => url === source), 'Reader controls must never become source query parameters');
+    const channelUrl = page.url().split('#')[0];
+    nextPageUnavailable = true;
+    await page.goto(`${channelUrl}&block=25`);
+    await page.getByText('The linked block has not been loaded yet.', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Load more blocks', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await page.getByText('More blocks could not be loaded.', { exact: true }).waitFor();
+    assert(await page.getByRole('button', { name: 'Dismiss', exact: true }).evaluate(el => el === document.activeElement), 'Loading failure must retain focus in the linked-block notice');
+    nextPageUnavailable = false;
+    await page.getByRole('alert').getByRole('button', { name: 'Try again', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Shared reading block viewer', exact: true }).getByText('Shared reading detail 25', { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    await page.goto(`${channelUrl}&block=999`);
+    await page.getByRole('button', { name: 'Load more blocks', exact: true }).click();
+    await page.getByText('This block was not found in the channel.', { exact: true }).waitFor();
+    assert(await page.getByRole('button', { name: 'Dismiss', exact: true }).evaluate(el => el === document.activeElement), 'Finishing a search must retain focus in the linked-block notice');
+    await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
+    assert(!new URL(page.url()).searchParams.has('block'), 'Dismissing a missing block must clear its reader parameter');
+    assert(await page.getByRole('button', { name: 'Back to Channels', exact: true }).evaluate(el => el === document.activeElement), 'Dismissing the notice must restore focus');
     await page.screenshot({ path: `test-results/website-flows-${width}.png` });
     const beforeHome = archiveRequests.length;
     if (width < 1024) await page.keyboard.press('Escape');
@@ -436,6 +455,59 @@ async function websiteFlows(width: number) {
     throw error;
   } finally { releasePosts(); releaseArchive(); releaseThread(); await context.close(); }
 }
+// A long channel list should fetch previews near the reader, and still work in
+// browsers without IntersectionObserver.
+async function previewRequests(withObserver: boolean) {
+  const fixture = readerFixtures[0];
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  await context.addInitScript((observerAvailable) => {
+    localStorage.setItem('arena-view-mode', 'preview');
+    if (!observerAvailable) Object.defineProperty(window, 'IntersectionObserver', { value: undefined, configurable: true });
+  }, withObserver);
+  const page = await context.newPage();
+  page.setDefaultTimeout(8000);
+  const requested = new Set<string>();
+  const matches = Array.from({ length: 19 }, (_, i) => ({ slug: `preview-${i}`, title: `Preview channel ${i}`,
+    author_name: 'Fixture', contents_count: 2,
+    bestMatch: { matchedText: 'reading', position: 0, endPosition: 7 } }));
+  await context.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.origin === origin && !url.pathname.startsWith('/api/')) return route.continue();
+    const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type' };
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (url.pathname === '/api/archive') return route.fulfill({ json: fixture.archive, headers });
+    if (url.pathname === '/api/annotations/margin') return route.fulfill({ json: { items: [], skipped: 0 }, headers });
+    if (url.pathname === '/api/arena/enhance') return route.fulfill({ json: { matches }, headers });
+    if (url.pathname === '/api/arena/channel-blocks') {
+      const slug = route.request().postDataJSON().slug;
+      requested.add(slug);
+      if (withObserver && slug === 'preview-18') return route.fulfill({ status: 503, json: {}, headers });
+      return route.fulfill({ json: { title: 'Preview', length: 1, user: { name: 'Fixture' },
+        blocks: [{ id: 1, __typename: 'Text', title: 'Preview', content: 'Preview text', href: '/block/1' }] }, headers });
+    }
+    return route.fulfill({ json: { posts: [] }, headers });
+  });
+  try {
+    const lastPreviewResponse = page.waitForResponse(response => response.url().endsWith('/api/arena/channel-blocks')
+      && response.request().method() === 'POST' && response.request().postDataJSON().slug === 'preview-18');
+    await page.goto(`${origin}/${fixture.url}`);
+    await page.getByRole('tab', { name: /^Arena/ }).click();
+    await page.getByRole('button', { name: 'Open block: Preview', exact: true }).first().waitFor();
+    if (withObserver) {
+      // Allow the initial observer batch to finish before checking offscreen work.
+      await page.waitForTimeout(300);
+      assert(requested.size < matches.length, 'Offscreen previews must not all fetch at once');
+      await page.getByRole('button', { name: 'Preview channel 18', exact: true }).scrollIntoViewIfNeeded();
+      await lastPreviewResponse;
+      assert(requested.has('preview-18'), 'Scrolling to a channel must load its preview');
+      await page.getByText('Failed to load blocks', { exact: true }).waitFor();
+    } else {
+      await lastPreviewResponse;
+      assert.equal(requested.size, matches.length, 'Previews must load without IntersectionObserver');
+    }
+  } finally { await context.close(); }
+}
+
 try {
   for (const width of [1280, 390]) {
     for (const fixture of readerFixtures) {
@@ -679,6 +751,8 @@ try {
     }
     await websiteFlows(width);
   }
+  await previewRequests(true);
+  await previewRequests(false);
 } finally {
   await browser.close();
   await server.stop(true);

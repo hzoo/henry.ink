@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { arenaQueryKeys, fetchChannelBlocks, formatRelativeTime } from "@/src/lib/arena-api";
-import { navigateToChannelList } from "@/src/lib/arena-navigation";
+import { arenaUrlState, closeBlockOverlay, navigateToChannelList } from "@/src/lib/arena-navigation";
 import type { ArenaMatch, ArenaBlock, ArenaChannelWithBlocks } from "@/src/lib/arena-types";
 import { ArenaBlockItem } from "./ArenaChannelItem";
 import { useEffect, useRef } from "preact/hooks";
@@ -14,6 +14,8 @@ interface ArenaChannelDetailProps {
 
 export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const backButtonRef = useRef<HTMLButtonElement>(null);
+  const dismissBlockRef = useRef<HTMLButtonElement>(null);
   const queryClient = useQueryClient();
 
   const initialData = queryClient.getQueryData<ArenaChannelWithBlocks>(arenaQueryKeys.blocks(channelSlug, 24, 1));
@@ -66,6 +68,8 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
     context: '',
   } : undefined;
   const blocks = data?.pages.flatMap(page => page.blocks) || [];
+  const requestedBlock = arenaUrlState.value.blockId;
+  const blockMissing = requestedBlock !== null && !blocks.some(block => block.id === requestedBlock);
 
   useEffect(() => {
     if (!loadMoreRef.current || !hasNextPage || error) return;
@@ -87,11 +91,20 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
   if (!channel) return (
     <div className="p-4">
       <ErrorMessage message={error?.message || 'Channel not found'} />
-      <button onClick={navigateToChannelList} className="mt-4 min-h-10 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+      {error && <button type="button" disabled={isFetching} onClick={() => { void refetch(); }}
+        className="mt-2 min-h-10 rounded px-3 text-sm underline focus-visible:outline-2 focus-visible:outline-green-600 disabled:opacity-50">Try again</button>}
+      <button type="button" onClick={navigateToChannelList} className="mt-4 block min-h-10 text-sm text-blue-600 dark:text-blue-400 hover:underline">
         ← Back to channels
       </button>
     </div>
   );
+
+  const retryError = error && <div role="alert" className="py-4 text-center text-sm text-gray-600 dark:text-gray-400">
+    <p>{isFetchNextPageError ? 'More blocks could not be loaded.' : 'Channel could not be refreshed.'}</p>
+    <button type="button" disabled={isFetching}
+      onClick={() => { if (blockMissing) dismissBlockRef.current?.focus(); void (isFetchNextPageError ? fetchNextPage() : refetch()); }}
+      className="mt-1 min-h-10 rounded px-3 underline focus-visible:outline-2 focus-visible:outline-green-600 disabled:opacity-50">Try again</button>
+  </div>;
 
   return (
     <div className="flex min-w-0 flex-col h-full">
@@ -99,6 +112,7 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
       {/* Header with back button */}
       <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-3 z-10">
         <button
+          ref={backButtonRef}
           onClick={navigateToChannelList}
           className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors mb-2"
         >
@@ -152,6 +166,17 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
 
       {/* Blocks grid */}
       <div className="flex-1 overflow-y-auto p-3">
+        {blockMissing && <div className="mb-3 rounded border border-gray-200 p-3 text-sm dark:border-gray-700">
+          <p role="status">{hasNextPage ? 'The linked block has not been loaded yet.' : 'This block was not found in the channel.'}</p>
+          {hasNextPage && !error && <button type="button" disabled={isFetching}
+            onClick={() => { dismissBlockRef.current?.focus(); void fetchNextPage(); }}
+            className="mt-1 min-h-10 rounded px-2 underline focus-visible:outline-2 focus-visible:outline-green-600 disabled:opacity-50">{isFetchingNextPage ? 'Loading blocks…' : 'Load more blocks'}</button>}
+          <button ref={dismissBlockRef} type="button" onClick={() => { closeBlockOverlay(); backButtonRef.current?.focus({ preventScroll: true }); }}
+            className="mt-1 min-h-10 rounded px-2 underline focus-visible:outline-2 focus-visible:outline-green-600">Dismiss</button>
+        </div>}
+
+        {blockMissing && retryError}
+
         {blocks.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -168,12 +193,7 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
           </div>
         )}
 
-        {error && <div role="alert" className="py-4 text-center text-sm text-gray-600 dark:text-gray-400">
-          <p>{isFetchNextPageError ? 'More blocks could not be loaded.' : 'Channel could not be refreshed.'}</p>
-          <button type="button" disabled={isFetching}
-            onClick={() => { void (isFetchNextPageError ? fetchNextPage() : refetch()); }}
-            className="mt-1 min-h-10 rounded px-3 underline focus-visible:outline-2 focus-visible:outline-green-600 disabled:opacity-50">Try again</button>
-        </div>}
+        {!blockMissing && retryError}
 
         {/* Infinite scroll trigger and loading indicator */}
         <div 
