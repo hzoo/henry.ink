@@ -60,6 +60,7 @@ class LRUCache<K, V> {
   }
 }
 
+const MAX_ENHANCE_CHARS = 1_000_000;
 const enhancementCache = new LRUCache<string, ArenaApiResponse>(50);
 
 interface EnhanceRequest {
@@ -85,14 +86,22 @@ export async function enhanceRoute(req: Request) {
 
   try {
     const body: EnhanceRequest = await req.json();
-    
-    if (!body.content) {
+
+    if (typeof body.content !== 'string' || !body.content) {
       return new Response(
         JSON.stringify({ error: 'Content is required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
+      );
+    }
+
+    // Article text is far below this; anything larger only costs matcher time.
+    if (body.content.length > MAX_ENHANCE_CHARS) {
+      return new Response(
+        JSON.stringify({ error: 'Content too large' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
