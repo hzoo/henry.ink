@@ -4,13 +4,18 @@ import { arenaUrlState, closeBlockOverlay, navigateToChannelList } from "@/src/l
 import type { ArenaMatch, ArenaBlock, ArenaChannelWithBlocks } from "@/src/lib/arena-types";
 import { ArenaBlockItem } from "./ArenaChannelItem";
 import { useEffect, useRef } from "preact/hooks";
-import { BlockViewerOverlay } from "@/src/components/BlockViewerOverlay";
+import { lazyComponent } from "@/src/lib/lazy-component";
 import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { LoadingItemList } from "@/src/components/LoadingItem";
 
 interface ArenaChannelDetailProps {
   channelSlug: string;
 }
+
+// Most readers never open a block, so the viewer loads on first use.
+const BlockViewer = lazyComponent(() =>
+  import("@/src/components/BlockViewerOverlay").then(module => module.BlockViewer),
+);
 
 export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -69,6 +74,8 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
   } : undefined;
   const blocks = data?.pages.flatMap(page => page.blocks) || [];
   const requestedBlock = arenaUrlState.value.blockId;
+  const requestedBlockIndex = arenaUrlState.value.channelSlug === channelSlug && requestedBlock !== null
+    ? blocks.findIndex(block => block.id === requestedBlock) : -1;
   const blockMissing = requestedBlock !== null && !blocks.some(block => block.id === requestedBlock);
 
   useEffect(() => {
@@ -108,7 +115,7 @@ export function ArenaChannelDetail({ channelSlug }: ArenaChannelDetailProps) {
 
   return (
     <div className="flex min-w-0 flex-col h-full">
-      <BlockViewerOverlay channel={channel} blocks={blocks} />
+      {requestedBlockIndex >= 0 && <BlockViewer channel={channel} blocks={blocks} index={requestedBlockIndex} />}
       {/* Header with back button */}
       <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-3 z-10">
         <button
