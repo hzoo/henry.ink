@@ -49,7 +49,9 @@ export class LinkEnhancer {
     await this.initialize();
 
     // Find all channel matches in content
-    const matches = this.matcher.findMatches(content, this.storage.normalizeForMatching.bind(this.storage));
+    // Patterns are trimmed and entity-decoded, but content must keep its length:
+    // positions and matchedText are read back from the original string.
+    const matches = this.matcher.findMatches(content, text => text.toLowerCase());
     // The matcher already selects one result per channel; show them in reading order.
     matches.sort((a, b) => a.bestMatch.position - b.bestMatch.position
       || b.contents_count - a.contents_count);
