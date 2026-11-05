@@ -68,6 +68,18 @@ const storage = {
 		}
 	},
 
+	async entries(): Promise<Array<[string, PersistedQuery]>> {
+		try {
+			const db = await getDb();
+			const tx = db.transaction(STORE_NAME);
+			const [keys, values] = await Promise.all([tx.store.getAllKeys(), tx.store.getAll()]);
+			return keys.map((key, i) => [String(key), values[i]]);
+		} catch (err) {
+			console.warn('[IDB] entries failed:', err);
+			return [];
+		}
+	},
+
 	async removeItem(key: string): Promise<void> {
 		try {
 			const db = await getDb();
@@ -85,6 +97,14 @@ export const appPersister = experimental_createQueryPersister<PersistedQuery>({
 	serialize: d => d,
 	deserialize: d => d,
 });
+
+// The persister only drops an expired entry when that exact query is read again,
+// so every page ever visited would stay in IndexedDB. Sweep once per session.
+if (typeof window !== 'undefined' && typeof indexedDB !== 'undefined') {
+	const sweep = () => { void appPersister.persisterGc().catch(err => console.warn('[IDB] gc failed:', err)); };
+	if ('requestIdleCallback' in window) requestIdleCallback(sweep, { timeout: 10_000 });
+	else setTimeout(sweep, 5_000);
+}
 
 export const queryClient = new QueryClient({
 	defaultOptions: {
