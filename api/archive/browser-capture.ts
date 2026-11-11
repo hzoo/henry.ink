@@ -5,7 +5,7 @@ import { ARCHIVE_USER_AGENT, ArchiveFetchError, fetchPublicResource, type Public
 let browserPromise: Promise<Browser> | undefined;
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
-    browserPromise = chromium.launch({ headless: true, channel: "chrome", timeout: 10_000 }).then(browser => {
+    browserPromise = chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, timeout: 10_000 }).then(browser => {
       browser.on("disconnected", () => { browserPromise = undefined; });
       return browser;
     }).catch(error => { browserPromise = undefined; throw error; });
