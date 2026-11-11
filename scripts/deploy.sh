@@ -14,7 +14,7 @@ echo "=> Verifying before restart..."
 bun run verify
 
 echo "=> Restarting API..."
-pm2 restart henry-ink-api
+systemctl --user restart henry-ink-api
 
 echo "=> Waiting for health check..."
 for attempt in {1..15}; do
@@ -24,5 +24,5 @@ for attempt in {1..15}; do
     fi
     sleep 1
 done
-echo "=> UNHEALTHY - check logs: pm2 logs henry-ink-api"
+echo "=> UNHEALTHY - check logs: journalctl --user -u henry-ink-api -n 50"
 exit 1
