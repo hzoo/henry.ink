@@ -16,7 +16,7 @@ as part of that infrastructure cleanup.
 6. **Release:** verify an immutable candidate, deploy API first and Pages second, then run live acceptance checks. The commands and rollback boundaries are below. No Worker deletion or new CF product is required.
 
 `bun run verify` now isolates test databases in a temporary directory, runs both
-type checks, 298 tests including Chrome and PM2 repair checks, builds the web app, and runs six
+type checks, the test suite including Chrome checks, builds the web app, and runs six
 desktop/mobile production-bundle smoke cases. This passed locally. Deliberate
 localhost endpoint, empty article, broken scroll and dropped-CSS mutations were
 rejected in an isolated copy. The smoke uses intercepted API responses; live
@@ -34,10 +34,10 @@ in the task; **Unknown** means not established. Recheck evidence before executio
 | --- | --- |
 | Source revision | **Verified:** local HEAD and VPS checkout were `d88efd24c64d6ea3410ea65b8fc7e8d7291394c6`; VPS working tree was clean. Parent verification changes appeared locally during this audit and were not deployed. |
 | Pages | **Verified in source:** `deploy:ink` targets account `4eb8c64e85c6cc2bcb31e3df36da1959`, project `henry-note-reader`, branch `main`, artifact `henry-ink/dist`. Demo deployment targets a different account, `899db3f6d2659dfb20376c7e752c862d`, project `annotation-sidebar-demo`. **Unknown:** live project ownership, production branch, deployment IDs, domain bindings, zone ID/account. |
-| VPS | **Verified over read-only SSH:** `henry@vps`, checkout `/home/henry/apps/henry.ink`, Bun `1.3.14`, Caddy `2.6.2`, Google Chrome `139.0.7258.154`. Non-login SSH PATH did not contain Bun/PM2; binaries exist under `/home/henry/.bun/bin`. |
+| VPS | **Verified over read-only SSH:** `henry@vps`, checkout `/home/henry/apps/henry.ink`, Bun `1.3.14`, Caddy `2.6.2`, Google Chrome `139.0.7258.154`. Non-login SSH PATH did not contain Bun; binaries exist under `/home/henry/.bun/bin`. |
 | API | **Verified:** listener `127.0.0.1:3000`; local `/api/health` returned healthy with archive, arena, youtube, annotations. Public HTTPS health returned HTTP 200, `server: cloudflare`, `cf-cache-status: DYNAMIC`. Health does not exercise Chrome, upstream providers, or database contents. |
 | Caddy | **Verified:** root-owned `/etc/caddy/Caddyfile` mode 0644 contains `http://api.henry.ink`. A whitelisted GET of the active local Caddy configuration showed the API host on the `:80` server, not the `:443` server; neither server had `trusted_proxies` or `client_ip_headers`. Admin listener is `127.0.0.1:2019`. Caddy also serves unrelated applications. |
-| Process manager | **Verified saved PM2 metadata:** `henry-ink-api`, fork mode, cwd `/home/henry/apps/henry.ink`, executable `/usr/bin/bash`, interpreter `none`. **Unknown:** exact live launch arguments, environment overrides, watch mode, restart policy, startup persistence. Saved metadata is not proof of live process configuration. |
+| Process manager | User systemd unit `henry-ink-api.service` (copy in `ops/henry-ink-api.service`): cwd `/home/henry/apps/henry.ink`, `bun run api`, `Restart=on-failure`, enabled with lingering. Replaced PM2 on 2026-11-11; verified across a reboot. |
 | Storage | **Verified files:** `api/arena/data/channels.db` with WAL/SHM; root `archive-snapshots.db`. VPS `.env` contains keys `ARENA_APP_TOKEN`, `ARENA_AUTH_TOKEN`; values were not printed. **Unknown:** effective process overrides of database paths or credentials. |
 | Permissions | **Reported:** token named `PagesWorkersKV` works for Pages/Workers/KV but zone SSL query returned 403; sudo unavailable. Not retested. A token name does not prove scopes; 403 does not establish the SSL mode. |
 | Verification gate | **Verified in parent's in-progress local files:** `verify` chains root types, API types, browser-enabled tests, `build:ink`, and `tests/reader-smoke.ts`. `deploy:ink` invokes it before upload; `scripts/deploy.sh` invokes it after pull/install and before restart. **Reported by parent at wrap-up:** gate green, 259 tests and 6 production-bundle desktop/mobile smoke cases. **Unknown:** final committed release SHA; this audit did not rerun the gate. |
@@ -49,7 +49,7 @@ passes `bun run verify`. Public HTTPS currently proves only client-to-edge TLS.
 Follow-up dashboard inspection confirmed the zone's default is **Flexible SSL**.
 Per-host origin/configuration overrides remain unverified. See the dated
 [infrastructure inventory](../DEPLOYMENT.md#infrastructure-inventory-2026-10-12)
-for verified domain mappings, Worker traffic, and the PM2 startup mismatch;
+for verified domain mappings, Worker traffic, and process supervision;
 that follow-up supersedes the original table's corresponding unknowns.
 
 ## Intended boundary
@@ -120,7 +120,7 @@ Do not assume a Pages token or SSL certificate permission can edit `settings/ssl
 
 Use SSH keys, no agent forwarding, a read-only repository deploy key, and the
 existing unprivileged application user. Keep secrets in protected runtime storage
-with no shell tracing; never print `.env`, `pm2 env`, raw `pm2 jlist`, saved PM2
+with no shell tracing; never print `.env`, process environments, saved
 dumps, authorization headers, private keys or token-bearing curl commands.
 Loopback Caddy admin access is powerful, not a substitute for sudo: no mutation
 of `localhost:2019` is authorized by read access to it.
@@ -137,7 +137,7 @@ Tunnel path. Never put service-token secrets in `VITE_` variables. See
 1. Owner records the zone ID and account, Pages project/production branch/current successful deployment ID, Worker account/script/version/domain/bindings, and DNS records including all A/AAAA targets and proxy status. Do not move the zone or recreate resources to fix a token 403.
 2. With zone read permission, read `GET /zones/{zone_id}/settings/ssl` and record its value/editability. Inventory Configuration Rules, Origin Rules, redirects, Workers routes, cache/Page Rules, header transforms, Pseudo IPv4, Access apps and WAF/challenges affecting these hosts. Save protected exports and rule IDs/order. No successful read means this stage is incomplete.
 3. Administrator compares active Caddy configuration with `/etc/caddy/Caddyfile`, checks service unit/startup path, installed modules, certificate coverage and renewal, firewall/provider ACLs and all unrelated sites. Public port 8080 was observed listening; ownership/external reachability are unknown. Do not close it without identifying its consumer.
-4. As `henry`, record live PM2 cwd, script/arguments, interpreter, PATH, selected env key presence, watch/restart settings and startup unit without logging values. Verify it runs this API, in a single process, from the expected cwd. In-memory rate limits and asset admission are not shared across replicas.
+4. As `henry`, record the `henry-ink-api.service` cwd, command, PATH, selected env key presence and restart settings without logging values. Verify it runs this API, in a single process, from the expected cwd. In-memory rate limits and asset admission are not shared across replicas.
 5. Capture local and public health/CORS/cache headers and an agreed low-impact live reader baseline. Record results and timestamp separately from this document. Keep a second SSH session and provider console available for infrastructure work.
 
 Safe read-only examples (run on the stated host):
@@ -163,7 +163,7 @@ curl --fail --max-time 10 -D - -o /dev/null https://api.henry.ink/api/health
 
 1. Name immutable `APPROVED_SHA` and `PREVIOUS_SHA`, previous Pages production deployment ID, and an operator-owned backup directory outside the checkout. Do not commit or push as an implicit part of deployment. The parent must finish and release its gate first.
 2. Administrator securely backs up the entire Caddy configuration, relevant service units, certificate/key material and firewall rules. Restrict backups; do not paste their contents into logs. Record old Caddy package version and an available reinstall artifact before upgrading.
-3. Take SQLite-consistent backups of the **effective** Are.na and archive databases using SQLite backup/VACUUM INTO, then integrity-check the copies. Do not copy only a live `.db` while WAL files exist. Retain protected runtime environment and PM2 launch configuration separately. Confirm restore procedure on a disposable copy.
+3. Take SQLite-consistent backups of the **effective** Are.na and archive databases using SQLite backup/VACUUM INTO, then integrity-check the copies. Do not copy only a live `.db` while WAL files exist. Retain protected runtime environment and the systemd unit separately. Confirm restore procedure on a disposable copy.
 4. Preserve the running checkout and dependencies until the candidate passes. Prepare a detached candidate outside the active checkout, install its frozen lockfile, and run verification with disposable database paths. Do not run `migrate:api`: it recursively deletes the old `henry-ink/arena` directory and is not a safe general migration/backup mechanism.
 5. Align Bun/Chrome with the final CI/toolchain contract or explicitly verify the candidate on the VPS versions. Chrome installation alone does not prove launch/library compatibility. The in-progress workflow pinned Bun `1.4.3`, unlike VPS `1.3.14`; reconcile before release. Browser capture uses `channel: "chrome"`, not merely Playwright's bundled Chromium.
 
@@ -322,7 +322,7 @@ freeze branch updates; a separately approved pinned/release-directory deploy
 implementation would remove this operational constraint.
 
 Approved one-time pinned activation, **VPS as henry**, after backup and candidate
-success (confirm PM2 watch is off before changing the active tree):
+success (the service does not watch files, so changing the tree alone does not restart it):
 
 ```sh
 set -eu
@@ -339,14 +339,14 @@ VITE_API_URL=https://api.henry.ink \
 VITE_WORKER_URL=https://bsky-search.henry.ink \
 ARENA_DB_PATH="$testdata/channels.db" \
 ARCHIVE_CACHE_PATH="$testdata/archive-snapshots.db" bun run verify
-pm2 restart henry-ink-api
+systemctl --user restart henry-ink-api
 curl --fail --max-time 5 http://127.0.0.1:3000/api/health
 curl --fail --max-time 10 https://api.henry.ink/api/health
 ```
 
 Stop on any failure and follow Stage 8. No `--update-env` unless the environment
 change was separately reviewed: it can import unintended deployment-shell values.
-Confirm the preserved PM2 command still executes `api/server.ts` from the expected
+Confirm the service still executes `api/server.ts` from the expected
 cwd. A restart drops in-memory rate limits/admission; browser reload must fetch a
 fresh archive before requesting newly admitted assets. Repeated restart loops
 are not recovery.
@@ -387,7 +387,7 @@ reproducibility; the inspected root package does not pin Wrangler.
 | Failure | Exact recovery boundary |
 | --- | --- |
 | Candidate gate fails | Do not restart/upload. Running code and Pages remain unchanged if Stage 2 was used. Fix candidate separately. |
-| In-place install/gate/API fails | Stop the failed rollout. In the clean VPS checkout run `git switch --detach "$PREVIOUS_SHA"`, `bun install --frozen-lockfile`, then `pm2 restart henry-ink-api`; preserve old env/cwd and check local/public health. If new tracked edits appeared, stop rather than discard them. Never `reset --hard`. |
+| In-place install/gate/API fails | Stop the failed rollout. In the clean VPS checkout run `git switch --detach "$PREVIOUS_SHA"`, `bun install --frozen-lockfile`, then `systemctl --user restart henry-ink-api`; preserve old env/cwd and check local/public health. If new tracked edits appeared, stop rather than discard them. Never `reset --hard`. |
 | Database incompatibility | Stop API before restore. Preserve failed-state DB/WAL/SHM together; restore the integrity-checked backup with correct ownership and no mismatched WAL/SHM, then start the old code. This can lose post-backup writes and requires explicit approval. Do not restore databases for a purely frontend failure. |
 | Frontend regression | Pages project > Deployments > previous successful **production** deployment > Rollback to this deployment. Recheck custom domain and API compatibility. Preview deployments cannot be rollback targets. [Pages rollback](https://developers.cloudflare.com/pages/configuration/rollbacks/). |
 | Caddy validation fails | Do not reload; active config stays in service. Correct the candidate offline. |
@@ -405,6 +405,6 @@ permissions, or retry deployment indefinitely to manufacture a passing result.
 
 - Zone/account ownership, actual token scopes, SSL mode/overrides, DNS targets, cache/rule order, live Worker domains/versions and current Pages deployment remain unverified.
 - An administrator's private sudo session is required for Caddy upgrade/configuration, origin certificates/AOP, firewall review and system runtime changes. The owner has password-authenticated sudo; unattended SSH does not.
-- PM2's live watch/restart settings are verified. Its inactive boot unit points at the wrong PM2 home; repair and reboot recovery verification remain pending. Effective database paths must be confirmed before application deployment.
+- Process supervision is a user systemd unit, verified across a reboot on 2026-11-11. Effective database paths must be confirmed before application deployment.
 - Parent reports a green gate (259 tests, 6 production-bundle browser cases). The committed release SHA and VPS toolchain reconciliation remain pending; this audit did not independently rerun verification or run live browser acceptance.
 - Legacy Worker/domain/KV retirement was explicitly approved and completed. Other production changes need their reviewed scope and required access; this document does not approve a zone/account transfer, Tunnel rollout, or public Access wall.

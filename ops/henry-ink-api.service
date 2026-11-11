@@ -1,0 +1,15 @@
+[Unit]
+Description=henry.ink unified API (:3000)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/henry.ink
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.bun/bin/bun run api
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

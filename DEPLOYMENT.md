@@ -4,7 +4,7 @@
 
 - Cloudflare Pages project `henry-note-reader` serves `henry.ink` in account
   `4eb8c64e85c6cc2bcb31e3df36da1959`. Production branch: `main`.
-- The VPS runs one `henry-ink-api` PM2 process from `/home/henry/apps/henry.ink`,
+- The VPS runs one `henry-ink-api` user systemd service from `/home/henry/apps/henry.ink`,
   listening on loopback port 3000 behind Caddy at `api.henry.ink`.
 - Chromium capture, article processing, SQLite snapshots, Are.na, Margin, and
   YouTube run on the VPS. Keep one API process while admission limits and asset
@@ -31,7 +31,7 @@ The former archive/Arena/Jina/YouTube endpoint aliases and
 ## Deploy and verify
 
 Run `bun run verify` before release. Push the tested commit, then run
-`scripts/deploy.sh` on the VPS with Bun and PM2 on PATH. It pulls fast-forward
+`scripts/deploy.sh` on the VPS with Bun on PATH. It pulls fast-forward
 only, installs the lockfile, restarts the API, and checks loopback health.
 Deploy the web build with `bun run deploy:ink` and check the public article,
 notes, and YouTube routes. Do not deploy the demo or extension incidentally.
@@ -76,12 +76,11 @@ notes, and YouTube routes. Do not deploy the demo or extension incidentally.
 - Caddy is active and enabled. The zone's dashboard shows **Flexible SSL**.
   The API and several other origins use HTTP, so do not switch the whole zone
   to strict TLS before origin readiness and per-host overrides are checked.
-- The API is one live PM2 process, with watch disabled and autorestart enabled.
-  The owner applied the boot repair below: `pm2-henry.service` now uses
-  `/home/henry/.pm2` instead of `/root/.pm2`. It remains enabled but inactive;
-  the live daemon still belongs to an old SSH session scope. Do not restart/kill
-  PM2 globally during this reader cleanup; it manages other live apps. Live
-  systemd supervision and reboot recovery are not yet verified.
+- The API is the user systemd unit `henry-ink-api.service` (copy in
+  `ops/henry-ink-api.service`), enabled with lingering and `Restart=on-failure`.
+  It replaced PM2 on November 11, 2026 and was verified across a reboot. Restart
+  with `systemctl --user restart henry-ink-api`; read logs with
+  `journalctl --user -u henry-ink-api`.
 
 Worker/config rollback exports are stored privately outside the repository at
 `~/.config/henry-ink/retirement-2026-10-12T20-42-24.456Z`. They do not include KV
@@ -94,24 +93,6 @@ No VPS service restart, Caddy change, SSL change, or cache-rule mutation was mad
 Production frontend, API health, Robin Sloan article capture, Margin notes, and
 Bluesky search returned HTTP 200 after retirement.
 
-### Boot-configuration repair applied
-
-The owner successfully applied the reviewed helper on October 12, 2026. Backup:
-`/etc/systemd/system/.pm2-henry-backup.rslpIx5Z`. Follow-up SSH verified the loaded
-`90-henry-home.conf` drop-in, corrected PIDFile, `NeedDaemonReload=no`, and an
-enabled/inactive unit. Public API health remained healthy. Do not rerun the
-helper: existing overrides intentionally require manual review.
-
-Selected live/saved PM2 launch metadata and statuses match for `henry-ink-api`,
-`bible-api`, `statusphere`, `bible-comic-lab`, and `live-bridge`. The
-`bible-comic-memory-watch` process is online but saved as stopped;
-`bible-comic-chapter-finish` is stopped and absent from the saved list. Decide
-whether these one-off jobs belong at boot before changing the shared saved list.
-This comparison did not validate complete launch arguments or secret environment.
-
-This is only the boot-configuration repair. The live PM2 daemon remains outside
-systemd supervision. Reconcile saved versus running apps and schedule a shared
-maintenance window for adoption or a planned reboot; verify all apps afterward.
 Origin HTTPS and client-IP normalization were subsequently applied as below.
 
 ### Origin HTTPS and API-only Strict applied
