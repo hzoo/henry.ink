@@ -11,5 +11,20 @@ Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
 
+# Capture loads arbitrary pages in Chrome. If one escapes, it finds a read-only
+# checkout, an empty home and one writable directory,
+# ~/.local/state/henry-ink, which holds both SQLite databases. The path is
+# spelled out because %S and StateDirectory= move between systemd versions.
+# The directory must exist before first start: mkdir -p ~/.local/state/henry-ink
+# PrivateUsers is what makes the mount rules apply in a user unit (systemd 252).
+PrivateUsers=yes
+ProtectSystem=strict
+ProtectHome=tmpfs
+PrivateTmp=yes
+BindReadOnlyPaths=%h/apps/henry.ink %h/.bun
+BindPaths=%h/.local/state/henry-ink
+Environment=ARENA_DB_PATH=%h/.local/state/henry-ink/channels.db
+Environment=ARCHIVE_CACHE_PATH=%h/.local/state/henry-ink/archive-snapshots.db
+
 [Install]
 WantedBy=default.target
