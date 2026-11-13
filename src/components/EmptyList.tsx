@@ -113,11 +113,7 @@ export function EmptyList({ autoAllowDomain, onSearch }: { autoAllowDomain?: str
 							</>
 						)}
 					</h3>
-					{isAllowedWithOverride ? (
-						<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-							No one has shared this page on Bluesky yet. Be the first!
-						</p>
-					) : (
+					{!isAllowedWithOverride && (
 						<>
 							<p className="text-xs text-gray-500 dark:text-gray-400 mb-4 rounded-md p-2 flex items-center justify-between">
 								<span>

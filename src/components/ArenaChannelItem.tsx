@@ -18,7 +18,7 @@ import type {
 	AttachmentBlock,
 } from "@/src/lib/arena-types";
 import type { ArenaViewMode } from "@/henry-ink/signals";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 
 interface ArenaChannelItemProps {
 	match: ArenaMatch;
@@ -207,7 +207,25 @@ export function ArenaChannelItem({
 	viewMode,
 }: ArenaChannelItemProps) {
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const rowRef = useRef<HTMLDivElement>(null);
+	const previewVisible = useSignal(false);
 	const queryClient = useQueryClient();
+
+	useEffect(() => {
+		if (viewMode !== "preview" || previewVisible.peek() || !rowRef.current) return;
+		if (typeof IntersectionObserver === "undefined") {
+			previewVisible.value = true;
+			return;
+		}
+		const observer = new IntersectionObserver(([entry]) => {
+			if (entry.isIntersecting) {
+				previewVisible.value = true;
+				observer.disconnect();
+			}
+		}, { root: rowRef.current.parentElement, rootMargin: "400px 0px" });
+		observer.observe(rowRef.current);
+		return () => observer.disconnect();
+	}, [viewMode]);
 
 	// Handle navigation to text position
 	const handleNavigateToMatch = (match: ArenaMatch) => {
@@ -233,7 +251,7 @@ export function ArenaChannelItem({
 		queryFn: ({ signal }) => fetchChannelBlocks(match.slug, 24, 1, signal),
 		staleTime: 10 * 60 * 1000, // 10 minutes
 		retry: 1,
-		enabled: viewMode === "preview", // Only fetch in preview mode
+		enabled: viewMode === "preview" && previewVisible.value,
 	});
 
 	const blocks = channelWithBlocks?.blocks || [];
@@ -253,7 +271,7 @@ export function ArenaChannelItem({
 	};
 
 	return (
-		<div className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+		<div ref={rowRef} className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
 			{/* Channel Title */}
 			<div className="flex min-w-0 flex-wrap gap-1 justify-between">
 				<div className="mb-1 min-w-0 flex-1">
@@ -312,7 +330,7 @@ export function ArenaChannelItem({
 			{/* Blocks - Only in Preview Mode */}
 			{viewMode === "preview" && (
 				<div className="relative">
-					{blocksLoading ? (
+					{blocksLoading || (!previewVisible.value && !channelWithBlocks) ? (
 						<div className="flex items-center justify-center py-4">
 							<div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-600 border-t-green-500 rounded-full animate-spin" />
 							<span className="ml-2 text-xs text-gray-500 dark:text-gray-400">

@@ -8,6 +8,7 @@
     "extension"
   ],
   "type": "module",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "demo": "vite --config demo/vite.config.ts",
     "ink": "vite --config henry-ink/vite.config.ts",
@@ -15,8 +16,8 @@
     "build:ink": "vite build --config henry-ink/vite.config.ts",
     "dev": "bun --filter atproto-extension dev",
     "build": "bun --filter atproto-extension build",
-    "compile": "tsc --noEmit",
-    "compile:api": "tsc --noEmit -p api/tsconfig.json",
+    "compile": "bun check --no-script",
+    "compile:api": "bun check --no-script -p api/tsconfig.json",
     "test": "bun test api src/lib",
     "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test api src/lib",
     "test:smoke": "NODE_ENV=production bun tests/reader-smoke.ts",

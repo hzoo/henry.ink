@@ -8,7 +8,7 @@
   "scripts": {
     "start": "bun run server.ts",
     "dev:archive": "bun run archive/server.ts",
-    "compile": "tsc --noEmit"
+    "compile": "bun check --no-script"
   },
   "dependencies": {
     "jsdom": "^26.1.0",
@@ -18,7 +18,6 @@
     "modern-ahocorasick": "^2.0.4"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.8.3"
+    "@types/bun": "latest"
   }
 }

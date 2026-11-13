@@ -1,69 +1,47 @@
 import { render } from "preact";
 import { Sidebar } from "@/src/components/Sidebar";
-import { currentUrl, quotedSelection } from "@/src/lib/messaging";
+import { currentUrl, quotedSelection, showCommentDialog } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
-import { queryClient, appPersister } from "@/src/lib/queryClient";
+import { queryClient } from "@/src/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import type { Browser } from "@wxt-dev/browser";
+import { trackActiveTab, type SelectionMessage, type TabLocation } from "@/src/lib/extension-selection";
 
 import "@/src/lib/styles.css";
 
-let activeTabId: number | undefined;
-let extensionWindowId: number | undefined;
+async function setupTabListener() {
+	const { id: windowId } = await browser.windows.getCurrent();
+	if (windowId === undefined) return;
 
-interface ContentScriptSelectionMessage {
-	type: "SELECTION";
-	from: "content";
-	data: { selection: string };
-}
+	const activeTab = trackActiveTab(windowId, url => { currentUrl.value = url; }, target => {
+		void browser.runtime.sendMessage({ type: "SIDEPANEL_READY", target } satisfies SelectionMessage).catch(console.error);
+	});
+	browser.tabs.onActivated.addListener((target: TabLocation) => {
+		void activeTab.activate(target, tabId => browser.tabs.get(tabId)).catch(console.error);
+	});
+	browser.tabs.onUpdated.addListener((tabId: number, { url }: Browser.tabs.OnUpdatedInfo, tab: Browser.tabs.Tab) =>
+		activeTab.update({ tabId, windowId: tab.windowId }, url, tab.active),
+	);
 
-export async function setupTabListener() {
-	try {
-		const currentWindow = await browser.windows.getCurrent();
-		extensionWindowId = currentWindow.id;
-
-		const [tab] = await browser.tabs.query({
-			active: true,
-			windowId: extensionWindowId,
-		});
-		if (tab?.id && tab.url) {
-			activeTabId = tab.id;
-			currentUrl.value = tab.url;
+	browser.runtime.onMessage.addListener((message: SelectionMessage, sender: Browser.runtime.MessageSender, respond: (response: unknown) => void) => {
+		if (message.type === "PING_SIDEPANEL") {
+			const tab = sender.tab;
+			if (tab?.id === undefined || !activeTab.matches({ tabId: tab.id, windowId: tab.windowId })) return;
+			respond({
+				type: "PONG_SIDEPANEL",
+				showPopup: showQuotePopupOnSelection.ready.value && showQuotePopupOnSelection.value,
+			});
 		}
+		if (message.type === "DELIVER_SELECTION" && activeTab.matches(message.selection)) {
+			if (!quotedSelection.peek() && !showCommentDialog.peek()) {
+				const { text, url } = message.selection;
+				quotedSelection.value = { text, url };
+			}
+			respond(true);
+		}
+	});
 
-		browser.tabs.onActivated.addListener(
-			async (activeInfo: { windowId: number; tabId: number }) => {
-				if (activeInfo.windowId === extensionWindowId) {
-					activeTabId = activeInfo.tabId;
-					const tab = await browser.tabs.get(activeInfo.tabId);
-					if (tab.url) {
-						currentUrl.value = tab.url;
-					} else if (tab.pendingUrl) {
-						currentUrl.value = tab.pendingUrl;
-					} else {
-						currentUrl.value = "";
-					}
-				}
-			},
-		);
-
-		browser.tabs.onUpdated.addListener(
-			(tabId: number, changeInfo: { url: string }) => {
-				if (tabId === activeTabId && changeInfo.url) {
-					currentUrl.value = changeInfo.url;
-				}
-			},
-		);
-
-		browser.runtime.onMessage.addListener(
-			(message: ContentScriptSelectionMessage) => {
-				if (message.from === "content" && message.type === "SELECTION") {
-					quotedSelection.value = message.data.selection || null;
-				}
-			},
-		);
-	} catch (error) {
-		console.error("Error setting up tab listener:", error);
-	}
+	await activeTab.initialize(browser.tabs.query({ active: true, windowId }));
 }
 
 function App() {
@@ -75,39 +53,9 @@ function App() {
 	);
 }
 
-browser.runtime.onMessage.addListener(
-	(
-		message: {
-			type: "PING_SIDEPANEL";
-			from: "content";
-		},
-		sender: any,
-		sendResponse: (response?: object) => void,
-	) => {
-		if (message.type === "PING_SIDEPANEL") {
-			if (showQuotePopupOnSelection.value) {
-				sendResponse({
-					type: "PONG_SIDEPANEL",
-					from: "sidepanel",
-					showPopup: true,
-				});
-			} else {
-				sendResponse({
-					type: "PONG_SIDEPANEL",
-					from: "sidepanel",
-					showPopup: false,
-				});
-			}
-			return true;
-		}
-	},
-);
-
 (async () => {
 	try {
 		await setupTabListener();
-		// Queries are restored lazily via persister.persisterFn, no need for explicit restore
-		// await appPersister.restoreQueries(queryClient);
 	} catch (error) {
 		console.error("Error during initial setup:", error);
 	}

@@ -5,10 +5,9 @@ import "../styles.css";
 import SelectionPopupManagerV2 from "./SelectionPopupManagerV2";
 import { searchAndSaveArenaChannels, showArenaToast } from "../../../src/lib/arena/arenaSearch";
 
-const pingMessage = {
-	type: "PING_SIDEPANEL",
-	from: "content",
-};
+import type { SelectionMessage } from "../../../src/lib/extension-selection";
+
+const pingMessage = { type: "PING_SIDEPANEL" } satisfies SelectionMessage;
 
 async function checkSidepanelOpen() {
 	try {
@@ -25,11 +24,7 @@ async function checkSidepanelOpen() {
 function sendSelection() {
 	const selection = window.getSelection()?.toString();
 	if (!selection) return;
-	const message = {
-		type: "SELECTION",
-		from: "content",
-		data: { selection },
-	};
+	const message = { type: "SELECTION", text: selection } satisfies SelectionMessage;
 	browser.runtime.sendMessage(message).catch(console.error);
 }
 

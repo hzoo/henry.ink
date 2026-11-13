@@ -1,5 +1,6 @@
 import { computed, signal } from "@preact/signals";
 import { domainSettings } from "./settings";
+import type { QuoteSelection } from "./extension-selection";
 
 export function extractBaseDomain(url: string): string {
 	try {
@@ -23,7 +24,7 @@ export const isBlocked = computed(() =>
 	domainSettings.value[currentDomain.value] === 'b'
 );
 // Signal to hold the latest selection action data received from the sidepanel
-export const quotedSelection = signal<string | null>(null);
+export const quotedSelection = signal<QuoteSelection | null>(null);
 
 // Signal to show comment dialog without text selection
 export const showCommentDialog = signal<boolean>(false);

@@ -17,7 +17,7 @@ const calculatePopupPosition = (
 	if (
 		!selection ||
 		selection.rangeCount === 0 ||
-		!selection.toString().trim().includes(" ")
+		!selection.toString().trim()
 	) {
 		return null;
 	}

@@ -54,7 +54,6 @@ async function fetchSimplifiedContent(inputUrl: string, mode: ContentMode, signa
 			url: targetUrl,
 			content: '',
 			mode: 'embed',
-			embed: { provider: 'youtube', originalUrl: targetUrl, videoId },
 		};
 		return;
 	}

@@ -9,7 +9,7 @@ import { ErrorMessage } from "@/src/components/ErrorMessage";
 import { SidebarHeader } from "@/src/components/SidebarHeader";
 import { EmptyList } from "@/src/components/EmptyList";
 import { cacheTimeAgo, type ErrorState } from "@/src/lib/signals";
-import { autoFetchEnabled } from "@/src/lib/settings";
+import { automaticLookupEnabled } from "@/src/lib/settings";
 import { PostList } from "@/src/components/PostList";
 import { searchBskyPosts } from "@/src/lib/bsky";
 import { FirstTimePopup } from "@/src/components/FirstTimePopup";
@@ -50,7 +50,7 @@ function SidebarBody({ autoAllowDomain }: { autoAllowDomain?: string }) {
 			return (await searchBskyPosts(url, { signal, rpc })) || [];
 		},
 		enabled:
-			isSearchableUrl.value && autoFetchEnabled.value && isAllowedWithOverride,
+			isSearchableUrl.value && automaticLookupEnabled.value && isAllowedWithOverride,
 		staleTime: Number.POSITIVE_INFINITY,
 		gcTime: Number.POSITIVE_INFINITY,
 	});

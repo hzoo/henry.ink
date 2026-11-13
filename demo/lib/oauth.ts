@@ -7,6 +7,7 @@ import {
 	getSession,
 	deleteStoredSession,
 	OAuthUserAgent,
+	TokenRefreshError,
 	resolveFromService,
 } from "@atcute/oauth-browser-client";
 import { useEffect } from "preact/hooks";
@@ -15,7 +16,9 @@ import { oauthCallbackParams } from '@/src/lib/oauth-callback';
 const isBrowserExtension =
 	typeof browser !== "undefined" && !!browser.runtime?.id;
 
+const selectedDidKey = "atcute-oauth:did";
 let isOAuthInitialized = false;
+let sessionLifetime = new AbortController();
 
 export function initializeOAuth() {
 	if (typeof window !== "undefined" && !isOAuthInitialized) {
@@ -24,6 +27,11 @@ export function initializeOAuth() {
 				client_id: import.meta.env.VITE_OAUTH_CLIENT_ID,
 				redirect_uri: import.meta.env.VITE_OAUTH_REDIRECT_URI,
 			},
+		});
+		window.addEventListener("storage", event => {
+			if (event.storageArea === window.localStorage && (event.key === selectedDidKey || event.key === null)) {
+				clearSession();
+			}
 		});
 		isOAuthInitialized = true;
 	}
@@ -38,6 +46,24 @@ export interface AtCuteState {
 
 export const atCuteState = signal<AtCuteState | null>(null);
 export const isLoadingSession = signal(true);
+
+function clearSession() {
+	sessionLifetime.abort(new Error("Login required."));
+	sessionLifetime = new AbortController();
+	atCuteState.value = null;
+}
+
+function createState(session: AtCuteSessionData, lifetime: AbortSignal): AtCuteState {
+	const agent = new OAuthUserAgent(session);
+	const rpc = new Client({
+		handler: (pathname, init) => {
+			lifetime.throwIfAborted();
+			const requestSignal = init?.signal ? AbortSignal.any([init.signal, lifetime]) : lifetime;
+			return agent.handle(pathname, { ...init, signal: requestSignal });
+		},
+	});
+	return { agent, rpc, session };
+}
 
 // Helper functions for secure return URL handling
 const storeReturnUrl = (url: string) => {
@@ -76,6 +102,7 @@ const getReturnUrl = (): string | null => {
 export const useAtCute = () => {
 	useEffect(() => {
 		let isMounted = true;
+		const lifetime = sessionLifetime.signal;
 
 		const loadSession = async () => {
 			initializeOAuth();
@@ -86,18 +113,14 @@ export const useAtCute = () => {
 					history.replaceState(null, "", location.pathname);
 					
 					const session = await finalizeAuthorization(params);
-					const agent = new OAuthUserAgent(session);
-					const rpc = new Client({ handler: agent });
-					
-					if (isMounted) {
-						atCuteState.value = { agent, rpc, session };
-						localStorage.setItem("atcute-oauth:did", session.info.sub);
+					if (isMounted && !lifetime.aborted) {
+						localStorage.setItem(selectedDidKey, session.info.sub);
+						atCuteState.value = createState(session, lifetime);
 					}
 				} catch (error) {
 					console.error("OAuth finalization error:", error);
-					if (isMounted) localStorage.removeItem("atcute-oauth:did");
 				}
-				if (isMounted) {
+				if (isMounted && !lifetime.aborted) {
 					const returnUrl = getReturnUrl();
 					if (returnUrl && returnUrl !== window.location.href) {
 						window.location.assign(returnUrl);
@@ -105,25 +128,21 @@ export const useAtCute = () => {
 					}
 				}
 			} else {
-				// Try to load existing session
-				const persistedDid = localStorage.getItem("atcute-oauth:did");
-				if (persistedDid) {
-					try {
-						const session = await getSession(
-							persistedDid as `did:${string}:${string}`,
-							{ allowStale: false }
-						);
-						if (!isMounted) return;
+				const persistedDid = localStorage.getItem(selectedDidKey);
+				if (!persistedDid) return;
 
-						if (session) {
-							const agent = new OAuthUserAgent(session);
-							const rpc = new Client({ handler: agent });
-							atCuteState.value = { agent, rpc, session };
-						} else {
-							localStorage.removeItem("atcute-oauth:did");
-						}
-					} catch (error) {
-						if (isMounted) localStorage.removeItem("atcute-oauth:did");
+				const stillSelected = () => isMounted && !lifetime.aborted &&
+					localStorage.getItem(selectedDidKey) === persistedDid;
+				try {
+					const session = await getSession(
+						persistedDid as `did:${string}:${string}`,
+						{ allowStale: false, signal: lifetime },
+					);
+					if (stillSelected()) atCuteState.value = createState(session, lifetime);
+				} catch (error) {
+					if (error instanceof TokenRefreshError && error.sub === persistedDid && stillSelected()) {
+						clearSession();
+						localStorage.removeItem(selectedDidKey);
 					}
 				}
 			}
@@ -143,6 +162,7 @@ export const useAtCute = () => {
 
 // Start login process - always generic
 export const startLoginProcess = async () => {
+	const lifetime = sessionLifetime.signal;
 	try {
 		initializeOAuth();
 		
@@ -175,11 +195,9 @@ export const startLoginProcess = async () => {
 			);
 
 			const session = await finalizeAuthorization(params);
-			const agent = new OAuthUserAgent(session);
-			const rpc = new Client({ handler: agent });
-			
-			atCuteState.value = { agent, rpc, session };
-			localStorage.setItem("atcute-oauth:did", session.info.sub);
+			if (lifetime.aborted) return;
+			localStorage.setItem(selectedDidKey, session.info.sub);
+			atCuteState.value = createState(session, lifetime);
 			isLoadingSession.value = false;
 			
 			// For extensions, also handle return URL if available
@@ -201,9 +219,9 @@ export const logout = async () => {
 	const did = atCuteState.value?.session.info.sub;
 	
 	// Immediate logout
-	atCuteState.value = null;
+	clearSession();
 	try {
-		localStorage.removeItem("atcute-oauth:did");
+		localStorage.removeItem(selectedDidKey);
 		if (did) {
 			localStorage.removeItem(`bskyUserHandle_${did}`);
 			localStorage.removeItem(`bskyUserAvatar_${did}`);

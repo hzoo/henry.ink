@@ -91,7 +91,7 @@ export function ArchiveDocument(props: Props) {
   }, [props.article, props.html, props.css, props.url, props.title, props.htmlAttrs, props.bodyAttrs, props.documentMode]);
   return <div class="relative flex-1 min-h-0 flex flex-col">
     {loaded.value?.article === props.article && selection.value && <div class="absolute right-4 top-3 z-10">
-      <button class="px-3 py-2 rounded bg-gray-950 text-white text-xs shadow" onClick={() => { quotedSelection.value = selection.value; selection.value = ''; }}>Quote selection on Bluesky</button>
+      <button class="px-3 py-2 rounded bg-gray-950 text-white text-xs shadow" onClick={() => { quotedSelection.value = { text: selection.value, url: props.url }; selection.value = ''; }}>Quote selection on Bluesky</button>
     </div>}
     <iframe ref={frame} title={props.title || 'Original article layout'} sandbox="allow-same-origin" referrerPolicy="no-referrer" class="w-full flex-1 min-h-[65vh] border-0 bg-white" />
     {loaded.value?.article === props.article && <InlineNotes key={props.url} root={loaded.value.root} article={props.article} />}

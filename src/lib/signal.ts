@@ -1,5 +1,5 @@
 import type { Signal } from "@preact/signals";
-import { effect, signal } from "@preact/signals";
+import { batch, effect, signal } from "@preact/signals";
 
 export const STORAGE_PREFIX = "site-annotations-";
 
@@ -43,61 +43,69 @@ export const persistSignal = <T>(
 interface AsyncStorage<T> {
   get(key: string): Promise<{ [key: string]: T }>;
   set(items: { [key: string]: T }): Promise<void>;
+  onChanged: {
+    addListener(listener: (changes: Record<string, { newValue?: T }>) => void): void;
+  };
 }
 
-/**
- * Creates a signal that is persisted in browser storage (local or sync).
- * 
- * @template T - The type of the signal value.
- * @param key - The key used to store and retrieve the persisted value.
- * @param initialValue - The initial value of the signal if no persisted value is found.
- * @param storage - The browser storage to use (browser.storage.local or browser.storage.sync)
- * @returns A signal with a persisted value that updates storage on changes.
- */
+type BrowserSignal<T> = Signal<T> & { ready: Readonly<Signal<boolean>> };
+
 export const persistBrowserSignal = <T>(
   key: string,
   initialValue: T,
-  storage: AsyncStorage<T>
-): Signal<T> => {
-  // Create signal with initial value first
-  const data = signal<T>(initialValue);
-  
-  // Load persisted value asynchronously
-  storage.get(key).then((result) => {
-    const persistedValue = result[key];
-    if (persistedValue !== undefined) {
-      data.value = persistedValue;
-    }
+  storage: AsyncStorage<T>,
+): BrowserSignal<T> => {
+  const ready = signal(false);
+  const data = Object.assign(signal(initialValue), { ready });
+  let observed = initialValue;
+  let changed = false;
+
+  const applyStored = (value: T) => {
+    observed = value;
+    batch(() => {
+      data.value = value;
+      ready.value = true;
+    });
+  };
+
+  storage.onChanged.addListener(changes => {
+    if (!Object.hasOwn(changes, key)) return;
+    changed = true;
+    applyStored(changes[key].newValue ?? initialValue);
   });
 
-  // Set up effect to persist changes
   effect(() => {
-    try {
-      storage.set({ [key]: data.value });
-    } catch (error) {
+    const value = data.value;
+    if (Object.is(value, observed)) return;
+    observed = value;
+    changed = true;
+    void storage.set({ [key]: value }).catch(error => {
       console.error("Error persisting browser signal:", error);
-    }
+    });
+  });
+
+  void storage.get(key).then(result => {
+    if (!changed) applyStored(result[key] ?? initialValue);
+    else ready.value = true;
+  }).catch(error => {
+    console.error("Error loading browser signal:", error);
   });
 
   return data;
 };
 
-export const signalBrowserLocal = <T>(key: string, initialValue: T): Signal<T> => {
-  if (typeof browser !== 'undefined' && browser.storage?.local) {
-    // Use browser.storage.local if available (extension context)
-    return persistBrowserSignal(key, initialValue, browser.storage.local);
+function browserSignal<T>(area: 'local' | 'sync', key: string, initialValue: T): BrowserSignal<T> {
+  if (typeof browser === 'undefined') {
+    return Object.assign(persistSignal(key, initialValue), { ready: signal(true) });
   }
-  // Fallback to localStorage if browser.storage.local is not available (web context)
-  // console.warn(`browser.storage.local not available for key '${key}'. Falling back to localStorage.`);
-  return persistSignal(key, initialValue);
-};
+  const storage = browser.storage?.[area];
+  return storage
+    ? persistBrowserSignal(key, initialValue, storage)
+    : Object.assign(signal(initialValue), { ready: signal(false) });
+}
 
-export const signalBrowserSync = <T>(key: string, initialValue: T): Signal<T> => {
-  if (typeof browser !== 'undefined' && browser.storage?.sync) {
-    // Use browser.storage.sync if available (extension context)
-    return persistBrowserSignal(key, initialValue, browser.storage.sync);
-  }
-  // Fallback to localStorage if browser.storage.sync is not available (web context)
-  // console.warn(`browser.storage.sync not available for key '${key}'. Falling back to localStorage (syncing disabled).`);
-  return persistSignal(key, initialValue);
-};
+export const signalBrowserLocal = <T>(key: string, initialValue: T): BrowserSignal<T> =>
+  browserSignal('local', key, initialValue);
+
+export const signalBrowserSync = <T>(key: string, initialValue: T): BrowserSignal<T> =>
+  browserSignal('sync', key, initialValue);

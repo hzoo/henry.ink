@@ -114,10 +114,10 @@ function QuoteComposer() {
 	}, []);
 
 	// --- State Signals ---
-	const { originalUrl, initialQuote } = useMemo(() => ({
-		originalUrl: currentUrl.peek(),
-		initialQuote: quotedSelection.peek(),
-	}), []);
+	const { originalUrl, initialQuote } = useMemo(() => {
+		const selection = quotedSelection.peek();
+		return { originalUrl: selection?.url ?? currentUrl.peek(), initialQuote: selection?.text };
+	}, []);
 	const quotePreview = useMemo(() => truncateQuote(initialQuote || ''), [initialQuote]);
 	const userText = useSignal(initialQuote
 		? `${quotePreview.text.split("\n").map(line => `> ${line}`).join("\n")}\n\n[h↗]`

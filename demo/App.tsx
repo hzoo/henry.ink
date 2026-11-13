@@ -135,7 +135,7 @@ export function App() {
 								onClick: () => {
 									const selection = window.getSelection()?.toString();
 									if (!selection) return;
-									quotedSelection.value = selection;
+									quotedSelection.value = { text: selection, url: currentUrl.peek() };
 								},
 								icon: "💬"
 							},

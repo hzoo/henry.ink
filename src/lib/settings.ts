@@ -1,4 +1,4 @@
-import { signal } from "@preact/signals";
+import { computed, signal } from "@preact/signals";
 import { signalBrowserLocal, signalBrowserSync } from "./signal";
 
 export type DomainStatus = 'a' | 'b';
@@ -8,6 +8,9 @@ export const isDarkMode = signal<boolean>(window.matchMedia('(prefers-color-sche
 // Settings signal
 export const autoFetchEnabled = signalBrowserSync<boolean>('autoFetchEnabled', true);
 export const domainSettings = signalBrowserLocal<{[domain: string]: DomainStatus}>('domainSettings', {});
+export const automaticLookupEnabled = computed(() =>
+  autoFetchEnabled.ready.value && domainSettings.ready.value && autoFetchEnabled.value,
+);
 export const showQuotePopupOnSelection = signalBrowserSync<boolean>('showQuotePopupOnSelection', true);
 
 export async function setDomainStatus(domain: string, status: DomainStatus | null) {
@@ -49,7 +52,6 @@ async function migrateSettings() {
 
       await browser.storage.local.set({ [newKey]: migratedSettings });
       await browser.storage.local.remove(oldKey);
-      domainSettings.value = migratedSettings;
 
     }
   } catch (error) {

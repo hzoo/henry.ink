@@ -3,26 +3,11 @@ import { signal } from "@preact/signals";
 // Content mode types
 export type ContentMode = 'md' | 'archive' | 'embed';
 
-export type EmbedProviderId = 'youtube';
-
-export interface EmbedBase {
-  provider: EmbedProviderId;
-  originalUrl: string;
-  title?: string;
-}
-
-export interface YouTubeEmbed extends EmbedBase {
-  provider: 'youtube';
-  videoId: string;
-}
-
-export type EmbedContent = YouTubeEmbed;
-
 // Content loading state
 export type ContentState =
   | { type: 'idle' }
   | { type: 'loading'; mode: ContentMode; message?: string }
-  | { type: 'success'; url: string; resolvedUrl?: string; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any; embed?: EmbedContent }
+  | { type: 'success'; url: string; resolvedUrl?: string; content: string; title?: string; mode: ContentMode; html?: string; css?: string; htmlAttrs?: any; bodyAttrs?: any }
   | { type: 'error'; message: string; mode: ContentMode };
 
 export type ArticleContent = Extract<ContentState, { type: 'success' }>;
