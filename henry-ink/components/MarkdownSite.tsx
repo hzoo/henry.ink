@@ -3,7 +3,7 @@ import { useRef } from "preact/hooks";
 
 import { contentStateSignal, contentModeSignal, contentRevision } from "@/henry-ink/signals";
 import { useUrlPathSyncer, useContentFetcher } from "@/henry-ink/services";
-import { ArenaEnhancedContent } from "@/henry-ink/components/ArenaEnhancedContent";
+import { ReadableDocument } from "@/henry-ink/components/ReadableDocument";
 import { ArchiveDocument } from "@/henry-ink/components/ArchiveDocument";
 import { readerDocumentMode } from "@/henry-ink/reader/document";
 import { sanitizeReadableHtml } from "@/henry-ink/reader/readable";
@@ -93,16 +93,13 @@ export function MarkdownSite() {
 						? 'w-full min-w-0 max-w-4xl mx-auto px-4 sm:px-6 [overflow-wrap:anywhere] [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_pre]:max-w-full [&_pre]:overflow-x-auto'
 						: 'max-w-4xl mx-auto'}>
 						{contentMode === 'archive' && contentState.html ? (
-									<ArenaEnhancedContent
-										htmlContent={contentState.html}
-										renderContent={(html, arenaMatches) => <ArchiveDocument key={contentState.url} html={html} css={contentState.css || ''} arenaMatches={arenaMatches}
+									<ArchiveDocument key={contentState.url} html={contentState.html} css={contentState.css || ''}
 											article={contentState}
 											documentMode={readerDocumentMode(contentState.html || '')}
 											resolvedUrl={contentState.resolvedUrl}
-											url={currentUrl.value} title={contentState.title} htmlAttrs={contentState.htmlAttrs} bodyAttrs={contentState.bodyAttrs} />}
-									/>
+											url={currentUrl.value} title={contentState.title} htmlAttrs={contentState.htmlAttrs} bodyAttrs={contentState.bodyAttrs} />
 						) : (
-							<ArenaEnhancedContent
+							<ReadableDocument
 									htmlContent={prepareReadableHtml(contentState.html || '')}
 							/>
 						)}

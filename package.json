@@ -26,7 +26,6 @@
     "deploy:ink": "bun run verify && CLOUDFLARE_ACCOUNT_ID=4eb8c64e85c6cc2bcb31e3df36da1959 bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
     "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
     "api": "bun api/server.ts",
-    "migrate:api": "bun scripts/migrate-api.ts",
     "deploy:api": "bash scripts/deploy.sh"
   },
   "dependencies": {

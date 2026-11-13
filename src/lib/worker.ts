@@ -10,7 +10,6 @@ export interface Env {
 	BLUESKY_IDENTIFIER: string;
 	BLUESKY_APP_PASSWORD: string;
 	BLUESKY_SESSION_KV: KVNamespace;
-	SITE_URL: string;
 }
 
 const SESSION_KV_KEY = "bluesky_bot_session";

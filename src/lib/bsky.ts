@@ -7,6 +7,7 @@ import type {
 	ResourceUri,
 } from "@atcute/lexicons";
 import { extractYouTubeVideoId } from "@/henry-ink/embed/youtube";
+import { blueskySearchUrl } from "@/src/lib/api-config";
 
 const rpc = new Client({
 	handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
@@ -85,7 +86,7 @@ export async function searchBskyPosts(
 
 		if (!client) {
 			// Use the worker for search, it handles caching and auth forwarding
-			const workerUrl = `${import.meta.env.VITE_WORKER_URL}?url=${encodeURIComponent(url)}`;
+			const workerUrl = `${blueskySearchUrl}?url=${encodeURIComponent(url)}`;
 			const res = await fetch(workerUrl, {
 				method: "GET",
 				signal: options?.signal,

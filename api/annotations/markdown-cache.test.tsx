@@ -14,7 +14,7 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
   mock.module('preact-iso', () => ({ useLocation: () => ({ path: '/article' }) }));
   mock.module('@/henry-ink/services', () => ({ useUrlPathSyncer() {}, useContentFetcher() {} }));
   mock.module('@/henry-ink/reader/notes', () => ({ useReaderNotes() {} }));
-  mock.module('@/henry-ink/components/ArenaEnhancedContent', () => ({ ArenaEnhancedContent: ({ htmlContent }: { htmlContent: string }) => h('div', { id: 'output', innerHTML: htmlContent }) }));
+  mock.module('@/henry-ink/components/ReadableDocument', () => ({ ReadableDocument: ({ htmlContent }: { htmlContent: string }) => h('div', { id: 'output', innerHTML: htmlContent }) }));
   for (const [path, name] of [
     ['@/henry-ink/components/ArchiveDocument', 'ArchiveDocument'],
     ['@/henry-ink/components/YouTubePlayer', 'YouTubePlayer'],
@@ -31,7 +31,7 @@ test('MarkdownSite sanitizes once for unchanged content and invalidates for new 
     currentUrl.value = url;
     contentModeSignal.value = 'md';
     const first = '<p style="color:red" class="fixed"><strong>First passage</strong></p><script>evil()</script><link rel="stylesheet" href="https://evil.test/style.css">';
-    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Plaintext for Arena, not rendering', html: first };
+    contentStateSignal.value = { type: 'success', url, mode: 'md', content: 'Captured plaintext, not rendering', html: first };
     render(h(MarkdownSite, {}), mount);
     await settle();
     expect(sanitize).toHaveBeenCalledTimes(1);

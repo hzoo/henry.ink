@@ -3,9 +3,8 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { loadEnv } from 'vite';
-import { resolveApiBase } from '../src/lib/api-config';
+import { blueskySearchUrl, resolveApiBase } from '../src/lib/api-config';
 import type { AnnotationView } from '../src/lib/annotations/margin';
-import type { ArenaBlock } from '../src/lib/arena-types';
 import { readerFixtures } from './fixtures/reader';
 
 // Exercise the actual production bundle. Only transport responses are replaced;
@@ -14,7 +13,8 @@ const dist = resolve('henry-ink/dist');
 assert(await Bun.file(`${dist}/index.html`).exists(), 'Run bun run build:ink first');
 const env = loadEnv('production', process.cwd());
 const api = resolveApiBase(env.VITE_API_URL, true);
-const worker = env.VITE_WORKER_URL || 'https://bsky-search.henry.ink';
+const worker = blueskySearchUrl;
+const websiteOnly = process.argv.includes('--website');
 const server = Bun.serve({
   hostname: '127.0.0.1', port: 0,
   async fetch(request) {
@@ -37,6 +37,7 @@ async function websiteFlows(width: number) {
   const fixture = readerFixtures[0];
   const source = `${fixture.url}?token=a%2fb&tag=one+two&code=article-code&state=article-state`;
   const caseSource = source.replace('/custom-styled', '/Custom-Styled');
+  const unavailableSource = 'https://reader-fixtures.example/unavailable?case=One%2fTwo';
   const linkedText = `@old.test ${caseSource}\n${source}`;
   const image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   const cid = `bafyrei${'a'.repeat(52)}`;
@@ -62,19 +63,6 @@ async function websiteFlows(width: number) {
     } : index === 2 ? { $type: 'app.bsky.embed.external#view', external: { uri: caseSource, title: 'Distinct case article', description: '' } }
       : index === 3 ? { $type: 'app.bsky.embed.video#view', cid, playlist: 'https://video.example/playlist.m3u8' } : undefined,
   }));
-  const blocks: ArenaBlock[] = Array.from({ length: 26 }, (_, index) => ({
-    id: index + 1, title: `Block ${index + 1}`, href: `/block/${index + 1}`, __typename: 'Text',
-    content: `<p>Shared reading detail ${index + 1}</p>`,
-  }));
-  blocks[0] = { id: 1, title: 'Block 1', href: '/block/1', __typename: 'Image', image_url: 'data:image/png,broken' };
-  blocks[1] = { id: 2, title: 'Block 2', href: '/block/2', __typename: 'Link', source: { url: 'https://example.org/reading' } };
-  for (const [index, url] of ['not a url', 'javascript:alert(1)', '/relative-source'].entries()) {
-    blocks[index + 2] = { id: index + 3, title: `Block ${index + 3}`, href: `/block/${index + 3}`, __typename: 'Link', source: { url } };
-  }
-  blocks[24] = { ...blocks[24], __typename: 'Text',
-    content: `<p>Shared reading detail 25</p>${'<p>Another paragraph in the first block.</p>'.repeat(80)}` };
-  blocks[25] = { ...blocks[25], title: 'LongUnbrokenBlockTitle'.repeat(10), __typename: 'Text',
-    content: `<p>Shared reading detail 26</p>${'<p>Another paragraph in the block.</p>'.repeat(80)}` };
   const context = await browser.newContext({ viewport: { width, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
   await context.addInitScript(() => {
     localStorage.setItem('site-annotations-domainSettings', JSON.stringify({ 'reader-fixtures.example': 'a' }));
@@ -96,12 +84,12 @@ async function websiteFlows(width: number) {
   page.setDefaultTimeout(8000);
   const failures: string[] = [];
   const archiveRequests: string[] = [];
-  const channelPages: number[] = [];
+  const lookupPages: number[] = [];
   let threadRequests = 0;
   let postRequests = 0;
   let postsUnavailable = true;
   let threadUnavailable = true;
-  let channelUnavailable = false;
+  let lookupUnavailable = true;
   let nextPageUnavailable = true;
   let releaseThread!: () => void;
   const threadReady = new Promise<void>(resolve => { releaseThread = resolve; });
@@ -119,27 +107,36 @@ async function websiteFlows(width: number) {
     if (url.origin === api) {
       if (url.pathname === '/api/archive') {
         archiveRequests.push(url.searchParams.get('url')!);
+        if (url.searchParams.get('url') === unavailableSource) return route.fulfill({ status: 503, json: { error: 'Unavailable fixture' }, headers: { 'Access-Control-Allow-Origin': '*' } });
         await archiveReady;
         return json({ ...fixture.archive, url: source, resolvedUrl: source,
           css: `${fixture.archive.css}\n#last-paragraph{margin-top:1200px}` });
       }
       if (url.pathname === '/api/annotations/margin') {
-        assert.equal(url.searchParams.get('url'), source);
+        assert([source, unavailableSource].includes(url.searchParams.get('url')!));
         return json({ items: [], skipped: 0 });
       }
-      if (url.pathname === '/api/arena/enhance') {
-        if (route.request().postDataJSON().url !== source) failures.push('Matching requests must use the existing server cache');
-        return json({ matches: [{ slug: 'shared-reading', title: 'Shared reading',
-          author_name: 'Fixture', contents_count: 26, bestMatch: { matchedText: quote.split(' ').slice(0, 2).join(' '), position: 0, endPosition: 8 } }] });
-      }
-      if (url.pathname === '/api/arena/channel-blocks') {
-        const { page: channelPage } = route.request().postDataJSON();
-        channelPages.push(channelPage);
-        if (channelUnavailable || (channelPage === 2 && nextPageUnavailable)) return route.fulfill({ status: 503, json: {}, headers: { 'Access-Control-Allow-Origin': '*' } });
-        return json({ id: 1, slug: 'shared-reading', title: 'Shared reading', user: { name: 'Fixture', slug: 'fixture' },
-          length: 26, updated_at: '2026-01-01T00:00:00Z', blocks: blocks.slice((channelPage - 1) * 24, channelPage * 24) });
+      if (url.pathname === '/api/arena/lookup') {
+        if (url.searchParams.get('url') === unavailableSource) return json({ blocks: [{ id: 201, title: 'Saved page', kind: 'Link', channels: { state: 'ready', items: [{ slug: 'independent', title: 'Saved independently', visibility: 'closed' }], hasMore: false } }], nextPage: null });
+        assert.equal(url.searchParams.get('url'), source, 'Are.na must look up the source URL, including its query bytes');
+        const lookupPage = Number(url.searchParams.get('page'));
+        lookupPages.push(lookupPage);
+        if (lookupUnavailable || (lookupPage === 2 && nextPageUnavailable)) return route.fulfill({ status: 503, json: {}, headers: { 'Access-Control-Allow-Origin': '*' } });
+        const channel = { slug: 'shared-reading', title: 'Shared reading', visibility: 'public', blockCount: 214,
+          description: 'Essays, experiments, and tools for thinking together.', owner: { name: 'Fixture', slug: 'fixture' } };
+        return json({ blocks: lookupPage === 1 ? [
+          { id: 101, title: 'The shape of shared reading', kind: 'Link', previewUrl: 'https://images.are.na/fixture-preview.svg',
+            creator: { name: 'Mira', slug: 'mira' }, createdAt: '2022-04-04T18:41:08.612Z',
+            excerpt: 'A small library grows around a page: references, connections, and the people who notice them.', channels: { state: 'ready', items: [channel], hasMore: false } },
+          { id: 102, title: 'Reading is a way of making connections', kind: 'Text', previewUrl: 'https://images.are.na/unavailable.png',
+            creator: { name: 'Alex', slug: 'alex' }, createdAt: '2023-06-12T09:00:00Z',
+            excerpt: 'The most useful marginalia points beyond the page. A collection becomes another way into an idea.', channels: { state: 'ready', items: [channel], hasMore: false } },
+        ] : [{ id: 103, title: 'A note to return to', kind: 'Link', channels: { state: 'ready', items: [channel,
+          { slug: 'further-reading', title: 'Further reading', visibility: 'closed', blockCount: 37, description: 'Sources to come back to.', owner: { name: 'Alex', slug: 'alex' } }], hasMore: false } }], nextPage: lookupPage === 1 ? 2 : null });
       }
     }
+    if (url.href === 'https://images.are.na/fixture-preview.svg') return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160"><rect width="120" height="160" fill="#eee9df"/><path d="M18 30h84M18 38h84M18 46h60M18 64h84M18 72h78M18 80h84M18 88h64" stroke="#555f48" stroke-width="3"/><circle cx="60" cy="124" r="16" fill="#a4b092"/></svg>' });
+    if (url.href === 'https://images.are.na/unavailable.png') return route.fulfill({ status: 404, body: '' });
     if (url.origin === new URL(worker).origin && url.pathname === new URL(worker).pathname) {
       postRequests++;
       await postsReady;
@@ -314,110 +311,47 @@ async function websiteFlows(width: number) {
     await page.getByRole('button', { name: 'Original', exact: true }).click();
     await page.frameLocator('iframe[title]').locator('#last-paragraph').waitFor();
     await page.waitForFunction(() => (document.activeElement as HTMLElement)?.dataset.postRkey === 'plain24');
-    const beforeChannel = archiveRequests.length;
-    await page.getByRole('tab', { name: /^Arena/ }).click();
-    await page.getByRole('button', { name: 'Scroll to text: The final', exact: true }).click();
-    await page.waitForFunction(() => (document.querySelector('iframe') as HTMLIFrameElement)?.contentDocument?.activeElement?.getAttribute('data-channel-slug') === 'shared-reading');
-    channelUnavailable = true;
-    await page.frameLocator('iframe[title]').locator('button[data-channel-slug="shared-reading"]').click();
-    await page.getByText('Arena service returned 503', { exact: true }).waitFor();
-    const failedRequests = channelPages.length;
-    channelUnavailable = false;
-    await page.getByRole('button', { name: 'Refresh Arena channel', exact: true }).click();
-    await page.getByRole('button', { name: 'Back to Channels', exact: true }).waitFor();
-    assert(channelPages.length > failedRequests, 'Refreshing a failed channel must retry its blocks');
-    await page.getByRole('tab', { name: /^Arena/, selected: true }).waitFor();
-    if (width < 1024) await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Text', exact: true }).click();
-    await page.locator('main aside').waitFor();
-    assert.equal(await page.getByRole('tab', { name: /^Arena/, includeHidden: true }).getAttribute('aria-selected'), 'true', 'Mode changes must not restore the discussion target cleared by channel navigation');
-    await page.getByRole('button', { name: 'Original', exact: true }).click();
-    await page.frameLocator('iframe[title]').locator('#last-paragraph').waitFor();
-    if (width < 1024) await page.getByRole('button', { name: 'Open notes', exact: true }).click();
-    await page.getByRole('button', { name: 'Open block: Block 24', exact: true }).scrollIntoViewIfNeeded();
-    await page.getByText('More blocks could not be loaded.', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: /^Open block:/ }).count(), 24, 'Pagination failure must preserve loaded blocks');
-    const failedPageRequests = channelPages.length;
-    await page.waitForTimeout(1500);
-    assert.equal(channelPages.length, failedPageRequests, 'Pagination failure must stop automatic retries');
+    const beforeArena = archiveRequests.length;
+    assert.equal(lookupPages.length, 0, 'Are.na must stay quiet until its tab is opened');
+    await page.getByRole('tab', { name: 'Are.na', exact: true }).click();
+    await page.getByText('Couldn’t load Are.na saves.', { exact: true }).waitFor();
+    lookupUnavailable = false;
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    const channel = page.getByRole('link', { name: 'Shared reading', exact: true });
+    await channel.waitFor();
+    assert.equal(await channel.count(), 1, 'Copies of the page in one channel must share a row');
+    assert.equal(await channel.getAttribute('href'), 'https://www.are.na/channel/shared-reading');
+    assert.equal(await page.getByRole('link', { name: 'Channel owner: Fixture', exact: true }).getAttribute('href'), 'https://www.are.na/fixture');
+    for (const id of [101, 102]) assert.equal(await page.getByRole('link', { name: `Open saved block ${id} on Are.na`, exact: true }).getAttribute('href'), `https://www.are.na/block/${id}`);
+    await page.getByText('Essays, experiments, and tools for thinking together.', { exact: true }).waitFor();
+    await page.getByText('214 blocks', { exact: true }).waitFor();
+    const versions = page.getByRole('region', { name: 'Saved versions', exact: true });
+    await versions.getByText('The most useful marginalia points beyond the page. A collection becomes another way into an idea.', { exact: true }).waitFor();
+    assert.equal(await versions.getByRole('link', { name: 'Block creator: Mira', exact: true }).getAttribute('href'), 'https://www.are.na/mira');
+    assert.equal(await versions.locator('time').first().getAttribute('datetime'), '2022-04-04T18:41:08.612Z');
+    const imageSave = versions.getByRole('link', { name: 'Open saved block 101 on Are.na', exact: true });
+    await imageSave.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => { const img = document.querySelector('[aria-label="Open saved block 101 on Are.na"] img') as HTMLImageElement | null; return img?.complete && img.naturalWidth > 0; });
+    const textSave = versions.getByRole('link', { name: 'Open saved block 102 on Are.na', exact: true });
+    await textSave.scrollIntoViewIfNeeded();
+    await textSave.locator('img').waitFor({ state: 'detached' });
+    await textSave.getByText('Text', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Load more results', exact: true }).click();
+    await page.getByText('More results couldn’t be loaded.', { exact: true }).waitFor();
+    assert.equal(await channel.count(), 1, 'A later-page failure must preserve loaded saves');
     nextPageUnavailable = false;
-    await page.getByRole('alert').getByRole('button', { name: 'Try again', exact: true }).click();
-    const laterBlock = page.getByRole('button', { name: 'Open block: Block 25', exact: true });
-    await laterBlock.waitFor();
-    await laterBlock.focus();
-    await page.keyboard.press('Enter');
-    const dialog = page.getByRole('dialog', { name: 'Shared reading block viewer', exact: true });
-    await dialog.waitFor();
-    await dialog.getByText('Shared reading detail 25', { exact: true }).waitFor();
-    await dialog.locator('.overflow-auto').evaluate(el => { el.scrollTop = 1000; });
-    await page.keyboard.press('ArrowRight');
-    await dialog.getByText('Shared reading detail 26', { exact: true }).waitFor();
-    assert.equal(await dialog.locator('.overflow-auto').evaluate(el => el.scrollTop), 0, 'Each block must open at the beginning');
-    const nextBlock = dialog.getByRole('button', { name: 'Next block', exact: true });
-    assert(await nextBlock.isDisabled(), 'Navigation must stop at the final loaded block');
-    const beforeScroll = await nextBlock.boundingBox();
-    await dialog.locator('.overflow-auto').evaluate(el => { el.scrollTop = el.scrollHeight; });
-    assert.deepEqual(await nextBlock.boundingBox(), beforeScroll, 'Viewer navigation must stay anchored while its content scrolls');
-    assert(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth), 'Long block titles must fit the viewer');
-    await page.keyboard.press('ArrowLeft');
-    await dialog.getByText('Shared reading detail 25', { exact: true }).waitFor();
-    await dialog.getByRole('button', { name: 'Next block', exact: true }).focus();
-    await page.keyboard.press('Tab');
-    // Native Chrome dialogs may visit browser chrome at the document boundary.
-    // The next Tab must return to the modal, never the underlying Notes panel.
-    if (!await page.evaluate(() => document.hasFocus())) await page.keyboard.press('Tab');
-    assert(await dialog.getByRole('button', { name: 'Close block viewer', exact: true }).evaluate(el => el === document.activeElement), 'Tab must stay in the block viewer');
-    await page.keyboard.press('Shift+Tab');
-    assert(await dialog.getByRole('button', { name: 'Next block', exact: true }).evaluate(el => el === document.activeElement), 'Reverse Tab must stay in the block viewer');
-    await page.screenshot({ path: `test-results/block-viewer-${width}.png` });
-    await page.keyboard.press('Escape');
-    await dialog.waitFor({ state: 'detached' });
-    assert(await laterBlock.evaluate(el => el === document.activeElement), 'Closing the viewer must restore its card focus');
-    const imageCard = page.getByRole('button', { name: 'Open block: Block 1', exact: true });
-    await imageCard.scrollIntoViewIfNeeded();
-    await imageCard.getByText('IMG', { exact: true }).waitFor();
-    assert((await imageCard.boundingBox())!.height >= 100, 'Failed images must retain a usable card target');
-    await page.getByRole('button', { name: 'Open block: Block 2', exact: true }).click();
-    const sourceLink = dialog.getByRole('link', { name: 'example.org', exact: true });
-    await sourceLink.waitFor();
-    assert.equal(await sourceLink.getAttribute('href'), 'https://example.org/reading');
-    await sourceLink.focus();
-    await page.keyboard.press('ArrowRight');
-    await dialog.getByText('Block 3', { exact: true }).waitFor();
-    assert(await dialog.evaluate(el => el.contains(document.activeElement)), 'Changing blocks must keep keyboard focus in the viewer');
-    await page.keyboard.press('ArrowLeft');
-    await sourceLink.waitFor();
-    await page.keyboard.press('Escape');
-    for (const number of [3, 4, 5]) {
-      await page.getByRole('button', { name: `Open block: Block ${number}`, exact: true }).click();
-      await dialog.waitFor();
-      assert.equal(await dialog.getByRole('link').count(), 1, 'Malformed or non-web sources must keep the block usable without an unsafe source link');
-      await page.keyboard.press('Escape');
-    }
-    assert(channelPages.includes(2), 'The viewer must consume loaded page two');
-    const beforeRefresh = channelPages.length;
-    blocks[0] = { ...blocks[0], __typename: 'Image', image_url: image };
-    const refreshed = page.waitForResponse(response => response.url() === `${api}/api/arena/channel-blocks`
-      && response.request().method() === 'POST' && response.request().postDataJSON().page === 2);
-    await page.getByRole('button', { name: 'Refresh Arena channel', exact: true }).click();
-    await refreshed;
-    await imageCard.locator('img').waitFor();
-    assert.equal(await imageCard.locator('img').getAttribute('src'), image, 'A refreshed source must recover a failed thumbnail');
-    assert.deepEqual(channelPages.slice(beforeRefresh), [1, 2], 'Refreshing a loaded channel must fetch each loaded page once');
-    assert(page.url().includes(`${source}&channel=`), 'Channel navigation must preserve raw source query bytes');
-    assert.equal(archiveRequests.length, beforeChannel, 'Channel browsing must reuse the loaded article');
-    await page.getByRole('button', { name: 'Back to Channels', exact: true }).click();
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    await page.getByRole('link', { name: 'Further reading', exact: true }).waitFor();
+    assert.equal(await channel.count(), 1, 'Later pages must merge duplicate channels');
+    assert.deepEqual(lookupPages, [1, 1, 2, 2]);
+    assert.equal(await page.frameLocator('iframe[title]').locator('.arena-channel-link').count(), 0, 'URL discovery must not decorate article text');
     if (width < 1024) await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Text', exact: true }).click();
     await page.locator('main aside').waitFor();
+    assert.equal(await page.getByRole('tab', { name: 'Are.na', exact: true, includeHidden: true }).getAttribute('aria-selected'), 'true', 'Reading mode changes must preserve the selected source');
+    assert.equal(archiveRequests.length, beforeArena, 'Are.na browsing must reuse the article');
     if (width < 1024) await page.getByRole('button', { name: 'Open notes', exact: true }).click();
-    await page.getByRole('button', { name: 'Scroll to text: The final', exact: true }).click();
-    await page.waitForFunction(() => document.activeElement?.getAttribute('data-channel-slug') === 'shared-reading');
-    await page.getByRole('button', { name: 'Original', exact: true }).click();
-    await page.frameLocator('iframe[title]').locator('button[data-channel-slug="shared-reading"]').click();
-    await page.reload();
-    await page.getByRole('button', { name: 'Back to Channels', exact: true }).waitFor();
-    assert(archiveRequests.every(url => url === source), 'Reader controls must never become source query parameters');
+    await page.getByRole('tabpanel').filter({ visible: true }).locator('[aria-busy]').evaluate(el => { el.scrollTop = 0; });
     await page.screenshot({ path: `test-results/website-flows-${width}.png` });
     const beforeHome = archiveRequests.length;
     if (width < 1024) await page.keyboard.press('Escape');
@@ -425,20 +359,26 @@ async function websiteFlows(width: number) {
     await page.getByLabel('Web address', { exact: true }).waitFor();
     assert.equal(page.url(), `${origin}/`, 'Home must stay on the current site');
     await page.goBack();
-    await page.getByRole('button', { name: 'Back to Channels', exact: true }).waitFor();
-    await page.frameLocator('iframe[title]').locator('#last-paragraph').waitFor();
+    await page.locator('main p').filter({ hasText: quote }).first().waitFor();
     assert.equal(archiveRequests.length, beforeHome, 'Returning from Home must reuse the article');
+    await page.goto(`${origin}/${unavailableSource}`);
+    await page.locator('main button').filter({ hasText: 'Try again' }).waitFor({ state: 'attached' });
+    if (width < 1024) await page.getByRole('button', { name: 'Open notes', exact: true }).click();
+    await page.getByRole('tab', { name: 'Are.na', exact: true }).click();
+    await page.getByRole('link', { name: 'Saved independently', exact: true }).waitFor();
+    assert.equal(await page.locator('main iframe').count(), 0, 'URL lookup must work even without an article document');
+    await page.screenshot({ path: `test-results/arena-without-article-${width}.png` });
     assert.deepEqual(failures, []);
-    console.info(`PASS Website flows ${width}px: manual search, social links/media, composer focus, quote fallbacks, channel recovery and source queries`);
+    console.info(`PASS Website flows ${width}px: manual search, social links/media, composer focus, quote fallbacks, URL saves and source queries`);
   } catch (error) {
-    console.error('Website flow failure', { width, url: page.url(), failures, archiveRequests, channelPages }, error);
+    console.error('Website flow failure', { width, url: page.url(), failures, archiveRequests, lookupPages }, error);
     await page.screenshot({ path: `test-results/website-flows-${width}-failed.png`, timeout: 5000 }).catch(() => {});
     throw error;
   } finally { releasePosts(); releaseArchive(); releaseThread(); await context.close(); }
 }
 try {
   for (const width of [1280, 390]) {
-    for (const fixture of readerFixtures) {
+    for (const fixture of websiteOnly ? [] : readerFixtures) {
       const context = await browser.newContext({ viewport: { width, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
       const page = await context.newPage();
       page.setDefaultTimeout(8000);
@@ -461,7 +401,6 @@ try {
       const bookmark: AnnotationView = { ...note, uri: `${note.uri}-saved`, motivation: 'bookmarking', anchor: { kind: 'page' } };
       let releaseArena!: () => void;
       const arenaReady = new Promise<void>(resolve => { releaseArena = resolve; });
-      const matchedText = quote.split(' ').slice(0, 2).join(' ');
       // Force a real scroll without depending on the amount of synthetic prose.
       const archive = {
         ...fixture.archive,
@@ -479,10 +418,9 @@ try {
         if (url.origin === api) {
           if (url.pathname === '/api/archive' && url.searchParams.get('url') === fixture.url) return json(archive);
           if (url.pathname === '/api/annotations/margin') return json({ items: [note, shortComment, longComment, unplacedComment, bookmark], skipped: 0 });
-          if (url.pathname === '/api/arena/enhance') {
+          if (url.pathname === '/api/arena/lookup') {
             await arenaReady;
-            return json({ matches: [{ slug: 'shared-reading', title: matchedText, author_name: 'Fixture', contents_count: 2,
-              bestMatch: { matchedText, position: 0, endPosition: matchedText.length } }] });
+            return json({ blocks: [{ id: 1, title: 'Saved page', kind: 'Link', channels: { state: 'ready', items: [{ slug: 'shared-reading', title: 'Shared reading', visibility: 'closed' }], hasMore: false } }], nextPage: null });
           }
         }
         if (url.origin === new URL(worker).origin && url.pathname === new URL(worker).pathname) return json({ posts: [] });
@@ -543,7 +481,7 @@ try {
         await page.getByRole('tab', { name: 'Bluesky', exact: true, selected: true }).waitFor();
         assert.equal(await tabs.locator('..').evaluate(el => el.getBoundingClientRect().height), tabHeight, 'Source changes must not move the header');
         await page.keyboard.press('End');
-        await page.getByRole('tab', { name: /^Arena/, selected: true }).waitFor();
+        await page.getByRole('tab', { name: 'Are.na', exact: true, selected: true }).waitFor();
         await page.keyboard.press('Home');
         await page.getByRole('tab', { name: 'Notes', exact: true, selected: true }).waitFor();
         assert.equal(await page.getByText('Unplaced', { exact: true }).count(), 1);
@@ -581,12 +519,15 @@ try {
         await page.waitForFunction(() => (document.querySelector('iframe') as HTMLIFrameElement)?.contentWindow!.scrollY === 0);
         await frame.getByRole('link', { name: 'Jump to ending', exact: true }).click();
         const scrollBeforeContext = await iframe.evaluate(el => (el as HTMLIFrameElement).contentWindow!.scrollY);
+        if (width < 1024) await page.getByRole('button', { name: 'Open notes', exact: true }).click();
+        await page.getByRole('tab', { name: 'Are.na', exact: true }).click();
         releaseArena();
-        await frame.locator('button[data-channel-slug="shared-reading"]').waitFor();
-        assert.equal(await iframe.getAttribute('src'), loadedSrc, 'Late context must update the current document');
+        await page.getByRole('link', { name: 'Shared reading', exact: true }).waitFor();
+        assert.equal(await frame.locator('.arena-channel-link').count(), 0);
+        assert.equal(await iframe.getAttribute('src'), loadedSrc, 'Sidebar discovery must retain the current document');
         const scrollAfterContext = await iframe.evaluate(el => (el as HTMLIFrameElement).contentWindow!.scrollY);
         assert(Math.abs(scrollAfterContext - scrollBeforeContext) <= 2, `Late context must retain reading position (${scrollBeforeContext} → ${scrollAfterContext})`);
-        if (width < 1024) await page.getByRole('button', { name: 'Open notes', exact: true }).click();
+        await page.getByRole('tab', { name: 'Notes', exact: true }).click();
         await page.locator('.note-attribution').filter({ hasText: 'Long Reader' }).getByRole('button', { name: 'Show passage in article', exact: true }).click();
         assert(await longDetails.evaluate(el => (el as HTMLDetailsElement).open), 'Jump must open the selected comment in a group');
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Reader chrome overflows on mobile');

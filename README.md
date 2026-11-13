@@ -6,7 +6,7 @@ what if every webpage had marginalia for notes? what if you could see what peopl
 
 ## how it works
 
-*web version*: visit `henry.ink/domain.com` and see that page alongside what people are saying about it. reader mode for cleaner text, archive mode to see the original styling. sometimes Arena channels appear as links when they match the content.
+*web version*: visit `henry.ink/domain.com` and see that page alongside what people are saying about it. reader mode for cleaner text, archive mode to see the original styling. the Are.na tab shows channels where the page has been saved.
 
 *extension*: shows discussions about your current page in the browser sidebar.
 
@@ -24,6 +24,17 @@ This project began as a [browser extension](extension/) developed for the [Commu
 
 ## Verification
 
+Browser development needs no env file or local API: `bun run ink`, `bun run demo`,
+and the extension use the deployed public services. OAuth settings come from the
+checked-in client metadata.
+
+To work on the API, run `bun run api`, then point the web app at it with
+`VITE_API_URL=http://localhost:3000 bun run ink`. The API needs no credentials.
+Its article snapshot cache is created locally. Are.na looks up the page URL
+through public v2 search, then filters saved source URLs and reads their channel
+connections. It needs no channel database, keyword index, or background sync.
+See `.env.example` for optional port and storage overrides.
+
 Run `bun install --frozen-lockfile` and install the browser once with
 `bunx playwright install --with-deps chrome` (Linux) or `bunx playwright install chrome` (macOS).
 
@@ -33,7 +44,7 @@ Run `bun install --frozen-lockfile` and install the browser once with
 
 The smoke checks use committed synthetic articles and intercepted API responses, not live upstream services. They verify typography/colors, content retention, script isolation, highlight ranges and jumps, archive reuse in text mode, and production API destinations. Screenshots are written to `test-results/`; they are review artifacts, not pixel-diff assertions. These checks do not prove that a live upstream is available, that every website keeps its original layout, or that the extension builds.
 
-`deploy:ink` and the VPS deploy script run `verify` before publishing/restarting. GitHub Actions runs the same gate without production credentials. Local builds must set `VITE_API_URL=https://api.henry.ink` in `.env.production` if `.env` contains a localhost API URL. The deployed bundle must match the public configuration used for its smoke check.
+`deploy:ink` and the VPS deploy script run `verify` before publishing/restarting. GitHub Actions runs the same gate without credentials or public URL variables. Browser builds default to the deployed services; an optional `VITE_API_URL` override is checked to prevent HTTP or localhost API destinations in production.
 
 ## Future Ideas
 

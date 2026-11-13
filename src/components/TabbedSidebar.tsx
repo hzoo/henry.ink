@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useId, useRef } from "preact/hooks";
 import { Sidebar } from "@/src/components/Sidebar";
 import { ArenaSidebar } from "@/src/components/ArenaSidebar";
@@ -8,18 +7,17 @@ import { queryClient } from "@/src/lib/queryClient";
 import { currentUrl, isSearchableUrl } from "@/src/lib/messaging";
 import { FirstTimePopup } from "@/src/components/FirstTimePopup";
 import { QuotePopup } from "@/src/components/QuotePopup";
-import { contentStateSignal, activeTabSignal, arenaViewModeSignal, type TabType } from "@/henry-ink/signals";
-import { fetchArenaMatches, arenaQueryKeys } from "@/src/lib/arena-api";
-import type { ArenaMatch } from "@/src/lib/arena-types";
+import { activeTabSignal, type TabType } from "@/henry-ink/signals";
+import { arenaQueryKey } from "@/src/lib/arena-api";
 import { MarginNotes } from "@/henry-ink/components/MarginNotes";
 import { ReaderIcon } from "@/src/components/ReaderIcon";
-import { arenaUrlState } from "@/src/lib/arena-navigation";
+import { targetPostRkey } from "@/src/lib/highlights/signals";
 import { atCuteState } from "@/demo/lib/oauth";
 
 const sources: { id: TabType; label: string }[] = [
 	{ id: "notes", label: "Notes" },
 	{ id: "bluesky", label: "Bluesky" },
-	{ id: "arena", label: "Arena" },
+	{ id: "arena", label: "Are.na" },
 ];
 
 interface TabbedSidebarProps {
@@ -31,17 +29,10 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	const id = useId();
 	const tabsRef = useRef<HTMLDivElement>(null);
 	const activeTab = activeTabSignal.value;
-	const channelSlug = arenaUrlState.value.channelSlug;
-
-	const contentState = contentStateSignal.value;
-	const url = currentUrl.value;
-
-	// Access arena matches data from React Query cache
-	const { data: arenaMatches = [] } = useQuery<ArenaMatch[]>({
-		queryKey: arenaQueryKeys.matches(url || null),
-		queryFn: ({ signal }) => fetchArenaMatches(contentState.type === 'success' ? contentState.content : '', url, signal),
-		enabled: false, // Don't fetch here, just access cached data
-	});
+	const selectSource = (source: TabType) => {
+		activeTabSignal.value = source;
+		if (source !== 'bluesky') targetPostRkey.value = null;
+	};
 
 	const handleRefresh = () => {
 		if (!isSearchableUrl.peek()) return;
@@ -51,9 +42,7 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	};
 
 	const handleArenaRefresh = () => {
-		queryClient.invalidateQueries({
-			queryKey: channelSlug ? arenaQueryKeys.blocks(channelSlug) : arenaQueryKeys.matches(currentUrl.value || null)
-		});
+		queryClient.invalidateQueries({ queryKey: arenaQueryKey(currentUrl.value) });
 	};
 
 	return (
@@ -68,17 +57,16 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 								: event.key === 'Home' ? 0 : event.key === 'End' ? sources.length - 1 : null;
 							if (next === null) return;
 							event.preventDefault();
-							activeTabSignal.value = sources[next].id;
+							selectSource(sources[next].id);
 							tabsRef.current?.querySelector<HTMLButtonElement>(`[data-source="${sources[next].id}"]`)?.focus();
 						}}>
 						{sources.map(source => <button key={source.id} type="button" role="tab"
 							id={`${id}-${source.id}-tab`} data-source={source.id}
 							aria-selected={activeTab === source.id} aria-controls={`${id}-${source.id}-panel`}
 							tabIndex={activeTab === source.id ? 0 : -1}
-							onClick={() => { activeTabSignal.value = source.id; }}
+							onClick={() => selectSource(source.id)}
 							className={`flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-md px-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-gray-500 ${activeTab === source.id ? 'bg-white shadow-sm text-gray-950 dark:bg-gray-700 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white'}`}>
 							{source.label}
-							{source.id === 'arena' && arenaMatches.length > 0 && <span className="text-[10px] tabular-nums opacity-60">{arenaMatches.length}</span>}
 						</button>)}
 					</div>
 					<div className="flex min-h-10 w-20 shrink-0 items-center justify-end">
@@ -88,17 +76,10 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 							title={cacheTimeAgo.value ? `Cached ${getTimeAgo(cacheTimeAgo.value)} — refresh discussions` : 'Refresh Bluesky discussions'}>
 							<ReaderIcon name="refresh" />
 						</button>}
-						{activeTab === 'arena' && <>
-							{!channelSlug && <button type="button" onClick={() => { arenaViewModeSignal.value = arenaViewModeSignal.value === 'preview' ? 'compact' : 'preview'; }}
-								className="reader-icon-button text-gray-500 hover:text-gray-900 dark:hover:text-white"
-								aria-label="Preview channel images" aria-pressed={arenaViewModeSignal.value === 'preview'}
-								title={arenaViewModeSignal.value === 'preview' ? 'Use compact view' : 'Preview channel images'}>
-								<ReaderIcon name={arenaViewModeSignal.value === 'preview' ? 'text' : 'grid'} />
-							</button>}
-							<button type="button" onClick={handleArenaRefresh}
-								className="reader-icon-button text-gray-500 hover:text-gray-900 dark:hover:text-white"
-								aria-label={channelSlug ? 'Refresh Arena channel' : 'Refresh Arena channels'} title={channelSlug ? 'Refresh Arena channel' : 'Refresh Arena channels'}><ReaderIcon name="refresh" /></button>
-						</>}
+						{activeTab === 'arena' && <button type="button" onClick={handleArenaRefresh}
+							className="reader-icon-button text-gray-500 hover:text-gray-900 dark:hover:text-white"
+							aria-label="Refresh Are.na saves" title="Refresh Are.na saves"><ReaderIcon name="refresh" /></button>}
+
 					</div>
 				</div>
 			</div>

@@ -3,7 +3,7 @@ import { discussionShareUrl, sourceFromReaderPath, withReaderParams } from '@/he
 
 test('reader controls do not become part of the requested source URL', () => {
   expect(sourceFromReaderPath('/https://example.com/article?token=a%2Fb&post=3abc&token=2+3&channel=reading&block=42'))
-    .toBe('https://example.com/article?token=a%2Fb&token=2+3');
+    .toBe('https://example.com/article?token=a%2Fb&token=2+3&channel=reading&block=42');
   expect(sourceFromReaderPath('/example.com/article?lang=en#ending')).toBe('example.com/article?lang=en#ending');
   expect(sourceFromReaderPath('/')).toBe('');
 });
@@ -15,12 +15,10 @@ test('discussion links append their control before a fragment and preserve sourc
     .toBe('https://henry.ink/https://example.com/article?post=3abc');
 });
 
-test('changing reader state replaces all occurrences while leaving unrelated query fields untouched', () => {
-  const reader = '/https://example.com/article?tag=a%20b&post=old&%70ost=older&channel=before&block=1#ending';
-  const channel = withReaderParams(reader, { channel: 'after', block: null });
-  expect(channel).toBe('/https://example.com/article?tag=a%20b&post=old&%70ost=older&channel=after#ending');
-  expect(withReaderParams(channel, { post: 'new' }))
-    .toBe('/https://example.com/article?tag=a%20b&channel=after&post=new#ending');
-  expect(withReaderParams('/https://example.com/article?channel=before', { channel: null }))
+test('changing discussions replaces duplicate controls while preserving source channel and block parameters', () => {
+  const reader = '/https://example.com/article?tag=a%20b&post=old&%70ost=older&channel=source&block=1#ending';
+  expect(withReaderParams(reader, { post: 'new' }))
+    .toBe('/https://example.com/article?tag=a%20b&channel=source&block=1&post=new#ending');
+  expect(withReaderParams('/https://example.com/article?post=old', { post: null }))
     .toBe('/https://example.com/article');
 });

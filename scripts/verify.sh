@@ -5,13 +5,7 @@ cd "$(dirname "$0")/.."
 # Imports may open databases. Never let verification use the running API's data.
 testdata=$(mktemp -d "${TMPDIR:-/tmp}/henry-verify.XXXXXX")
 trap 'rm -rf "$testdata"' EXIT
-export ARENA_DB_PATH="$testdata/channels.db"
 export ARCHIVE_CACHE_PATH="$testdata/archive-snapshots.db"
-
-# Public build inputs. The smoke test mocks these origins, so the build must
-# target them even where no .env supplies them (the VPS checkout).
-export VITE_API_URL="${VITE_API_URL:-https://api.henry.ink}"
-export VITE_WORKER_URL="${VITE_WORKER_URL:-https://bsky-search.henry.ink}"
 
 bun run compile
 bun run compile:api

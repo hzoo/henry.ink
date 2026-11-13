@@ -1,17 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { signal, useSignal } from "@preact/signals";
-import { useQueryClient } from "@tanstack/react-query";
 import { LoginButton } from "@/src/components/LoginButton";
 import { ReaderIcon } from "@/src/components/ReaderIcon";
 import { quotedSelection, showCommentDialog, currentUrl } from "@/src/lib/messaging";
 import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import SelectionPopupManagerV2 from "@/extension/entrypoints/popup.content/SelectionPopupManagerV2";
-import {
-	searchAndSaveArenaChannels,
-	showArenaToast,
-} from "@/src/lib/arena/arenaSearch";
-import { arenaQueryKeys } from "@/src/lib/arena-api";
 import { contentStateSignal, contentModeSignal } from "@/henry-ink/signals";
 
 // UI state signals
@@ -51,7 +45,6 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 		typeof window !== "undefined" &&
 			window.matchMedia("(min-width: 1024px)").matches,
 	);
-	const queryClient = useQueryClient();
 	const showHeader = Boolean(currentUrl.value?.trim());
 	const mobileOpen = !isDesktop.value && isMobileSidebarOpen.value;
 	const sidebarClosed = isDesktop.value ? !desktopSidebarOpen.value : !mobileOpen;
@@ -453,24 +446,7 @@ export function AppLayout({ children, sidebar }: AppLayoutProps) {
 							quotedSelection.value = selection;
 						},
 					},
-					{
-						title: "Arena",
-						shortcut: "a",
-						onClick: async () => {
-							const selection = window.getSelection()?.toString();
-							if (!selection) return;
-							const result = await searchAndSaveArenaChannels(selection);
-							showArenaToast(result, selection);
-
-							// Invalidate Arena matches query to show new channels immediately
-							if (result.success && result.channelCount > 0) {
-								queryClient.invalidateQueries({
-									queryKey: arenaQueryKeys.matches(currentUrl.value || null),
-								});
-							}
-						},
-					},
-				]}
+					]}
 				targetContainerRef={mockContainerRef}
 			/>
 		</div>

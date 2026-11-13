@@ -17,6 +17,9 @@ automatic post discovery as you browse. you can also switch to manual mode in se
 
 ## Development
 
+No env file or API tokens are needed. The extension uses the deployed public
+API and Bluesky search service; OAuth settings come from client metadata.
+
 ```sh
 bun run dev          # Chrome extension development
 bun run dev:ff       # Firefox extension development

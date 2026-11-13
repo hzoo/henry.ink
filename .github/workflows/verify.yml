@@ -8,9 +8,6 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      VITE_API_URL: https://api.henry.ink
-      VITE_WORKER_URL: https://bsky-search.henry.ink
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

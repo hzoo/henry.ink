@@ -9,7 +9,7 @@ Unified API server providing Archive, Arena, YouTube, and Margin annotation serv
 Captures page HTML and CSS without executing source JavaScript, sanitizes the document, and processes CSS with Lightning CSS. Public destination validation, bounded downloads, and asset validation protect archive retrieval.
 
 ### Arena Service  
-Enhances content with Arena channel links using pattern matching and provides search/discovery capabilities for Arena channels.
+Finds public Are.na saves of a page URL and the channels containing them. The lookup is independent of article capture and needs no credentials or local channel database.
 
 ### YouTube Service
 Retrieves video transcripts and titles server-side, with a bounded in-memory cache.
@@ -68,40 +68,30 @@ SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-eleme
 
 ### Arena Service
 
-#### POST `/api/arena/enhance`
-Enhances content with Arena channel links.
+#### GET `/api/arena/lookup`
 
-Enhancement cache identity includes exact text, URL, and the channel database revision. Unchanged channel writes skip matcher rebuilds; external SQLite writes invalidate them. Matches already contain channel metadata, and block responses supply author enrichment without a second upstream request.
+Parameters: `url` is a public HTTP(S) page URL; `page` is the result page, starting
+at 1. The server searches the URL through `/v2/search`, keeps only blocks whose
+source URL matches (ignoring fragments), then fetches their public channel
+connections. Path case and query parameters remain significant. Text that only
+mentions the URL is not evidence of a saved page.
 
-**Request:**
-```json
-{
-  "content": "text content to enhance",
-  "url": "https://example.com/page"
-}
-```
+Returns `blocks` with their record IDs, titles, types, excerpts, preview images,
+creators, creation dates, and channel lookup states, plus `nextPage`. Channels
+include their owner, visibility, description, and collection size when present.
+Block creation is distinct from the date someone connected it to a channel;
+the latter and its attribution are not available in this response. Preview
+images are restricted to Are.na's image CDN hosts. A failed channel lookup
+retains the matching block. Failed and
+partial results are not cached. Successful pages share a bounded five-minute
+memory cache; each lookup has a twelve-second deadline, a bounded search page,
+and at most three concurrent channel reads. Upstream JSON bodies are bounded
+to 2 MiB. All upstream requests go to the fixed Are.na API without credentials
+or redirects. No source-page URL is fetched by this endpoint.
 
-#### POST `/api/arena/search`
-Searches Arena channels and saves to database.
-
-**Request:**
-```json
-{
-  "query": "search term"
-}
-```
-
-#### POST `/api/arena/channel-blocks`
-Fetches blocks for a specific Arena channel.
-
-**Request:**
-```json
-{
-  "slug": "channel-slug",
-  "per": 5,
-  "page": 1
-}
-```
+The browser groups duplicate channels and links out to the original saves.
+It does not decorate the article or embed a channel browser. Lookup starts when
+the Are.na tab is opened and remains available when article capture fails.
 
 ### YouTube Service
 
@@ -147,13 +137,12 @@ Reports `status`, `port`, and services `archive`, `arena`, `youtube`, and `annot
 
 ## Environment Variables
 
-```bash
-# Server-side API tokens
-ARENA_APP_TOKEN=your_arena_app_token
-ARENA_AUTH_TOKEN=your_arena_auth_token
+No credentials or env file are required. Are.na search and channel reads use
+public REST endpoints. The former keyword index, channel database, GraphQL
+sync, and Are.na token settings are removed.
 
+```bash
 # Database configuration
-ARENA_DB_PATH=./api/arena/data/channels.db  # Optional, defaults to this path
 API_PORT=3000  # Optional, defaults to 3000
 ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; parent directory must exist and be writable
 ```
@@ -164,4 +153,4 @@ Run `ARCHIVE_BROWSER_TESTS=1 bun test api/annotations api/archive api/api.test.t
 
 Before a processing change, run `bun scripts/archive-baseline.ts /tmp/henry-archive-baseline` to capture the seven reference sites. Afterward run `bun scripts/archive-compare.ts /tmp/henry-archive-baseline` to compare the saved inputs at 1440 and 390 pixels. The comparison checks layout metrics and viewport screenshots, masking native video/audio controls because their spinners are nondeterministic. Assets are shared between before/after renders. These are regression checks against the previous reader, not a claim of parity with source-site JavaScript.
 
-For other articles, supply a JSON array of `["safe-name", "https://article-url"]` pairs as the baseline script's third argument. Captures exit nonzero if any site fails. Comparisons wait for fonts and lazy images before measuring layout. Run `bun api/arena/optimization.bench.ts` to compare unconditional matcher rebuilding with revision-checked reuse.
+For other articles, supply a JSON array of `["safe-name", "https://article-url"]` pairs as the baseline script's third argument. Captures exit nonzero if any site fails. Comparisons wait for fonts and lazy images before measuring layout. Run `bun test api/arena` for URL lookup, source matching, pagination, failure recovery, and request bounds.

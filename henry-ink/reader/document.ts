@@ -45,7 +45,7 @@ export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument:
   doc.head.appendChild(viewport);
   const style = doc.createElement('style');
   // Raw-text style elements must not allow CSS strings to close the HTML element.
-  style.textContent = input.css.replace(/<\/style/gi, closing => `\\3c ${closing.slice(1)}`) + '\n.arena-channel-link{font:inherit;color:inherit;border:0;border-bottom:1px dotted currentColor;background:none;padding:0;cursor:pointer}::highlight(henry-notes){background:#efd49588;color:inherit}';
+  style.textContent = input.css.replace(/<\/style/gi, closing => `\\3c ${closing.slice(1)}`) + '\n::highlight(henry-notes){background:#efd49588;color:inherit}';
   doc.head.appendChild(style);
   for (const [element, attrs] of [
     [doc.documentElement, input.htmlAttrs],

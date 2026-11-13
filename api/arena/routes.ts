@@ -1,336 +1,167 @@
-import { createHash } from 'node:crypto';
-import { ChannelStorage } from '@/api/arena/channel-storage';
-import { ChannelPatternMatcher } from '@/api/arena/pattern-matcher';
-import { LinkEnhancer } from '@/api/arena/link-enhancer';
-import type { ArenaChannel, ArenaSearchResponse } from '@/api/arena/arena-api-types';
-import type { ArenaApiMatch, ArenaApiResponse } from '@/src/lib/arena-types';
-import { arenaFetchJson } from '@/api/arena/arena-api';
-import { getCorsHeaders, optionsResponse } from '@/api/cors';
+import { getCorsHeaders } from '@/api/cors';
+import { SnapshotCache } from '@/api/archive/snapshot-cache';
+import { ArchiveFetchError } from '@/api/archive/public-fetch';
+import { validateArchiveUrl } from '@/api/archive/url-validation';
+import type { ArenaChannel, ArenaLookupPage, ArenaPerson, ArenaUrlBlock } from '@/src/lib/arena-types';
 
-// API Response Types (exported for frontend use)
-export interface ArenaSearchAPIResponse {
-  success: boolean;
-  channelCount: number;
-  query: string;
+type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
+type JsonObject = Record<string, unknown>;
+const PAGE_SIZE = 12;
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+class UpstreamError extends Error {
+  constructor(readonly status: number, readonly retryAfter: string | null = null) {
+    super(`Are.na returned ${status}`);
+  }
 }
 
-// Shared instances for arena functionality
-const DB_PATH = process.env.ARENA_DB_PATH || './api/arena/data/channels.db';
-const storage = new ChannelStorage(DB_PATH);
-const matcher = new ChannelPatternMatcher();
-const enhancer = new LinkEnhancer(storage, matcher);
+function object(value: unknown): JsonObject {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {};
+}
 
-// Initialize the pattern matcher on module load
-enhancer.initialize().then(() => {
-  console.log('🏗️ Arena pattern matcher initialized successfully');
-}).catch((error) => {
-  console.error('❌ Failed to initialize arena pattern matcher:', error);
-});
+function pageUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
+    url.hash = '';
+    return url.href;
+  } catch { return null; }
+}
 
-// LRU cache with proper eviction
-class LRUCache<K, V> {
-  private cache = new Map<K, V>();
-  private maxSize: number;
+const text = (value: unknown, limit = 2000): string | undefined =>
+  typeof value === 'string' ? value.trim().slice(0, limit) || undefined : undefined;
 
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
+function person(value: unknown): ArenaPerson | undefined {
+  const item = object(value);
+  const slug = text(item.slug, 256);
+  const name = text(item.name || item.full_name || item.username, 160);
+  return slug && name ? { slug, name } : undefined;
+}
+
+function preview(value: unknown): string | undefined {
+  const image = object(value);
+  for (const size of ['thumb', 'display', 'square']) {
+    const url = pageUrl(object(image[size]).url);
+    if (!url) continue;
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' && !parsed.port &&
+        ['images.are.na', 'd2w9rnfcy7mm78.cloudfront.net'].includes(parsed.hostname)) return url;
   }
+}
 
-  get(key: K): V | undefined {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
-      // Move to end (most recently used)
-      this.cache.delete(key);
-      this.cache.set(key, value);
+async function arenaJson(path: string, signal: AbortSignal, fetcher: Fetcher): Promise<JsonObject> {
+  const response = await fetcher(`https://api.are.na/v2/${path}`, {
+    signal, redirect: 'error',
+    headers: { Accept: 'application/json', 'User-Agent': 'HenryInk/0.0.11 (+https://henry.ink)' },
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new UpstreamError(response.status, response.headers.get('Retry-After'));
+  }
+  if (!response.body) throw new Error('Missing Are.na response');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) throw new Error('Are.na response too large');
+      chunks.push(value);
     }
-    return value;
-  }
-
-  set(key: K, value: V): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    } else if (this.cache.size >= this.maxSize) {
-      // Remove least recently used (first item)
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) {
-        this.cache.delete(firstKey);
-      }
-    }
-    this.cache.set(key, value);
-  }
+    const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid Are.na response');
+    return parsed as JsonObject;
+  } finally { await reader.cancel().catch(() => {}); }
 }
 
-const enhancementCache = new LRUCache<string, ArenaApiResponse>(50);
-
-interface EnhanceRequest {
-  content: string;
-  url?: string;
+function channel(value: unknown): ArenaChannel | null {
+  const item = object(value);
+  if (typeof item.slug !== 'string' || !item.slug || typeof item.title !== 'string' ||
+      !['public', 'closed'].includes(String(item.status)) || item.state === 'deleted') return null;
+  const owner = person(item.group || item.user);
+  const description = text(object(item.metadata).description);
+  return {
+    slug: item.slug.slice(0, 256), title: item.title.slice(0, 512), visibility: item.status as ArenaChannel['visibility'],
+    ...(owner ? { owner } : {}), ...(description ? { description } : {}),
+    ...(Number.isSafeInteger(item.length) && Number(item.length) >= 0 ? { blockCount: Number(item.length) } : {}),
+  };
 }
 
-export { optionsResponse as arenaOptionsRoute };
-
-/**
- * Handle content enhancement requests
- */
-export async function enhanceRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+async function lookup(url: string, page: number, fetcher: Fetcher): Promise<ArenaLookupPage> {
+  const signal = AbortSignal.timeout(12_000);
+  // General v2 search remains public. Its results also include mentions, so only
+  // a matching source URL is evidence that the page itself was saved.
+  const params = new URLSearchParams({ q: url, per: String(PAGE_SIZE), page: String(page) });
+  const result = await arenaJson(`search?${params}`, signal, fetcher);
+  if (!Array.isArray(result.blocks)) throw new Error('Missing Are.na search results');
+  const blocks: ArenaUrlBlock[] = [];
+  const seen = new Set<number>();
+  for (const value of result.blocks.slice(0, PAGE_SIZE)) {
+    const block = object(value);
+    if (!Number.isSafeInteger(block.id) || Number(block.id) <= 0 || seen.has(Number(block.id)) ||
+        pageUrl(object(block.source).url) !== url) continue;
+    seen.add(Number(block.id));
+    const sourceTitle = text(object(block.source).title, 512);
+    const previewUrl = preview(block.image);
+    const creator = person(block.user);
+    const createdAt = typeof block.created_at === 'string' && Number.isFinite(Date.parse(block.created_at))
+      ? new Date(block.created_at).toISOString() : undefined;
+    const excerpt = text(block.class === 'Text' ? block.content || block.description : block.description);
+    blocks.push({
+      id: Number(block.id), title: text(block.title, 512) || sourceTitle || 'Saved page',
+      kind: ['Link', 'Text', 'Image', 'Media', 'Attachment'].includes(String(block.class)) ? block.class as ArenaUrlBlock['kind'] : 'Block',
+      ...(sourceTitle ? { sourceTitle } : {}), ...(previewUrl ? { previewUrl } : {}),
+      ...(creator ? { creator } : {}), ...(createdAt ? { createdAt } : {}),
+      ...(excerpt && pageUrl(excerpt) !== url ? { excerpt } : {}),
+      channels: { state: 'error' },
     });
   }
-
-  try {
-    const body: EnhanceRequest = await req.json();
-    
-    if (!body.content) {
-      return new Response(
-        JSON.stringify({ error: 'Content is required' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+  let next = 0;
+  // Bound the fan-out even when every result is a copy of the saved page.
+  await Promise.all(Array.from({ length: Math.min(3, blocks.length) }, async () => {
+    while (next < blocks.length) {
+      const block = blocks[next++];
+      try {
+        const result = await arenaJson(`blocks/${block.id}/channels?per=${PAGE_SIZE}&page=1`, signal, fetcher);
+        if (!Array.isArray(result.channels)) throw new Error('Missing Are.na channels');
+        block.channels = {
+          state: 'ready', items: result.channels.slice(0, PAGE_SIZE).map(channel).filter((item): item is ArenaChannel => !!item),
+          hasMore: Number(result.total_pages) > 1,
+        };
+      } catch { /* Preserve the matching block when its channel lookup fails. */ }
     }
-
-    // Hash exact input to keep keys bounded without reusing offsets for other content.
-    const cacheKey = body.url ? createHash('sha256').update(JSON.stringify([
-      body.url, body.content, storage.getPatternVersion(),
-    ])).digest('hex') : undefined;
-    if (cacheKey) {
-      const cachedResult = enhancementCache.get(cacheKey);
-      if (cachedResult) {
-        return new Response(
-          JSON.stringify(cachedResult),
-          {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-    }
-
-    // Find channel matches
-    const channelMatches = await enhancer.findChannelMatches(body.content);
-    // Occurrences and pattern objects are matcher internals, not reader data.
-    const result: ArenaApiResponse = {
-      matches: channelMatches.matches.map((match): ArenaApiMatch => ({
-        slug: match.slug,
-        title: match.title,
-        author_name: match.author_name,
-        author_slug: match.author_slug,
-        contents_count: match.contents_count,
-        updated_at: match.updated_at,
-        bestMatch: {
-          matchedText: match.bestMatch.matchedText,
-          position: match.bestMatch.position,
-          endPosition: match.bestMatch.endPosition,
-        },
-      })),
-    };
-
-    // Cache result if URL is provided
-    if (cacheKey) {
-      enhancementCache.set(cacheKey, result);
-      console.log(`🔍 "${body.url}"`);
-    }
-
-    return new Response(
-      JSON.stringify(result),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-
-  } catch (error) {
-    console.error('Enhancement error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Enhancement failed',
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
+  }));
+  return { blocks, nextPage: page < 1000 && Number(result.total_pages) > page ? page + 1 : null };
 }
 
-/**
- * Handle Arena search requests
- */
-export async function arenaSearchRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-    });
-  }
-
-  try {
-    const body = await req.json() as { query: string };
-    const { query } = body;
-    
-    if (!query || typeof query !== 'string' || query.trim().length < 2) {
-      return new Response(
-        JSON.stringify({ error: 'Query must be at least 2 characters' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    console.log(`🔍 search: "${query}"`);
-
-    // Search Arena using V2 API with search endpoint
-    const searchUrl = new URL('https://api.are.na/v2/search/channels');
-    searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('per', '100');
-    
-    const data = await arenaFetchJson<ArenaSearchResponse>(searchUrl.toString());
-    const channels = data.channels || [];
-    
-    if (channels.length > 0) {
-      // Filter out channels with 1 or fewer blocks
-      const filteredChannels = channels.filter(ch => ch.length && ch.length > 1);
-      
-      // Normalize channels for database storage
-      const normalizedChannels: ArenaChannel[] = filteredChannels.map((ch) => ({
-        id: ch.id,
-        slug: ch.slug,
-        title: ch.title,
-        updated_at: ch.updated_at,
-        created_at: ch.created_at,
-        counts: {
-          contents: ch.length || 0
-        },
-        author_name: ch.user?.username || ch.user?.full_name || ch.user?.slug || 'unknown',
-        author_slug: ch.user?.slug,
-        visibility_name: ch.status?.toUpperCase() || 'PUBLIC'
-      }));
-      
-      // Save to database
-      await storage.storeChannels(normalizedChannels);
-      console.log(`📦 Saved ${normalizedChannels.length} channels to database (filtered ${channels.length - filteredChannels.length} channels with ≤1 block)`);
-      
-      // Auto-refresh patterns so new channels are immediately available for /enhance
-      await enhancer.refreshPatterns();
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        channelCount: channels.length,
-        query: query
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-
-  } catch (error) {
-    console.error('Arena search error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Arena search failed',
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-}
-
-/**
- * Handle Arena channel blocks requests
- */
-export async function channelBlocksRoute(req: Request) {
-  const origin = req.headers.get('Origin') || '';
-  const corsHeaders = getCorsHeaders(origin);
-
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-    });
-  }
-
-  try {
-    const body = await req.json() as { slug: string; per?: number; page?: number };
-    const { slug, per = 5, page = 1 } = body;
-    
-    if (!slug || typeof slug !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Channel slug is required' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Use the arena client to fetch blocks
-    const { ArenaClient } = await import('@/api/arena/arena-client');
-    const arenaClient = new ArenaClient();
-    
-    const channelWithBlocks = await arenaClient.fetchChannelBlocks(slug, per, page);
-    
-    if (!channelWithBlocks) {
-      // Clean up dead channels from database
-      storage.removeChannelBySlug(slug);
-      
-      return new Response(
-        JSON.stringify({ error: 'Channel not found or no blocks available' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Lazy update author if it's currently unknown
+export function createArenaLookupRoute(fetcher: Fetcher = fetch) {
+  const cache = new SnapshotCache<ArenaLookupPage>({
+    maxEntries: 50, maxBytes: 2 * 1024 * 1024, ttlMs: 5 * 60 * 1000,
+    concurrency: 2, maxPending: 4, size: value => Buffer.byteLength(JSON.stringify(value)),
+    shouldCache: value => value.blocks.every(block => block.channels.state === 'ready'),
+  });
+  return async (request: Request): Promise<Response> => {
+    const headers = { ...getCorsHeaders(request.headers.get('Origin') || ''), 'Cache-Control': 'no-store' };
+    const json = (body: unknown, status = 200, extra: Record<string, string> = {}) => Response.json(body, { status, headers: { ...headers, ...extra } });
+    if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+    const params = new URL(request.url).searchParams;
+    const input = params.get('url') || '';
+    const url = pageUrl(input);
+    const page = Number(params.get('page') ?? '1');
+    if (!url || validateArchiveUrl(input) || !Number.isSafeInteger(page) || page < 1 || page > 1000) return json({ error: 'A public HTTP(S) URL and valid page are required' }, 400);
+    if (request.signal.aborted) return json({ error: 'Request cancelled' }, 499);
     try {
-      const existingChannel = storage.getChannelBySlug(slug);
-      if (existingChannel && existingChannel.author_slug == null && channelWithBlocks.user?.slug) {
-        storage.updateChannelAuthor(slug, channelWithBlocks.user.name, channelWithBlocks.user.slug);
-      }
+      return json(await cache.getOrCreate(JSON.stringify([url, page]), () => lookup(url, page, fetcher)));
     } catch (error) {
-      console.warn(`Failed to update author for channel ${slug}:`, error);
+      const limited = error instanceof UpstreamError && error.status === 429 || error instanceof ArchiveFetchError && error.status === 429;
+      const retry = error instanceof UpstreamError ? Number(error.retryAfter) : NaN;
+      return json({ error: 'Couldn’t load Are.na saves.' }, limited ? 429 : 502,
+        limited ? { 'Retry-After': String(Number.isFinite(retry) && retry > 0 ? Math.min(Math.ceil(retry), 60) : 30) } : {});
     }
-
-    return new Response(
-      JSON.stringify(channelWithBlocks),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-
-  } catch (error) {
-    console.error('Arena channel blocks error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Failed to fetch channel blocks',
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
+  };
 }
 
-// Clean up function for graceful shutdown
-export function closeArenaStorage() {
-  storage.close();
-}
+export const arenaLookupRoute = createArenaLookupRoute();

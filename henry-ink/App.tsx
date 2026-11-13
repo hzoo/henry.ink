@@ -7,19 +7,7 @@ import { currentUrl } from "@/src/lib/messaging";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
 import { contentStateSignal, activeTabSignal, type ContentMode } from "@/henry-ink/signals";
 import { isDarkMode } from "@/src/lib/settings";
-import { locationSignal } from "@/src/lib/arena-navigation";
 import { extractedQuotes, quotesUrl, readerAnchors, showReaderAnchor, targetPostRkey } from '@/src/lib/highlights/signals';
-
-effect(() => {
-	const params = new URLSearchParams(locationSignal.value);
-	const post = params.get('post');
-	targetPostRkey.value = post;
-	if (params.get('channel')) {
-		activeTabSignal.value = 'arena';
-	} else if (post) {
-		activeTabSignal.value = 'bluesky';
-	}
-});
 
 // Update page title based on content title or current URL
 effect(() => {
@@ -54,12 +42,9 @@ export function App() {
 	const completedJump = useRef<{ url: string; mode: ContentMode; post: string } | null>(null);
 	useEffect(() => {
 		const reader = new URL(location.url, window.location.origin);
-		locationSignal.value = reader.search;
-		if (reader.searchParams.has('channel')) {
-			// Mount the Notes listener before opening a direct channel link.
-			const frame = window.requestAnimationFrame(() => window.dispatchEvent(new Event('henry:show-notes')));
-			return () => window.cancelAnimationFrame(frame);
-		}
+		const post = reader.searchParams.get('post');
+		targetPostRkey.value = post;
+		if (post) activeTabSignal.value = 'bluesky';
 	}, [location.url]);
 
 	useSignalEffect(() => {

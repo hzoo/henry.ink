@@ -90,7 +90,9 @@ for (const mode of ["worker", "authenticated"] as const) {
 				"text",
 			]);
 			expect(requests).toHaveLength(1);
-			const requestUrl = new URL(requests[0], "https://worker.test");
+			const requestUrl = mode === "worker"
+				? new URL(requests[0])
+				: new URL(requests[0], "https://rpc.test");
 			expect(requestUrl.searchParams.get("url")).toBe(videoUrl);
 			if (mode === "authenticated") {
 				expect(requestUrl.pathname).toBe("/xrpc/app.bsky.feed.searchPosts");

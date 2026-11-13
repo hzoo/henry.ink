@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "preact/hooks";
-import { useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/src/components/Sidebar";
 import { LoginButton } from "@/src/components/LoginButton";
 import { currentUrl, quotedSelection } from "@/src/lib/messaging";
@@ -7,14 +6,11 @@ import { showQuotePopupOnSelection } from "@/src/lib/settings";
 import { Icon } from "@/src/components/Icon";
 import { version } from "../package.json";
 import SelectionPopupManagerV2 from "@/extension/entrypoints/popup.content/SelectionPopupManagerV2";
-import { searchAndSaveArenaChannels, showArenaToast } from "@/src/lib/arena/arenaSearch";
-import { arenaQueryKeys } from "@/src/lib/arena-api";
 import { MarkdownSite } from "@/henry-ink/components/MarkdownSite";
 import { QuickUrlButtons } from "@/demo/components/QuickUrlButtons";
 
 export function App() {
 	const mockContainerRef = useRef<HTMLDivElement>(null);
-	const queryClient = useQueryClient();
 
 	useEffect(() => {
 		currentUrl.value = "https://overreacted.io/static-as-a-server";
@@ -139,25 +135,7 @@ export function App() {
 								},
 								icon: "💬"
 							},
-							{
-								title: "Arena",
-								shortcut: "a",
-								onClick: async () => {
-									const selection = window.getSelection()?.toString();
-									if (!selection) return;
-									const result = await searchAndSaveArenaChannels(selection);
-									showArenaToast(result, selection);
-									
-									// Invalidate Arena matches query to show new channels immediately
-									if (result.success && result.channelCount > 0) {
-										queryClient.invalidateQueries({ 
-											queryKey: arenaQueryKeys.matches(currentUrl.value || null) 
-										});
-									}
-								},
-								icon: "🔍"
-							}
-						]}
+							]}
 						targetContainerRef={mockContainerRef}
 					/>
 				</aside>

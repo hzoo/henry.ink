@@ -3,11 +3,7 @@ import {
   createArchiveRoute,
   assetProxyRoute,
 } from "./archive/routes";
-import {
-  enhanceRoute,
-  arenaSearchRoute,
-  channelBlocksRoute,
-} from "./arena/routes";
+import { arenaLookupRoute } from "./arena/routes";
 import { youtubeTranscriptRoute } from "./youtube/routes";
 import { getCorsHeaders, optionsResponse } from "./cors";
 import { marginAnnotationsRoute } from "@/api/annotations/routes";
@@ -59,21 +55,10 @@ const server = serve({
         }
       }
 
-      // Arena service routes  
-      else if (path === '/api/arena/enhance') {
-        if (req.method === 'POST') {
-          return enhanceRoute(req);
-        }
-      } else if (path === '/api/arena/search') {
-        if (req.method === 'POST') {
-          return arenaSearchRoute(req);
-        }
-      } else if (path === '/api/arena/channel-blocks') {
-        if (req.method === 'POST') {
-          return channelBlocksRoute(req);
-        }
+      else if (path === '/api/arena/lookup') {
+        if (req.method === 'GET') return arenaLookupRoute(req);
       }
-      
+
       // Health check for unified API
       else if (path === '/api/health') {
         return new Response(
@@ -117,9 +102,7 @@ console.log('    GET  /api/asset-proxy      - Proxy assets (fonts, images) with 
 console.log('  YouTube Service:');
 console.log('    GET  /api/youtube/transcript - Fetch transcripts via server-side YouTube retrieval');
 console.log('  Arena Service:');
-console.log('    POST /api/arena/enhance    - Enhance content with Arena channel links');
-console.log('    POST /api/arena/search     - Search Arena channels');
-console.log('    POST /api/arena/channel-blocks - Fetch blocks for a channel');
+console.log('    GET  /api/arena/lookup     - Find public Are.na saves of a URL');
 console.log('  Annotation Service:');
 console.log('    GET  /api/annotations/margin - Read existing annotations for a URL');
 console.log('  General:');

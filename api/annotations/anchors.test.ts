@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { JSDOM } from 'jsdom';
 import { indexArticle, sameArticle, matchesArticleTarget } from '@/src/lib/annotations/anchors';
-import { enhanceArenaLinks } from '@/henry-ink/reader/arena-enhancement';
 
 function article(html: string) {
   return new JSDOM(`<body>${html}</body>`).window.document.body;
@@ -29,15 +28,6 @@ describe('reader quote anchoring', () => {
     expect(find({ exact: 'repeated phrase' })).toBeNull();
     const range = find({ exact: 'repeated phrase', prefix: 'Second ' });
     expect(range?.startContainer.parentElement?.textContent).toBe('Second repeated phrase.');
-  });
-  test('keeps quote text and placement across generated Are.na links', () => {
-    const root = article('<p>Shared tools belong on this shelf.</p>');
-    enhanceArenaLinks(root, [{ slug: 'shared-tools', title: 'Shared tools', matchedText: 'Shared tools', url: 'https://are.na/channels/shared-tools', author_name: 'Reader', contents_count: 2 }]);
-    const range = indexArticle(root)({ exact: 'Shared tools belong on this shelf.' });
-    expect(range?.startContainer.textContent).toBe('Shared tools');
-    expect(range?.endContainer.textContent).toBe(' belong on this shelf.');
-    expect(range?.endOffset).toBe(' belong on this shelf.'.length);
-    expect(range?.toString()).toBe('Shared tools belong on this shelf.');
   });
   test('normalizes whitespace and retains correct DOM offsets', () => {
     const range = indexArticle(article('<p>  A\n\t quoted <strong> passage</strong>  ends.</p>'))({ exact: 'A quoted passage' });

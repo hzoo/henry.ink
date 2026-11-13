@@ -1,4 +1,4 @@
-type ReaderParam = 'post' | 'channel' | 'block';
+type ReaderParam = 'post';
 
 /** Change reader controls without re-encoding a source page's query string. */
 export function withReaderParams(url: string, changes: Partial<Record<ReaderParam, string | null>>): string {
@@ -16,9 +16,9 @@ export function withReaderParams(url: string, changes: Partial<Record<ReaderPara
   return path + (query.length ? `?${query.join('&')}` : '') + hash;
 }
 
-/** The flat reader URL convention reserves post, channel and block parameters. */
+/** The flat reader URL convention reserves the post parameter. */
 export function sourceFromReaderPath(path: string): string {
-  return path.startsWith('/') ? withReaderParams(path, { post: null, channel: null, block: null }).slice(1) : '';
+  return path.startsWith('/') ? withReaderParams(path, { post: null }).slice(1) : '';
 }
 
 export function discussionShareUrl(source: string, post: string): string {

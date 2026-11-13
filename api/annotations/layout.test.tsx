@@ -54,10 +54,8 @@ beforeAll(async () => {
 	previousAnimationFrame = preact.options.requestAnimationFrame;
 	preact.options.requestAnimationFrame = callback => { setTimeout(callback, 0); };
 	// Keep the real layout, hooks, and signals; isolate unrelated auth and selection UI.
-	mock.module("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries() {} }) }));
 	mock.module("@/src/components/LoginButton", () => ({ LoginButton: () => null }));
 	mock.module("@/extension/entrypoints/popup.content/SelectionPopupManagerV2", () => ({ default: () => null }));
-	mock.module("@/src/lib/arena/arenaSearch", () => ({ searchAndSaveArenaChannels() {}, showArenaToast() {} }));
 	messaging = await import("@/src/lib/messaging");
 	({ AppLayout } = await import("@/src/components/AppLayout"));
 });

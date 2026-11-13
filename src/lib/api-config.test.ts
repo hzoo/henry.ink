@@ -1,10 +1,9 @@
 import { expect, test } from 'bun:test';
 import { resolveApiBase } from '@/src/lib/api-config';
 
-test('uses one API origin for production and local development', () => {
-  expect(resolveApiBase(undefined, true)).toBe('https://api.henry.ink');
-  expect(resolveApiBase(undefined, false)).toBe('http://localhost:3000');
-  expect(resolveApiBase('https://api.henry.ink/', true)).toBe('https://api.henry.ink');
+test('normalizes API overrides and permits a local API during development', () => {
+  expect(resolveApiBase('https://preview.example/', true)).toBe('https://preview.example');
+  expect(resolveApiBase('http://localhost:3000/', false)).toBe('http://localhost:3000');
 });
 
 test('rejects localhost and HTTP API origins in production', () => {

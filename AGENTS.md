@@ -32,6 +32,14 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 
 ## Development Commands
 
+The web app, demo, extension, and local API need no env file or credentials.
+Browser builds use the deployed public services. To test backend edits, run
+`bun run api` and `VITE_API_URL=http://localhost:3000 bun run ink`.
+Are.na uses anonymous v2 URL search and public block connections, only when its
+sidebar tab is opened. There is no channel database, keyword matching, GraphQL
+sync, or Are.na token setup. Only local development of the
+separate Bluesky Worker needs its bot credentials in `.dev.vars`.
+
 ```bash
 # Development
 bun run ink          # Henry.ink development server (primary)
@@ -156,13 +164,19 @@ The browser extension workspace (`/extension/`) provides integrated annotation c
 - Tab management for URL monitoring and auto-discovery
 - Permissions handling for cross-origin requests
 
-### Arena Channel Enhancement
-- **Wikipedia-style links** to Arena channels found in blog content
-- **Aho-Corasick pattern matching** for performance with 100k+ channels
-- **Multi-word pattern focus** to avoid false matches (e.g., "web development", "information theory")
-- **Title cleaning** removes emojis, special chars from Arena channel names
-- **HTML-first processing** - markdown parsed before enhancement to preserve positions
-- **Location**: `/henry-ink/arena/` contains the enhancement system
+### Are.na URL Discovery
+
+The Are.na sidebar finds saved copies of the current page with public v2 search,
+filters by the actual source URL, and reads their public channel connections.
+It works without article content or credentials. Channels are grouped across
+saved blocks with descriptions, visibility, collection sizes, and links to the
+original records. Saved versions show previews, excerpts, creators, and block
+creation dates. A channel owner is not necessarily the person who connected a
+block; v2 does not provide that connection attribution here. Do not inject keyword links
+into article text, build a channel index, or send selected text to Are.na.
+The server bounds requests and caches successful pages in memory; the browser
+loads further result pages only on request. V3 search requires Premium access,
+so migration is a separate product decision, not an automatic fallback.
 
 ## Code Style Guidelines
 

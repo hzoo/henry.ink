@@ -5,11 +5,7 @@ import { useLocation } from 'preact-iso';
 import { createReaderDocument, type ReaderDocumentMode } from '@/henry-ink/reader/document';
 import { InlineNotes } from '@/henry-ink/reader/InlineNotes';
 import { quotedSelection } from '@/src/lib/messaging';
-import { navigateToChannel } from '@/src/lib/arena-navigation';
-import type { ArenaMatch } from '@/src/lib/arena-types';
-import { enhanceArenaLinks } from '@/henry-ink/reader/arena-enhancement';
 import { sameArticle } from '@/src/lib/annotations/anchors';
-import { observeArenaNavigation } from '@/henry-ink/reader/arena-navigation';
 import type { ArticleContent } from '@/henry-ink/signals';
 import { observeSourceFragment } from '@/henry-ink/reader/fragments';
 
@@ -18,7 +14,6 @@ interface Props {
   resolvedUrl?: string;
   htmlAttrs?: Record<string, string>; bodyAttrs?: Record<string, string>;
   documentMode?: ReaderDocumentMode;
-  arenaMatches: ArenaMatch[];
   article: ArticleContent;
 }
 
@@ -27,12 +22,6 @@ export function ArchiveDocument(props: Props) {
   const loaded = useSignal<{ article: ArticleContent; root: HTMLElement } | null>(null);
   const selection = useSignal('');
   const location = useLocation();
-  useEffect(() => {
-    const root = loaded.value?.article === props.article ? loaded.value.root : null;
-    if (!root) return;
-    enhanceArenaLinks(root, props.arenaMatches);
-    return observeArenaNavigation(root, props.url);
-  }, [loaded.value, props.article, props.url, props.arenaMatches]);
   useEffect(() => {
     if (loaded.value?.article === props.article) return observeSourceFragment(loaded.value.root);
   }, [loaded.value, props.article]);
@@ -51,13 +40,6 @@ export function ArchiveDocument(props: Props) {
       }, { signal: controller.signal });
       doc.addEventListener('click', event => {
         const target = event.target as Element | null;
-        const channel = target?.closest?.('.arena-channel-link');
-        if (channel) {
-          event.preventDefault();
-          const slug = channel.getAttribute('data-channel-slug');
-          if (slug) navigateToChannel(slug);
-          return;
-        }
         const link = target?.closest?.('a');
         if (!link) return;
         event.preventDefault();

@@ -1,5 +1,7 @@
+export const blueskySearchUrl = 'https://bsky-search.henry.ink';
+
 export function resolveApiBase(value: string | undefined, production: boolean): string {
-  const url = new URL(value || (production ? 'https://api.henry.ink' : 'http://localhost:3000'));
+  const url = new URL(value || 'https://api.henry.ink');
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
       url.pathname !== '/' || url.search || url.hash) {
     throw new Error('VITE_API_URL must be an HTTP(S) origin without credentials, path, query, or fragment');

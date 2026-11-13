@@ -8,10 +8,9 @@ import { resolve } from "node:path";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
-	alias: {
-		"@": resolve(__dirname, "..")
-	},
-	entrypointsDir: "./entrypoints",
+	// WXT derives its @ alias from srcDir; shared source lives at the repo root.
+	srcDir: resolve(__dirname, ".."),
+	entrypointsDir: resolve(__dirname, "entrypoints"),
 	manifest: (env) => ({
 		name: "Bluesky Sidebar",
 		description: "See what people are saying about the site you're on",

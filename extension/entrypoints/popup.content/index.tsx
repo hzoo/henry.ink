@@ -3,7 +3,6 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { render } from "preact";
 import "../styles.css";
 import SelectionPopupManagerV2 from "./SelectionPopupManagerV2";
-import { searchAndSaveArenaChannels, showArenaToast } from "../../../src/lib/arena/arenaSearch";
 
 const pingMessage = {
 	type: "PING_SIDEPANEL",
@@ -33,17 +32,6 @@ function sendSelection() {
 	browser.runtime.sendMessage(message).catch(console.error);
 }
 
-async function searchArena() {
-	const selection = window.getSelection()?.toString();
-	if (!selection) return;
-	
-	// Search Arena and save channels
-	const result = await searchAndSaveArenaChannels(selection);
-	
-	// Show toast notification
-	showArenaToast(result, selection);
-}
-
 export default defineContentScript({
 	matches: ["<all_urls>"],
 	cssInjectionMode: "ui",
@@ -68,12 +56,6 @@ async function createUi(ctx: ContentScriptContext) {
 					onClick: sendSelection,
 					icon: "💬"
 				},
-				{
-					title: "Arena",
-					shortcut: "a",
-					onClick: searchArena,
-					icon: "🔍"
-				}
 			];
 			
 			const root = render(
