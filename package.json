@@ -16,7 +16,7 @@
     "build:ext": "bun --filter atproto-extension build",
     "compile": "tsc --noEmit && tsc --noEmit -p api && tsc --noEmit -p extension && tsc --noEmit -p tsconfig.worker.json",
     "test": "bun test --isolate api src/lib",
-    "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test --isolate api src/lib",
+    "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test --isolate --timeout 20000 api src/lib",
     "test:smoke": "NODE_ENV=production bun tests/reader-smoke.ts",
     "verify": "bash scripts/verify.sh",
     "deploy:ink": "bun run verify && bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
