@@ -36,3 +36,9 @@ trails.db*
 archive-snapshots.db*
 .wrangler
 test-results/
+
+# Private deployment runbooks and host inventory
+/.private/
+/DEPLOYMENT.md
+/docs/deployment.md
+/henry-ink/arena/DEPLOY.md

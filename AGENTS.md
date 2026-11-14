@@ -32,6 +32,9 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 
 ## Development Commands
 
+Deployment runbooks and host access details are private. Keep them in ignored
+`DEPLOYMENT.md`, `docs/deployment.md`, or `.private/`; never commit them.
+
 The web app, demo, extension, and local API need no env file or credentials.
 Browser builds use the deployed public services. To test backend edits, run
 `bun run api` and `VITE_API_URL=http://localhost:3000 bun run ink`.
