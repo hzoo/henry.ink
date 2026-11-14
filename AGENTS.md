@@ -44,34 +44,20 @@ sync, or Are.na token setup. Only local development of the
 separate Bluesky Worker needs its bot credentials in `.dev.vars`.
 
 ```bash
-# Development
-bun run ink          # Henry.ink development server (primary)
-bun run dev          # AT Protocol extension development (Chrome)
-bun run demo         # Web app demo version (annotation-demo site)
+bun run ink            # henry.ink dev server (primary)
+bun run demo           # Annotation demo dev server
+bun run ext            # Extension dev (Chrome); `cd extension && bun run dev:ff` for Firefox
+bun run api            # Local API on port 3000
 
-# Building
-bun run build        # Build AT Protocol extension
-bun run build:demo   # Build annotation demo
-bun run build:ink    # Build henry.ink
+bun run build:ink      # Also build:demo, build:ext
+bun run compile        # Web and API type checks
+bun run test           # Unit tests; test:browser adds capture tests
+bun run verify         # Everything deploys require
 
-# Extension Development (in extension/ directory)
-cd extension
-bun dev              # Chrome extension development
-bun dev:ff           # Firefox extension development
-bun build            # Build Chrome extension
-bun build:ff         # Build Firefox extension
-bun zip              # Package for Chrome Web Store
-bun zip:ff           # Package for Firefox Add-ons
-
-# Code Quality
-bun run compile      # TypeScript type checking
-bun run lint         # Biome linting and formatting (if configured)
-
-# Deployment
-bun run deploy:demo      # Deploy demo to Cloudflare Pages
-bun run deploy:ink       # Deploy henry.ink to Cloudflare Pages
-bun run deploy:bsky_worker # Deploy Bluesky proxy worker
-bun run deploy:api       # Verify, then deploy main to the VPS
+bun run deploy:ink     # henry.ink to Cloudflare Pages
+bun run deploy:demo    # Demo to Cloudflare Pages
+bun run deploy:search  # Bluesky search worker (bsky-search.henry.ink)
+bun run deploy:api     # Verify, then deploy main to the API server
 ```
 
 ## Architecture

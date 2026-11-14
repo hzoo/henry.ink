@@ -10,7 +10,6 @@ export ARCHIVE_CACHE_PATH="$testdata/archive-snapshots.db"
 # bun skips workspace postinstall on unchanged installs; the extension's types need it.
 (cd extension && bunx wxt prepare >/dev/null)
 bun run compile
-bun run compile:api
 bun run test:browser
 bun run build:ink
 bun run test:smoke
