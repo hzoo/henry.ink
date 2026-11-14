@@ -44,7 +44,7 @@ Run `bun install --frozen-lockfile` and install the browser once with
 
 The smoke checks use committed synthetic articles and intercepted API responses, not live upstream services. They verify typography/colors, content retention, script isolation, highlight ranges and jumps, archive reuse in text mode, and production API destinations. Screenshots are written to `test-results/`; they are review artifacts, not pixel-diff assertions. These checks do not prove that a live upstream is available, that every website keeps its original layout, or that the extension builds.
 
-`deploy:ink` runs `verify` before publishing. GitHub Actions runs the same gate on every push without credentials or public URL variables, and `deploy:api` deploys `main` to the API server only after that run passed. Browser builds default to the deployed services; an optional `VITE_API_URL` override is checked to prevent HTTP or localhost API destinations in production.
+`deploy:ink` runs `verify` before publishing. `deploy:api` runs it too, then deploys that exact commit of `main` to the API server. Browser builds default to the deployed services; an optional `VITE_API_URL` override is checked to prevent HTTP or localhost API destinations in production.
 
 ## API server
 

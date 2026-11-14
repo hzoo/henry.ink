@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Deploy the API: the VPS moves to GitHub's main once verify has passed on it.
+# Deploy the API: verify this exact commit here, then move the VPS to it.
+# The commit must be clean and already on GitHub's main.
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
-sha=$(git ls-remote origin refs/heads/main | cut -f1)
-state=$(gh run list --repo hzoo/henry.ink --workflow verify.yml --commit "$sha" \
-    --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"')
-[[ $state == "completed success" ]] ||
-    { echo "verify has not passed on main ${sha:0:7} (${state:-no run})." >&2; exit 1; }
+git fetch -q origin
+sha=$(git rev-parse HEAD)
+[[ -z $(git status --porcelain) ]] || { echo "Commit or stash local changes first." >&2; exit 1; }
+[[ $sha == "$(git rev-parse origin/main)" ]] ||
+    { echo "HEAD ${sha:0:7} is not origin/main. Push or pull first." >&2; exit 1; }
+bun run verify
 ssh -- "${HOST:-vps}" "~/apps/henry.ink/ops/deploy.sh $sha"
