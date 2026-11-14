@@ -21,12 +21,11 @@
     "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test api src/lib",
     "test:smoke": "NODE_ENV=production bun tests/reader-smoke.ts",
     "verify": "bash scripts/verify.sh",
-    "release": "bun scripts/release.ts",
     "deploy:demo": "bun run build:demo && CLOUDFLARE_ACCOUNT_ID=899db3f6d2659dfb20376c7e752c862d bunx wrangler pages deploy demo/dist --project-name=annotation-sidebar-demo --branch=main",
     "deploy:ink": "bun run verify && CLOUDFLARE_ACCOUNT_ID=4eb8c64e85c6cc2bcb31e3df36da1959 bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
     "deploy:bsky_worker": "bunx wrangler deploy -c wrangler.toml",
     "api": "bun api/server.ts",
-    "deploy:api": "bash scripts/deploy.sh"
+    "deploy:api": "bash scripts/deploy-api.sh"
   },
   "dependencies": {
     "@atcute/atproto": "^3.1.2",

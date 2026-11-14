@@ -1,3 +1,5 @@
+# User unit in the ~/apps/henry.ink clone on the VPS; ops/deploy.sh links it into
+# ~/.config/systemd/user/. Lingering (loginctl enable-linger) starts it at boot.
 [Unit]
 Description=henry.ink unified API (:3000)
 After=network-online.target
@@ -15,7 +17,6 @@ NoNewPrivileges=yes
 # checkout, an empty home and one writable directory,
 # ~/.local/state/henry-ink, which holds the article snapshot cache. The path is
 # spelled out because %S and StateDirectory= move between systemd versions.
-# The directory must exist before first start: mkdir -p ~/.local/state/henry-ink
 # PrivateUsers is what makes the mount rules apply in a user unit (systemd 252).
 PrivateUsers=yes
 ProtectSystem=strict

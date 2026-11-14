@@ -44,7 +44,14 @@ Run `bun install --frozen-lockfile` and install the browser once with
 
 The smoke checks use committed synthetic articles and intercepted API responses, not live upstream services. They verify typography/colors, content retention, script isolation, highlight ranges and jumps, archive reuse in text mode, and production API destinations. Screenshots are written to `test-results/`; they are review artifacts, not pixel-diff assertions. These checks do not prove that a live upstream is available, that every website keeps its original layout, or that the extension builds.
 
-`deploy:ink` and the VPS deploy script run `verify` before publishing/restarting. GitHub Actions runs the same gate without credentials or public URL variables. Browser builds default to the deployed services; an optional `VITE_API_URL` override is checked to prevent HTTP or localhost API destinations in production.
+`deploy:ink` runs `verify` before publishing. GitHub Actions runs the same gate on every push without credentials or public URL variables, and `deploy:api` deploys `main` to the API server only after that run passed. Browser builds default to the deployed services; an optional `VITE_API_URL` override is checked to prevent HTTP or localhost API destinations in production.
+
+## API server
+
+The API runs on a Debian VPS from a read-only clone of this repo, as a sandboxed systemd user service ([`ops/henry-ink-api.service`](ops/henry-ink-api.service)) behind Caddy ([`ops/caddy-api.caddy`](ops/caddy-api.caddy)). It needs no env file or credentials.
+
+- **Deploy:** `bun run deploy:api`. The server moves to `main`, restarts, and returns to the previous commit if `/api/health` fails.
+- **First-time setup:** install bun, `git clone https://github.com/hzoo/henry.ink ~/apps/henry.ink`, `loginctl enable-linger`, run `~/apps/henry.ink/ops/deploy.sh`, and add `import /home/<user>/apps/henry.ink/ops/caddy-api.caddy` to `/etc/caddy/Caddyfile`.
 
 ## Future Ideas
 

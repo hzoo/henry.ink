@@ -36,6 +36,7 @@ trails.db*
 archive-snapshots.db*
 .wrangler
 test-results/
+/.deploy.lock
 
 # Private deployment runbooks and host inventory
 /.private/
