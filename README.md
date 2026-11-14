@@ -24,8 +24,8 @@ This project began as a [browser extension](extension/) developed for the [Commu
 
 ## Verification
 
-Browser development needs no env file or local API: `bun run ink`, `bun run demo`,
-and the extension use the deployed public services. OAuth settings come from the
+Browser development needs no env file or local API: `bun run ink` and
+the extension use the deployed public services. OAuth settings come from the
 checked-in client metadata.
 
 To work on the API, run `bun run api`, then point the web app at it with

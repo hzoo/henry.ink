@@ -16,7 +16,7 @@ import { FirstTimePopup } from "@/src/components/FirstTimePopup";
 import { QuotePopup } from "./QuotePopup";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "preact/hooks";
-import { atCuteState, useAtCute } from "@/demo/lib/oauth";
+import { atCuteState, useAtCute } from "@/src/lib/oauth";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 
 // Constants for error handling

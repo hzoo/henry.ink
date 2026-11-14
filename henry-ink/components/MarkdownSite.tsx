@@ -170,7 +170,6 @@ export function MarkdownSite() {
 										<p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
 											Bookmarklet for quick access
 										</p>
-										{/* biome-ignore lint/a11y/useValidAnchor: bookmarklet */}
 										<a
 											href="javascript:location.href='https://henry.ink/'+location.href"
 											className="inline-flex items-center px-3 py-1.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/70 transition-colors text-xs font-medium cursor-move border border-blue-200 dark:border-blue-800"

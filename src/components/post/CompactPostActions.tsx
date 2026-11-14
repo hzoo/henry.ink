@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react";
+import { useSignal } from "@preact/signals";
 import { useRef } from "preact/hooks";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ReplyInput } from "@/src/components/post/ReplyInput";
 import { Icon } from "@/src/components/Icon";
 
-import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/src/lib/oauth";
 import { formatCount } from "@/src/lib/utils/count";
 import { submitReply } from "@/src/lib/postActions";
 import { getRootPostUri } from "@/src/lib/threadUtils";

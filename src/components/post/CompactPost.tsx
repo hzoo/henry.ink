@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { useQuery } from "@tanstack/react-query";
 
@@ -13,7 +13,7 @@ import type { DisplayableItem } from "@/src/components/post/FullPost";
 import { getAuthorUrl, getPost, getPostId } from "@/src/lib/utils/postUrls";
 import { getFormattedDate, getTimeAgo } from "@/src/lib/utils/time";
 import { applyFilters, type PostFilter } from "@/src/lib/postFilters";
-import { atCuteState } from "@/demo/lib/oauth";
+import { atCuteState } from "@/src/lib/oauth";
 
 interface CompactPostProps {
 	post: AppBskyFeedDefs.PostView;

@@ -1,0 +1,14 @@
+{
+  // The Bluesky search Worker runs on Cloudflare, not in a browser or Bun.
+  // Runtime types come from `bunx wrangler types` (worker-configuration.d.ts).
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "types": ["@atcute/atproto", "@atcute/bluesky"],
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "files": ["src/lib/worker.ts", "worker-configuration.d.ts"]
+}

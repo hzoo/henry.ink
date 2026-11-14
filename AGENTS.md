@@ -28,14 +28,13 @@ This project takes a "reverse Hypothesis" approach to web annotations. Instead o
 - **State Management**: Preact Signals
 - **Data Fetching**: TanStack Query with persistence
 - **Backend**: Bluesky/AT Protocol via `@atcute` libraries
-- **Linting**: Biome.js (replaces ESLint/Prettier)
 
 ## Development Commands
 
 Deployment runbooks and host access details are private. Keep them in ignored
 `DEPLOYMENT.md`, `docs/deployment.md`, or `.private/`; never commit them.
 
-The web app, demo, extension, and local API need no env file or credentials.
+The web app, extension, and local API need no env file or credentials.
 Browser builds use the deployed public services. To test backend edits, run
 `bun run api` and `VITE_API_URL=http://localhost:3000 bun run ink`.
 Are.na uses anonymous v2 URL search and public block connections, only when its
@@ -45,17 +44,15 @@ separate Bluesky Worker needs its bot credentials in `.dev.vars`.
 
 ```bash
 bun run ink            # henry.ink dev server (primary)
-bun run demo           # Annotation demo dev server
 bun run ext            # Extension dev (Chrome); `cd extension && bun run dev:ff` for Firefox
 bun run api            # Local API on port 3000
 
-bun run build:ink      # Also build:demo, build:ext
+bun run build:ink      # Also build:ext
 bun run compile        # Web and API type checks
 bun run test           # Unit tests; test:browser adds capture tests
 bun run verify         # Everything deploys require
 
 bun run deploy:ink     # henry.ink to Cloudflare Pages
-bun run deploy:demo    # Demo to Cloudflare Pages
 bun run deploy:search  # Bluesky search worker (bsky-search.henry.ink)
 bun run deploy:api     # Verify, then deploy main to the API server
 ```
@@ -65,9 +62,7 @@ bun run deploy:api     # Verify, then deploy main to the API server
 ### Multi-Platform Structure
 - **henry.ink**: Primary web application at `/henry-ink/` - renders any URL with integrated social discussions
 - **AT Protocol Extension**: Browser extension workspace at `/extension/` - integrated browsing with AT Protocol data
-- **Demo Sites**:
-  - `demo/` - Annotation demo website
-  - `archive-service/` - Secure web page archiving service
+- **API**: `/api/` - Bun server for article snapshots and Are.na lookups
 - **Shared Components**: `/src/components/` used across all platforms
 
 ### henry.ink Web Application
@@ -129,16 +124,14 @@ The browser extension workspace (`/extension/`) provides integrated annotation c
 - `/src/hooks/` - Custom hooks (useLike, useRepost, etc.)
 - `/src/lib/` - Core utilities, API clients, and state management
 - `/extension/` - AT Protocol extension workspace (isolated package)
-- `/demo/` - Annotation demo website
-- `/archive-service/` - Secure web page archiving service
-- `/public/` - Static assets
+- `/api/` - Bun API server (deployed to the VPS)
 
 ## Development Patterns
 
 ### Component Design
 - Functional components with TypeScript interfaces
 - Composition over inheritance pattern
-- Shared components between extension and demo sites
+- Shared components between the extension and henry.ink
 - Modular post components with consistent interfaces
 
 ### API Integration
@@ -254,16 +247,6 @@ function MyComponent() {
 
 ## OAuth Implementation Details
 
-### Handle Resolution Enhancement
-The project includes custom handle resolution for improved performance and decentralization:
-
-- **Direct HTTP resolution** for custom domains (checks `/.well-known/atproto-did`)
-- **Session-based caching** to avoid repeated lookups
-- **1-second timeout** for fast fallback to default resolver
-- **Automatic fallback** to Bluesky's resolver if direct resolution fails
-
-Location: `demo/lib/handle-resolver.ts`
-
 ### OAuth Client Metadata
 - Client metadata now served at root level: `/oauth-client-metadata.json`
 - This follows the new atcute convention for cleaner authorization flows
@@ -271,4 +254,4 @@ Location: `demo/lib/handle-resolver.ts`
 
 ## Testing and Quality
 
-Run `bun run compile` for TypeScript validation. The project uses Biome.js for consistent code style and quality enforcement (when configured).
+Run `bun run compile` for TypeScript validation.

@@ -2,7 +2,7 @@ import { expect, spyOn, test } from 'bun:test';
 import { Client } from '@atcute/client';
 import { QueryClient } from '@tanstack/react-query';
 import type { AppBskyFeedDefs } from '@atcute/bluesky';
-import type { AtCuteState } from '@/demo/lib/oauth';
+import type { AtCuteState } from '@/src/lib/oauth';
 import { submitReply, unlikePost, deleteRepost } from '@/src/lib/postActions';
 import { appPersister, updatePostActionCache } from '@/src/lib/queryClient';
 

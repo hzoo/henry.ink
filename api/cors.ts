@@ -1,7 +1,5 @@
 const CORS_ORIGINS = new Set([
   'https://henry.ink',
-  'https://annotation-demo.henryzoo.com',
-  'https://annotation-sidebar-demo.pages.dev',
   'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni',
   'http://127.0.0.1:3003',
   'http://localhost:3003',

@@ -12,7 +12,7 @@ import { arenaQueryKey } from "@/src/lib/arena-api";
 import { MarginNotes } from "@/henry-ink/components/MarginNotes";
 import { ReaderIcon } from "@/src/components/ReaderIcon";
 import { targetPostRkey } from "@/src/lib/highlights/signals";
-import { atCuteState } from "@/demo/lib/oauth";
+import { atCuteState } from "@/src/lib/oauth";
 
 const sources: { id: TabType; label: string }[] = [
 	{ id: "notes", label: "Notes" },

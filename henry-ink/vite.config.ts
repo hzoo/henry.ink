@@ -18,7 +18,7 @@ export default defineConfig({
 		outDir: "dist",
 		emptyOutDir: true,
 	},
-	plugins: [preact(), tailwindcss(), svgr(), injectOauthEnv('henry.ink'), validateApiEnv()],
+	plugins: [preact(), tailwindcss(), svgr(), injectOauthEnv(), validateApiEnv()],
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "../"),

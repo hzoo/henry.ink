@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import { batch } from "@preact/signals-core";
 import { useEffect, useRef } from "preact/hooks";
 import type { RefObject } from "preact";
@@ -99,7 +99,6 @@ const SelectionPopupManagerV2 = ({
 	const position = useSignal({ top: 0, left: 0 });
 	const popupRef = useRef<HTMLDivElement>(null);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		const controller = new AbortController();
 		const { signal } = controller;

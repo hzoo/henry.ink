@@ -1,4 +1,4 @@
-import { atCuteState } from "@/demo/lib/oauth";
+import { atCuteState } from "@/src/lib/oauth";
 import { Client, simpleFetchHandler } from "@atcute/client";
 import type { AppBskyFeedSearchPosts } from "@atcute/bluesky";
 import type {

@@ -14,6 +14,8 @@
     "postinstall": "wxt prepare"
   },
   "devDependencies": {
-    "wxt": "^0.20.27"
+    "vite": "^7.3.7",
+    "web-ext": "^9.2.0",
+    "wxt": "^0.21.5"
   }
 }

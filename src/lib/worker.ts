@@ -1,10 +1,7 @@
-/// <reference types="@cloudflare/workers-types" />
-
 import { Client, CredentialManager } from "@atcute/client";
 import type { AtpSessionData } from "@atcute/client";
 
-// @ts-expect-error - `caches.default` is missing in @cloudflare/workers-types
-const cache = caches.default as Cache;
+const cache = caches.default;
 
 export interface Env {
 	BLUESKY_IDENTIFIER: string;
@@ -16,8 +13,6 @@ const SESSION_KV_KEY = "bluesky_bot_session";
 
 const allowedOrigins = [
 	"http://127.0.0.1:3003",
-	"https://annotation-demo.henryzoo.com",
-	"https://annotation-sidebar-demo.pages.dev",
 	"https://henry.ink",
 	"chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni",
 	"moz-extension://e620cfe1-59a8-429f-8265-a7c22dc42136/_generated_background_page.html",

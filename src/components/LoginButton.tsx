@@ -5,7 +5,7 @@ import {
 	logout,
 	atCuteState,
 	isLoadingSession,
-} from "@/demo/lib/oauth";
+} from "@/src/lib/oauth";
 import { ProviderLogo } from "@/src/components/ProviderLogo";
 
 const getStorageKey = (did: string) => `bskyUserHandle_${did}`;

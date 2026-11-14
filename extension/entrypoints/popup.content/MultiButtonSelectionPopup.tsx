@@ -34,7 +34,7 @@ const MultiButtonSelectionPopup = ({ position, actions }: MultiButtonSelectionPo
 				event.stopPropagation();
 				animatingIndex.value = actionIndex;
 				setTimeout(() => {
-					actions[actionIndex].onClick();
+					actions[actionIndex]?.onClick();
 					animatingIndex.value = null;
 				}, 150);
 			}

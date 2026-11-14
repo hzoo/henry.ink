@@ -2,7 +2,7 @@ import { lastSeenVersion } from "@/src/lib/extension-signals";
 import { version } from "../../package.json";
 import { changelogData } from "@/src/lib/changelog";
 import type { ChangelogEntry } from "@/src/lib/changelog";
-import { useComputed, useSignal } from "@preact/signals-react/runtime";
+import { useComputed, useSignal } from "@preact/signals";
 import type { JSX } from "preact";
 
 const currentVersion = version;

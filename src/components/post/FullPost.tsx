@@ -1,4 +1,4 @@
-import { useSignal } from "@preact/signals-react/runtime";
+import { useSignal } from "@preact/signals";
 import { useQuery } from "@tanstack/react-query";
 
 import { PostReplies } from "@/src/components/post/PostReplies";
@@ -19,10 +19,10 @@ import { fetchProcessedThread, type Thread } from "@/src/lib/threadUtils";
 import { isRecord } from "@/src/lib/postActions";
 import type { PostFilter } from "@/src/lib/postFilters";
 import { applyFilters } from "@/src/lib/postFilters";
-import type { Signal } from "@preact/signals-react";
+import type { Signal } from "@preact/signals";
 import { hasShownError } from "@/src/lib/signals";
 import type { AppBskyFeedDefs } from '@atcute/bluesky';
-import { atCuteState } from "@/demo/lib/oauth";
+import { atCuteState } from "@/src/lib/oauth";
 
 export type DisplayableItem = "avatar" | "displayName" | "handle";
 

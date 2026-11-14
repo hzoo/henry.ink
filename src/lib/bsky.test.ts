@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import { Client, type FetchHandler } from "@atcute/client";
-import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/src/lib/oauth";
 import { getAuthorFeed, getPostThread, getProfile, searchBskyPosts } from "@/src/lib/bsky";
 
 const videoId = "dQw4w9WgXcQ";

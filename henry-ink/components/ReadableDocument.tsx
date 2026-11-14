@@ -16,7 +16,6 @@ export function ReadableDocument({ htmlContent }: { htmlContent: string }) {
   return <>
     <div ref={setRoot}
       className="prose prose-lg dark:prose-invert max-w-none leading-relaxed overflow-wrap-anywhere break-words"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized
       dangerouslySetInnerHTML={{ __html: htmlContent }} />
     {root.value && article.type === 'success' && <InlineNotes root={root.value} article={article} />}
   </>;

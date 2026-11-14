@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
 import type { ResourceUri } from "@atcute/lexicons";
 
-import { atCuteState, type AtCuteState } from "@/demo/lib/oauth";
+import { atCuteState, type AtCuteState } from "@/src/lib/oauth";
 import { likePost, unlikePost } from "@/src/lib/postActions";
 import { updatePostActionCache } from "@/src/lib/queryClient";
 

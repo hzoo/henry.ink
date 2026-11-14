@@ -5,7 +5,7 @@ import { getProfile, getAuthorFeed } from "@/src/lib/bsky";
 import { filterProfilePosts } from "@/src/lib/profileFilters";
 import { ProfilePost } from "@/henry-ink/components/ProfilePost";
 import { ProfileHeader } from "@/src/components/ProfileHeader";
-import { atCuteState, useAtCute } from "@/demo/lib/oauth";
+import { atCuteState, useAtCute } from "@/src/lib/oauth";
 
 export function ProfilePage() {
 	const routeInfo = useRoute();

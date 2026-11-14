@@ -5,21 +5,18 @@
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "lib": ["ESNext"],
-    "types": ["@types/bun"],
+    "types": ["bun"],
     
-    "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
 
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "paths": {
       "@/*": ["../*"]
-    },
-    "baseUrl": "."
+    }
   },
   "include": [
     "**/*.ts",

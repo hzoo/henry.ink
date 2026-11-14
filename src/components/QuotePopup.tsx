@@ -2,7 +2,7 @@ import { useSignal, useComputed } from "@preact/signals";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { now as generateRkey } from '@atcute/tid';
 import { quotedSelection, currentUrl, showCommentDialog } from "@/src/lib/messaging";
-import { atCuteState } from "@/demo/lib/oauth";
+import { atCuteState } from "@/src/lib/oauth";
 import { contentStateSignal } from '@/henry-ink/signals';
 import { pageMetadata } from '@/src/lib/page-metadata';
 import { discussionShareUrl } from '@/henry-ink/reader/url';
