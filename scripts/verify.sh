@@ -7,6 +7,8 @@ testdata=$(mktemp -d "${TMPDIR:-/tmp}/henry-verify.XXXXXX")
 trap 'rm -rf "$testdata"' EXIT
 export ARCHIVE_CACHE_PATH="$testdata/archive-snapshots.db"
 
+# bun skips workspace postinstall on unchanged installs; the extension's types need it.
+(cd extension && bunx wxt prepare >/dev/null)
 bun run compile
 bun run compile:api
 bun run test:browser

@@ -48,7 +48,7 @@ The smoke checks use committed synthetic articles and intercepted API responses,
 
 ## API server
 
-The API runs on a Debian VPS from a read-only clone of this repo, as a sandboxed systemd user service ([`ops/henry-ink-api.service`](ops/henry-ink-api.service)) behind Caddy ([`ops/caddy-api.caddy`](ops/caddy-api.caddy)). It needs no env file or credentials.
+The API runs on a Linux server from a read-only clone of this repo, as a sandboxed systemd user service ([`ops/henry-ink-api.service`](ops/henry-ink-api.service)) behind Caddy ([`ops/caddy-api.caddy`](ops/caddy-api.caddy)). It needs no env file or credentials.
 
 - **Deploy:** `bun run deploy:api`. The server moves to `main`, restarts, and returns to the previous commit if `/api/health` fails.
 - **First-time setup:** install bun, `git clone https://github.com/hzoo/henry.ink ~/apps/henry.ink`, `loginctl enable-linger`, run `~/apps/henry.ink/ops/deploy.sh`, and add `import /home/<user>/apps/henry.ink/ops/caddy-api.caddy` to `/etc/caddy/Caddyfile`.
