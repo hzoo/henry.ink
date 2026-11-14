@@ -58,7 +58,7 @@ test('cached responses re-register exact assets without fetching the source', as
   const route = createArchiveHandler(async (_url, _assets, _links, _admit) => ({
     html: `<img src="http://localhost:3000/api/asset-proxy?url=${encodeURIComponent(url)}">`,
     css: '', textContent: 'Cached article', title: '', author: '', publishedTime: '', domain: 'example.com',
-    url: _url, resolvedUrl: _url, extractionTime: 0, contentSize: 0, htmlAttrs: {}, bodyAttrs: {},
+    url: _url, resolvedUrl: _url, extractionTime: 0, contentSize: 0, htmlAttrs: {}, bodyAttrs: {}, assets: [url],
   }));
   expect((await route(request('cached-assets', 'https://example.com/cached'))).status).toBe(200);
   const proxy = createAssetProxyHandler(async input => {

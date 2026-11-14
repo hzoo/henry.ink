@@ -7,8 +7,15 @@ import {
 	getSession,
 	deleteStoredSession,
 	OAuthUserAgent,
-	resolveFromService,
+	type Session,
 } from "@atcute/oauth-browser-client";
+import {
+	CompositeDidDocumentResolver,
+	LocalActorResolver,
+	PlcDidDocumentResolver,
+	WebDidDocumentResolver,
+	XrpcHandleResolver,
+} from "@atcute/identity-resolver";
 import { useEffect } from "preact/hooks";
 import { oauthCallbackParams } from '@/src/lib/oauth-callback';
 
@@ -24,16 +31,21 @@ export function initializeOAuth() {
 				client_id: import.meta.env.VITE_OAUTH_CLIENT_ID,
 				redirect_uri: import.meta.env.VITE_OAUTH_REDIRECT_URI,
 			},
+			identityResolver: new LocalActorResolver({
+				handleResolver: new XrpcHandleResolver({ serviceUrl: "https://public.api.bsky.app" }),
+				didDocumentResolver: new CompositeDidDocumentResolver({
+					methods: { plc: new PlcDidDocumentResolver(), web: new WebDidDocumentResolver() },
+				}),
+			}),
 		});
 		isOAuthInitialized = true;
 	}
 }
 
-type AtCuteSessionData = Awaited<ReturnType<typeof finalizeAuthorization>>;
 export interface AtCuteState {
 	agent: OAuthUserAgent;
 	rpc: Client;
-	session: AtCuteSessionData;
+	session: Session;
 }
 
 export const atCuteState = signal<AtCuteState | null>(null);
@@ -85,7 +97,7 @@ export const useAtCute = () => {
 				try {
 					history.replaceState(null, "", location.pathname);
 					
-					const session = await finalizeAuthorization(params);
+					const { session } = await finalizeAuthorization(params);
 					const agent = new OAuthUserAgent(session);
 					const rpc = new Client({ handler: agent });
 					
@@ -153,9 +165,8 @@ export const startLoginProcess = async () => {
 			sessionStorage.removeItem('atcute-oauth:return-url');
 		}
 		
-		const { metadata } = await resolveFromService('https://bsky.social');
 		const authUrl = await createAuthorizationUrl({
-			metadata: metadata,
+			target: { type: "pds", serviceUrl: "https://bsky.social" },
 			scope: import.meta.env.VITE_OAUTH_SCOPE,
 		});
 
@@ -174,7 +185,7 @@ export const startLoginProcess = async () => {
 				callbackUrlObj.search || callbackUrlObj.hash.slice(1)
 			);
 
-			const session = await finalizeAuthorization(params);
+			const { session } = await finalizeAuthorization(params);
 			const agent = new OAuthUserAgent(session);
 			const rpc = new Client({ handler: agent });
 			

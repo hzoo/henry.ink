@@ -9,7 +9,7 @@ export function getCorsHeaders(origin?: string): Record<string, string> {
   // Only allow known origins — omit header for unknown origins (browser blocks the response)
   const headers: Record<string, string> = {
     'Vary': 'Origin',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Expose-Headers': 'Retry-After',
   };

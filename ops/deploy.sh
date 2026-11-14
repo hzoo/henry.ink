@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on the VPS in ~/apps/henry.ink. Moves to the given commit (default
-# origin/main), installs, links the user unit, restarts, and returns to the
+# origin/main), installs runtime dependencies, links the user unit, restarts, and returns to the
 # previous commit if /api/health fails. Needs no sudo.
 set -euo pipefail
 
@@ -15,11 +15,12 @@ git merge -q --ff-only "${1:-origin/main}"
 
 mkdir -p "$HOME/.local/state/henry-ink"
 ln -sfn "$PWD/ops/henry-ink-api.service" "$HOME/.config/systemd/user/henry-ink-api.service"
-systemctl --user daemon-reload
 systemctl --user enable henry-ink-api.service 2>/dev/null
 
+# Reloads the unit each time, so a rollback also restores the old unit file.
 healthy() {
-    bun install --frozen-lockfile &&
+    bun install --frozen-lockfile --production &&
+        systemctl --user daemon-reload &&
         systemctl --user restart henry-ink-api &&
         curl -fs --retry 10 --retry-delay 1 --retry-connrefused --max-time 3 \
             http://127.0.0.1:3000/api/health >/dev/null

@@ -67,7 +67,7 @@ describe("asset validation", () => {
 
 describe("asset proxy", () => {
   const req = (target: string, ip: string) => new Request(`https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(target)}`, { headers: { Origin: "https://henry.ink", "X-Forwarded-For": ip } });
-  const permit = (target: string) => registerArchiveAssets({ html: `<img src="https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(target)}">`, textContent: "" });
+  const permit = (target: string) => registerArchiveAssets([target]);
 
   test("only fetches exact registered URLs", async () => {
     const target = "https://assets.example/exact.png";

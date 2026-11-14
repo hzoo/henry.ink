@@ -34,7 +34,7 @@ for (const width of [1280, 390]) browserTest(`capture and sandbox preserve CSS a
   const archive = await createArchiveService(url => capturePage(url, fetcher))('https://compat.example/article', 'https://api.example');
   expect(assetDownloads).toBe(0);
   expect(archive.html).not.toContain('<script');
-  registerArchiveAssets(archive);
+  registerArchiveAssets(archive.assets);
   const proxy = createAssetProxyHandler(fetcher);
   const host = new JSDOM('');
   const reader = createReaderDocument({ ...archive, assetOrigin: 'https://api.example' }, host.window.document);

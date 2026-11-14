@@ -10,9 +10,11 @@ const captions = {
 };
 const watchHtml = `<meta property="og:title" content="Fixture - YouTube"><script>{"captions":${JSON.stringify(captions)},"videoDetails":{}}</script>`;
 const transcriptXml = '<transcript><text start="1.5" dur="2.5">Tom &amp; Jerry&#39;s</text></transcript>';
+// Each request comes from its own client, so the per-client limit stays out of the way.
+let client = 0;
 const request = (videoId: string, lang = 'en') => new Request(
   `https://api.henry.ink/api/youtube/transcript?${new URLSearchParams({ videoId, lang })}`,
-  { headers: { Origin: 'https://henry.ink' } },
+  { headers: { Origin: 'https://henry.ink', 'X-Forwarded-For': `192.0.2.${++client % 250}` } },
 );
 const restores: (() => void)[] = [];
 beforeEach(() => {

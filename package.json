@@ -19,17 +19,19 @@
     "test:browser": "ARCHIVE_BROWSER_TESTS=1 bun test --isolate --timeout 20000 api src/lib",
     "test:smoke": "NODE_ENV=production bun tests/reader-smoke.ts",
     "verify": "bash scripts/verify.sh",
-    "deploy:ink": "bun run verify && bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
+    "deploy:ink": "bun run verify && wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main",
     "deploy:api": "bash scripts/deploy-api.sh",
-    "deploy:search": "bunx wrangler deploy"
+    "deploy:search": "wrangler deploy"
   },
   "dependencies": {
-    "@atcute/atproto": "^3.1.12",
-    "@atcute/bluesky": "^3.3.5",
-    "@atcute/bluesky-richtext-segmenter": "^2.0.4",
-    "@atcute/client": "^4.2.2",
-    "@atcute/lexicons": "^1.3.1",
-    "@atcute/oauth-browser-client": "^1.0.27",
+    "@atcute/atproto": "^4.0.0",
+    "@atcute/bluesky": "^4.0.0",
+    "@atcute/bluesky-richtext-segmenter": "^3.0.0",
+    "@atcute/client": "^5.0.0",
+    "@atcute/identity-resolver": "^2.0.0",
+    "@atcute/lexicons": "^2.0.0",
+    "@atcute/oauth-browser-client": "^5.0.0",
+    "@atcute/password-session": "^1.0.0",
     "@atcute/tid": "^1.1.4",
     "@mozilla/readability": "^0.6.0",
     "@preact/signals": "^2.11.4",
@@ -43,11 +45,12 @@
     "preact-iso": "^2.12.2"
   },
   "devDependencies": {
-        "@preact/preset-vite": "^2.10.6",
+    "@preact/preset-vite": "^2.10.6",
     "@types/bun": "^1.4.4",
     "@types/jsdom": "^30.0.0",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
-    "vite-plugin-svgr": "^5.2.0"
+    "vite-plugin-svgr": "^5.2.0",
+    "wrangler": "^4.156.2"
   }
 }

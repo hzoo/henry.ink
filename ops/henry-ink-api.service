@@ -12,6 +12,11 @@ ExecStart=%h/.bun/bin/bun run api
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
+# Chrome and jsdom can spike; keep a runaway capture from starving the host.
+# MemoryMax and TasksMax apply only where the user manager has those controllers.
+MemoryMax=1500M
+TasksMax=512
+LimitNOFILE=4096
 
 # Capture loads arbitrary pages in Chrome. If one escapes, it finds a read-only
 # checkout, an empty home and one writable directory,

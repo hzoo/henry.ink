@@ -18,7 +18,7 @@ The reader loads one anonymous Margin page per URL, without persistent caching. 
 
 Retire local code for `ink.henry.annotate.mark` and `ink.henry.annotate.trail`: curation forms, profile and trail routes, AT Protocol writers, preview helpers, lexicon definitions, API routes, backfill, storage code, and the ingester are removed together. Henry.ink is a read-first annotation reader; Bluesky authentication, profiles, discussions, and extension functionality remain.
 
-There are no external users of this curation feature. The local database files in `api/trails/data` were removed after confirming none were open. Production data and remote PDS records remain untouched. No migration scaffolding or automatic remote cleanup is introduced.
+There are no external users of this curation feature. The local and production trail databases have been deleted. Remote PDS records remain untouched. No migration scaffolding or automatic remote cleanup is introduced.
 
 Do not add a Henry passage-note schema yet. Revisit one only after existing schemas fail a concrete requirement such as anchor semantics or permissions. Prefer adapting existing records over copying another application's UI or backend.
 

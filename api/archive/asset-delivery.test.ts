@@ -7,7 +7,7 @@ const png = Buffer.from("89504e470d0a1a0a", "hex");
 let sequence = 0;
 function permit(label: string): string {
   const url = `https://assets.example/delivery-${label}-${++sequence}.png`;
-  registerArchiveAssets({ html: `/api/asset-proxy?url=${encodeURIComponent(url)}`, textContent: "" });
+  registerArchiveAssets([url]);
   return url;
 }
 function request(url: string, options: { origin?: string; ip?: string; signal?: AbortSignal } = {}): Request {

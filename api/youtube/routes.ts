@@ -1,5 +1,6 @@
 import type { YoutubeTranscriptResponse, TranscriptResponse } from "@/src/lib/youtube-transcript-types";
 import { getCorsHeaders, optionsResponse } from '@/api/cors';
+import { clientIp, RateLimiter } from '@/api/rate-limit';
 import { TranscriptError, upstreamError } from '@/api/youtube/errors';
 import { checkPlayability, parseTranscript, playerField } from '@/api/youtube/parsing';
 import {
@@ -207,6 +208,10 @@ function getVideoTitle(html: string): string | undefined {
 
 // Bounded cache: max 200 entries, 1 hour TTL
 const MAX_CACHE_SIZE = 200;
+// Each miss downloads up to 7 MiB from YouTube; bound both per-client and total load.
+const limiter = new RateLimiter(20, 1);
+const MAX_IN_FLIGHT = 4;
+let inFlight = 0;
 const inMemoryCache = new Map<string, { data: YoutubeTranscriptResponse; expires: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -273,6 +278,13 @@ export async function youtubeTranscriptRoute(req: Request, fetcher: Fetcher = fe
     }), { status: 400, headers });
   }
 
+  if (!limiter.consume(clientIp(req)) || inFlight >= MAX_IN_FLIGHT) {
+    return new Response(JSON.stringify({
+      videoId, transcript: [], error: 'Too many transcript requests', errorCode: 'rate_limited',
+    }), { status: 429, headers: { ...headers, 'Cache-Control': 'no-store', 'Retry-After': '2' } });
+  }
+
+  inFlight++;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const signal = AbortSignal.any([req.signal, controller.signal]);
@@ -306,6 +318,7 @@ export async function youtubeTranscriptRoute(req: Request, fetcher: Fetcher = fe
       headers: { ...headers, 'Cache-Control': 'no-store' },
     });
   } finally {
+    inFlight--;
     clearTimeout(timer);
   }
 }

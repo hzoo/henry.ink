@@ -5,7 +5,12 @@ import { ARCHIVE_USER_AGENT, ArchiveFetchError, fetchPublicResource, type Public
 let browserPromise: Promise<Browser> | undefined;
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
-    browserPromise = chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, timeout: 10_000 }).then(browser => {
+    browserPromise = chromium.launch({
+      headless: true, channel: "chrome", chromiumSandbox: true, timeout: 10_000,
+      // Every fulfilled request goes through the route handler; anything Chrome
+      // tries on its own (preconnect, prefetch) hits a dead proxy instead.
+      args: ["--proxy-server=127.0.0.1:9", "--dns-prefetch-disable"],
+    }).then(browser => {
       browser.on("disconnected", () => { browserPromise = undefined; });
       return browser;
     }).catch(error => { browserPromise = undefined; throw error; });

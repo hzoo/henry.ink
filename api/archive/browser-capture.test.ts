@@ -311,7 +311,7 @@ browserTest("browser aborts a page exceeding the resource count budget", async (
 
 browserTest("proxied SVG still renders as an image and cannot execute in a document", async () => {
   const asset = "https://assets.example/csp-test.svg";
-  registerArchiveAssets({ html: `/api/asset-proxy?url=${encodeURIComponent(asset)}`, textContent: "" });
+  registerArchiveAssets([asset]);
   const proxy = createAssetProxyHandler(async url => ({
     url, status: 200, headers: new Headers({ "content-type": "image/svg+xml" }),
     body: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/><script>globalThis.__sourceScriptExecuted=true</script></svg>'),

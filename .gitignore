@@ -2,15 +2,9 @@
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
 node_modules
 .output
-stats.html
-stats-*.json
 .wxt
 web-ext.config.ts
 
@@ -20,25 +14,18 @@ web-ext.config.ts
 .idea
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
 
 .env
-.env.production
 dist
-dist-npm
 .dev.vars
 
-channels.db*
-trails.db*
 archive-snapshots.db*
 .wrangler
 test-results/
 /.deploy.lock
 
-# Private deployment runbooks and host inventory
+# Private deployment notes
 /.private/
 /DEPLOYMENT.md
 /docs/deployment.md

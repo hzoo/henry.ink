@@ -133,16 +133,14 @@ Identical in-flight lookups share upstream work. At most eight distinct lookups 
 #### GET `/api/health`
 Unified API health check.
 
-Reports `status`, `port`, and services `archive`, `arena`, `youtube`, and `annotations`. Global `OPTIONS` handling provides CORS preflight responses.
+Reports `status` and services `archive`, `arena`, `youtube`, and `annotations`. Global `OPTIONS` handling provides CORS preflight responses.
 
 ## Environment Variables
 
 No credentials or env file are required. Are.na search and channel reads use
-public REST endpoints. The former keyword index, channel database, GraphQL
-sync, and Are.na token settings are removed.
+public REST endpoints.
 
 ```bash
-# Database configuration
 API_PORT=3000  # Optional, defaults to 3000
 ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; parent directory must exist and be writable
 ```

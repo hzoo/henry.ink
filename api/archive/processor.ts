@@ -80,7 +80,8 @@ function sanitizeDocument(document: Document): void {
 const FONT_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
 const IMAGE_REGEX = /\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?.*)?$/i;
 
-export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string): string {
+/** Rewrites CSS asset URLs through the asset proxy, recording each proxied URL in `assets`. */
+export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBaseUrl: string, assets?: Set<string>): string {
   if (!css.trim()) return '';
   if (Buffer.byteLength(css) > 2 * 1024 * 1024) return '';
   try {
@@ -97,6 +98,7 @@ export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBa
             if (absolute.protocol !== 'https:' && absolute.protocol !== 'http:') return { ...value, url: 'about:blank' };
             if (isTrustedCDN(absolute.href)) return { ...value, url: absolute.href };
             if (FONT_REGEX.test(absolute.href) || IMAGE_REGEX.test(absolute.href)) {
+              assets?.add(absolute.href);
               return { ...value, url: `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absolute.href)}` };
             }
           } catch { }
@@ -130,6 +132,8 @@ interface ArchiveResult {
   contentSize: number;
   htmlAttrs: Record<string, string>;
   bodyAttrs: Record<string, string>;
+  /** Exactly the URLs this archive proxies; the asset proxy serves nothing else. */
+  assets: string[];
 }
 
 function isArchiveResult(value: unknown): value is ArchiveResult {
@@ -138,6 +142,7 @@ function isArchiveResult(value: unknown): value is ArchiveResult {
   return ['html', 'css', 'textContent', 'title', 'author', 'publishedTime', 'domain', 'url', 'resolvedUrl']
     .every(key => typeof result[key] === 'string')
     && ['extractionTime', 'contentSize'].every(key => typeof result[key] === 'number' && Number.isFinite(result[key]))
+    && Array.isArray(result.assets) && result.assets.every(asset => typeof asset === 'string')
     && ['htmlAttrs', 'bodyAttrs'].every(key => {
       const attrs = result[key];
       return attrs !== null && typeof attrs === 'object' && !Array.isArray(attrs)
@@ -172,10 +177,11 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
   const startTime = Date.now();
   const { fullHTMLContent, pageData, cssSources } = await capture(url);
   const baseUrl = pageData.baseUrl;
+  const assets = new Set<string>();
   const pageMetadata = pageData.metadata;
   const allCSS = cssSources.map(source => {
     const css = source.media ? `@media ${source.media} {\n${source.content}\n}` : source.content;
-    return rewriteAssetUrlsInCSS(css, source.baseUrl, assetProxyBaseUrl);
+    return rewriteAssetUrlsInCSS(css, source.baseUrl, assetProxyBaseUrl, assets);
   }).join('\n');
   // Each sheet was already parsed, validated and target-transformed while
   // rewriting URLs. Keep source order without parsing the joined CSS again.
@@ -218,6 +224,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
       try {
         const absolute = new URL(url, baseUrl);
         if (absolute.protocol !== 'http:' && absolute.protocol !== 'https:') return '';
+        assets.add(absolute.href);
         return `${assetProxyBaseUrl}/api/asset-proxy?url=${encodeURIComponent(absolute.href)}`;
       } catch { return ''; }
     };
@@ -249,7 +256,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
     document.querySelectorAll('[style]').forEach((element: Element) => {
       const style = element.getAttribute('style') || '';
       try {
-        const wrapped = rewriteAssetUrlsInCSS(`x {${style}}`, baseUrl, assetProxyBaseUrl);
+        const wrapped = rewriteAssetUrlsInCSS(`x {${style}}`, baseUrl, assetProxyBaseUrl, assets);
         const declarations = wrapped.slice(wrapped.indexOf('{') + 1, wrapped.lastIndexOf('}')).trim();
         element.setAttribute('style', declarations);
       } catch { element.removeAttribute('style'); }
@@ -300,6 +307,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
       contentSize: cleanHTML.length,
       htmlAttrs: extractRootAttributes(document.documentElement),
       bodyAttrs: extractRootAttributes(document.body),
+      assets: [...assets],
     };
 
     return result;

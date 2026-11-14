@@ -1,7 +1,24 @@
 /**
  * Simple in-memory token-bucket rate limiter.
- * Keyed by IP address. No dependencies.
+ * Keyed by client network (see clientIp). No dependencies.
  */
+
+const MAX_BUCKETS = 100_000;
+
+/**
+ * The client's rate-limit key. The trusted reverse proxy must overwrite these
+ * headers. IPv6 clients are keyed by their /64, since one host usually owns it.
+ */
+export function clientIp(req: Request): string {
+	const ip = req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()
+		|| req.headers.get("CF-Connecting-IP") || "unknown";
+	if (!ip.includes(":")) return ip;
+	const [head = "", tail = ""] = ip.toLowerCase().split("::");
+	const left = head ? head.split(":") : [];
+	const right = tail ? tail.split(":") : [];
+	const groups = ip.includes("::") ? [...left, ...Array(8 - left.length - right.length).fill("0"), ...right] : left;
+	return `${groups.slice(0, 4).map(g => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
 
 interface Bucket {
 	tokens: number;
@@ -37,6 +54,8 @@ export class RateLimiter {
 		let bucket = this.buckets.get(key);
 
 		if (!bucket) {
+			// A flood of new keys resets everyone rather than growing without bound.
+			if (this.buckets.size >= MAX_BUCKETS) this.buckets.clear();
 			bucket = { tokens: this.maxTokens, lastRefill: now };
 			this.buckets.set(key, bucket);
 		}

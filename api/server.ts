@@ -34,29 +34,29 @@ const server = serve({
       // Archive service routes
       if (path === '/api/archive') {
         if (req.method === 'GET') {
-          return createArchiveRoute(req);
+          return await createArchiveRoute(req);
         }
       } else if (path === '/api/asset-proxy') {
         if (req.method === 'GET') {
-          return assetProxyRoute(req);
+          return await assetProxyRoute(req);
         }
       }
 
       else if (path === '/api/annotations/margin') {
         if (req.method === 'GET') {
-          return marginAnnotationsRoute(req);
+          return await marginAnnotationsRoute(req);
         }
       }
 
       // YouTube transcript route
       else if (path === '/api/youtube/transcript') {
         if (req.method === 'GET') {
-          return youtubeTranscriptRoute(req);
+          return await youtubeTranscriptRoute(req);
         }
       }
 
       else if (path === '/api/arena/lookup') {
-        if (req.method === 'GET') return arenaLookupRoute(req);
+        if (req.method === 'GET') return await arenaLookupRoute(req);
       }
 
       // Health check for unified API
@@ -65,7 +65,6 @@ const server = serve({
           JSON.stringify({ 
             status: 'healthy',
             services: ['archive', 'arena', 'youtube', 'annotations'],
-            port: PORT
           }),
           {
             status: 200,

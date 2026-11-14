@@ -1,6 +1,6 @@
 import { decodeMarginTargets, httpTarget } from '@/src/lib/annotations/margin';
 import { getCorsHeaders } from '@/api/cors';
-import { RateLimiter } from '@/api/rate-limit';
+import { clientIp, RateLimiter } from '@/api/rate-limit';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const TIMEOUT_MS = 8000;
@@ -83,10 +83,7 @@ export function createMarginAnnotationsHandler(
     const busy = () => Response.json({ error: 'Too many annotation requests' }, {
       status: 429, headers: { ...headers, 'Retry-After': '1' },
     });
-    // The trusted reverse proxy must overwrite these client identity headers.
-    const ip = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
-      || req.headers.get('CF-Connecting-IP') || 'unknown';
-    if (!limiter.consume(ip)) return busy();
+    if (!limiter.consume(clientIp(req))) return busy();
     const params = new URL(req.url).searchParams;
     const target = httpTarget(params.get('url'));
     const rawOffset = params.get('offset') ?? '0';

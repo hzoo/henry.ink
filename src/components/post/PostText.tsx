@@ -1,9 +1,6 @@
 import { Fragment, type JSX } from "preact";
 import type { AppBskyFeedDefs } from "@atcute/bluesky";
-import {
-	segmentize,
-	type FacetFeature,
-} from "@atcute/bluesky-richtext-segmenter";
+import { segmentize } from "@atcute/bluesky-richtext-segmenter";
 
 import { isRecord } from "@/src/lib/postActions";
 import { getPost } from "@/src/lib/utils/postUrls";
@@ -27,7 +24,7 @@ export function PostText(props: Props) {
 	const content: { text: string; component: JSX.Element }[] = [];
 
 	for (const segment of segments) {
-		const feature = segment.features?.[0] as FacetFeature | undefined; // Assuming one feature per segment for simplicity based on context
+		const feature = segment.features?.[0]; // One feature per segment in practice
 
 		if (feature && feature.$type === "app.bsky.richtext.facet#mention") {
 			content.push({

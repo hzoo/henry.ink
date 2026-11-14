@@ -1,5 +1,5 @@
-import { Client, CredentialManager } from "@atcute/client";
-import type { AtpSessionData } from "@atcute/client";
+import { Client } from "@atcute/client";
+import { PasswordSession, type PasswordSessionData } from "@atcute/password-session";
 
 const cache = caches.default;
 
@@ -15,7 +15,6 @@ const allowedOrigins = [
 	"http://127.0.0.1:3003",
 	"https://henry.ink",
 	"chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni",
-	"moz-extension://e620cfe1-59a8-429f-8265-a7c22dc42136/_generated_background_page.html",
 ];
 
 function setCorsHeaders(response: Response, origin: string | null): void {
@@ -75,74 +74,49 @@ export default {
 
 			console.log("Cache miss:", url);
 
-			const manager = new CredentialManager({ service: "https://bsky.social" });
-
+			// Reuse the session cached in KV; log in again only when it is no longer valid.
+			// The session refreshes itself on 401 and reports every change back here.
+			let cached: PasswordSessionData | undefined;
 			try {
 				const sessionJson = await env.BLUESKY_SESSION_KV.get(SESSION_KV_KEY);
-				if (sessionJson) {
-					manager.session = JSON.parse(sessionJson) as AtpSessionData;
-				}
+				if (sessionJson) cached = JSON.parse(sessionJson) as PasswordSessionData;
 			} catch (kvError: unknown) {
 				console.error("Error loading session from KV:", kvError);
 			}
 
-			// Login if no session or session is invalid (manager handles refresh)
-			if (!manager.session) {
-				// console.log("No session loaded, performing login.");
-				await manager.login({
+			const session = await PasswordSession.login(
+				{
+					service: "https://bsky.social",
 					identifier: env.BLUESKY_IDENTIFIER,
 					password: env.BLUESKY_APP_PASSWORD,
-				});
-				// console.log("Login successful.");
-			}
-
-			const rpc = new Client({ handler: manager });
-
-			let apiResponse: { ok: boolean; data: unknown };
-
-			try {
-				apiResponse = await rpc.get("app.bsky.feed.searchPosts", {
-					params: {
-						q: "*",
-						url: url as `https://${string}`,
-						sort: "top",
+				},
+				{
+					session: cached,
+					onUpdate(data) {
+						ctx.waitUntil(
+							env.BLUESKY_SESSION_KV.put(SESSION_KV_KEY, JSON.stringify(data)).catch(
+								(saveError: Error) => console.error("Error saving session to KV:", saveError),
+							),
+						);
 					},
-				});
-			} catch (apiError: unknown) {
-				console.log("Initial API call failed:", apiError);
+					onDelete() {
+						ctx.waitUntil(
+							env.BLUESKY_SESSION_KV.delete(SESSION_KV_KEY).catch(
+								(deleteError: Error) => console.error("Error deleting session from KV:", deleteError),
+							),
+						);
+					},
+				},
+			);
 
-				// If token expired, try to refresh or re-login
-				if (
-					apiError instanceof Error &&
-					(apiError.message?.includes("ExpiredToken") ||
-						apiError.message?.includes("AuthRequired"))
-				) {
-					console.log("Token expired, attempting refresh/re-login...");
-
-					// Clear the old session and force a new login
-					await env.BLUESKY_SESSION_KV.delete(SESSION_KV_KEY);
-					manager.session = undefined;
-
-					// Perform fresh login
-					await manager.login({
-						identifier: env.BLUESKY_IDENTIFIER,
-						password: env.BLUESKY_APP_PASSWORD,
-					});
-
-					// Retry the API call
-					apiResponse = await rpc.get("app.bsky.feed.searchPosts", {
-						params: {
-							q: "*",
-							url: url as `https://${string}`,
-							sort: "top",
-						},
-					});
-				} else {
-					throw apiError; // Re-throw if it's not a token issue
-				}
-			}
-
-			const { ok, data } = apiResponse;
+			const rpc = new Client({ handler: session });
+			const { ok, data } = await rpc.get("app.bsky.feed.searchPosts", {
+				params: {
+					q: "*",
+					url: url as `https://${string}`,
+					sort: "top",
+				},
+			});
 
 			if (!ok) {
 				console.error("Bluesky API error:", data);
@@ -153,7 +127,7 @@ export default {
 					dataObj.error?.includes("ExpiredToken")
 				) {
 					console.error(
-						"Authentication failed after attempted refresh. Clearing session from KV.",
+						"Authentication failed after refresh. Clearing session from KV.",
 					);
 					ctx.waitUntil(
 						env.BLUESKY_SESSION_KV.delete(SESSION_KV_KEY).catch(
@@ -174,17 +148,6 @@ export default {
 				);
 				setCorsHeaders(response, origin);
 				return response;
-			}
-
-			if (manager.session) {
-				ctx.waitUntil(
-					env.BLUESKY_SESSION_KV.put(
-						SESSION_KV_KEY,
-						JSON.stringify(manager.session),
-					).catch((saveError: Error) =>
-						console.error("Error saving session to KV:", saveError),
-					),
-				);
 			}
 
 			const response = new Response(JSON.stringify(data), {

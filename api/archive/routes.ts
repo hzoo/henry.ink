@@ -1,7 +1,7 @@
 import { createArchive } from "@/api/archive/processor";
 import { getCorsHeaders, optionsResponse } from "@/api/cors";
 import { validateArchiveUrl } from "@/api/archive/url-validation";
-import { RateLimiter } from "@/api/rate-limit";
+import { clientIp, RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher } from "@/api/archive/public-fetch";
 import { MAX_ASSET_BYTES, validateAsset } from "@/api/archive/asset-validation";
 import { SnapshotCache } from "@/api/archive/snapshot-cache";
@@ -30,23 +30,20 @@ function assetKey(url: string): string {
   parsed.hash = "";
   return parsed.href;
 }
-export function registerArchiveAssets(archive: ArchiveResponse): void {
+export function registerArchiveAssets(urls: Iterable<string>): void {
   const now = Date.now();
   for (const [url, expiry] of permittedAssets) if (expiry <= now) permittedAssets.delete(url);
-  const sources = [archive.html, archive.css || "", archive.htmlAttrs?.style || "", archive.bodyAttrs?.style || ""];
-  for (const source of sources) {
-    for (const match of source.matchAll(/\/api\/asset-proxy\?url=([^\s"'<>()[\]]+)/g)) {
-      try {
-        const key = assetKey(decodeURIComponent(match[1].split("&")[0]));
-        if (validateArchiveUrl(key)) continue;
-        permittedAssets.delete(key);
-        if (permittedAssets.size >= MAX_PERMITTED_ASSETS) {
-          const oldest = permittedAssets.keys().next().value;
-          if (oldest !== undefined) permittedAssets.delete(oldest);
-        }
-        permittedAssets.set(key, now + ASSET_PERMISSION_TTL);
-      } catch { }
-    }
+  for (const url of urls) {
+    try {
+      const key = assetKey(url);
+      if (validateArchiveUrl(key)) continue;
+      permittedAssets.delete(key);
+      if (permittedAssets.size >= MAX_PERMITTED_ASSETS) {
+        const oldest = permittedAssets.keys().next().value;
+        if (oldest !== undefined) permittedAssets.delete(oldest);
+      }
+      permittedAssets.set(key, now + ASSET_PERMISSION_TTL);
+    } catch { }
   }
 }
 
@@ -56,10 +53,6 @@ function errorResponse(error: unknown, cors: Record<string, string>, retryAfter 
     status: known ? error.status : 502,
     headers: { ...cors, "Cache-Control": "no-store", ...(known && error.status === 429 ? { "Retry-After": String(retryAfter) } : {}) },
   });
-}
-function clientIp(req: Request): string {
-  // These headers must be supplied by the trusted reverse proxy.
-  return req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || req.headers.get("CF-Connecting-IP") || "unknown";
 }
 
 export { optionsResponse as archiveOptionsRoute };
@@ -82,8 +75,9 @@ export function createArchiveHandler(service: typeof createArchive = createArchi
       const archive = await service(url, assetBase, linkBase, () => {
         if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
       });
-      registerArchiveAssets(archive);
-      return Response.json(archive, {
+      const { assets, ...body } = archive;
+      registerArchiveAssets(assets);
+      return Response.json(body, {
         headers: {
           ...cors,
           // Output varies by Origin; each response renews exact asset permissions.

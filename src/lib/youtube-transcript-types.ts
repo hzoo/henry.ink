@@ -12,7 +12,8 @@ export type YoutubeTranscriptErrorCode =
   | 'language_unavailable'
   | 'upstream_error'
   | 'upstream_timeout'
-  | 'request_cancelled';
+  | 'request_cancelled'
+  | 'rate_limited';
 
 export interface YoutubeTranscriptResponse {
   videoId: string;
