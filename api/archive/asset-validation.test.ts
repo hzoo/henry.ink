@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateAsset, validatedEmbeddedFont } from "@/api/archive/asset-validation";
-import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
+import { createAssetProxyHandler } from "@/api/archive/routes";
+import { assetProxyUrl } from "@/api/archive/asset-signature";
 import type { PublicResource } from "@/api/archive/public-fetch";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWekAAAAASUVORK5CYII=", "base64");
@@ -66,15 +67,15 @@ describe("asset validation", () => {
 });
 
 describe("asset proxy", () => {
-  const req = (target: string, ip: string) => new Request(`https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(target)}`, { headers: { Origin: "https://henry.ink", "X-Forwarded-For": ip } });
-  const permit = (target: string) => registerArchiveAssets([target]);
+  const req = (target: string, ip: string) => new Request(assetProxyUrl("https://api.henry.ink", target), { headers: { Origin: "https://henry.ink", "X-Forwarded-For": ip } });
 
-  test("only fetches exact registered URLs", async () => {
+  test("only fetches exact signed URLs", async () => {
     const target = "https://assets.example/exact.png";
-    permit(target);
     let calls = 0;
     const handler = createAssetProxyHandler(async () => { calls++; return makeResource(png, "image/png"); });
-    expect((await handler(req(target + "?different=1", "unregistered"))).status).toBe(403);
+    const different = new URL(req(target, "unsigned").url);
+    different.searchParams.set("url", target + "?different=1");
+    expect((await handler(new Request(different, { headers: { "X-Forwarded-For": "unsigned" } }))).status).toBe(403);
     expect((await handler(req(target, "registered"))).status).toBe(200);
     expect(calls).toBe(1);
   });
@@ -82,8 +83,6 @@ describe("asset proxy", () => {
   test("HTML is rejected and SVG receives an execution sandbox", async () => {
     const htmlTarget = "https://assets.example/html.png";
     const svgTarget = "https://assets.example/diagram.svg";
-    permit(htmlTarget);
-    permit(svgTarget);
     const handler = createAssetProxyHandler(async url => url.endsWith(".svg")
       ? makeResource(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>document.title="executed"</script></svg>'), "image/svg+xml")
       : makeResource(Buffer.from('<script>document.title="executed"</script>'), "text/html"));

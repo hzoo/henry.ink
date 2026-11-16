@@ -8,6 +8,12 @@ After=network-online.target
 Type=simple
 WorkingDirectory=%h/apps/henry.ink
 Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+# Secrets live outside the checkout, in a file only this user can read:
+#   ASSET_SIGNING_KEY=<openssl rand -hex 32>
+# The unit refuses to start without the file, and the API refuses to start in
+# production without the key, so a deploy that forgot it rolls itself back.
+EnvironmentFile=%h/.config/henry-ink/api.env
+Environment=NODE_ENV=production
 ExecStart=%h/.bun/bin/bun run api
 Restart=on-failure
 RestartSec=3

@@ -5,6 +5,7 @@ import { clientIp, RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher } from "@/api/archive/public-fetch";
 import { MAX_ASSET_BYTES, validateAsset } from "@/api/archive/asset-validation";
 import { SnapshotCache } from "@/api/archive/snapshot-cache";
+import { assetKey, isSignedAsset } from "@/api/archive/asset-signature";
 
 const archiveReadLimiter = new RateLimiter(30, 5);
 const archiveCaptureLimiter = new RateLimiter(3, 0.2);
@@ -18,33 +19,6 @@ export interface ArchiveResponse {
   title?: string;
   htmlAttrs?: Record<string, string>;
   bodyAttrs?: Record<string, string>;
-}
-
-// Only exact assets referenced by a successful archive are permitted. This is
-// an abuse bound, not a replacement for destination validation on every fetch.
-const permittedAssets = new Map<string, number>();
-const ASSET_PERMISSION_TTL = 24 * 60 * 60 * 1000;
-const MAX_PERMITTED_ASSETS = 5000;
-function assetKey(url: string): string {
-  const parsed = new URL(url);
-  parsed.hash = "";
-  return parsed.href;
-}
-export function registerArchiveAssets(urls: Iterable<string>): void {
-  const now = Date.now();
-  for (const [url, expiry] of permittedAssets) if (expiry <= now) permittedAssets.delete(url);
-  for (const url of urls) {
-    try {
-      const key = assetKey(url);
-      if (validateArchiveUrl(key)) continue;
-      permittedAssets.delete(key);
-      if (permittedAssets.size >= MAX_PERMITTED_ASSETS) {
-        const oldest = permittedAssets.keys().next().value;
-        if (oldest !== undefined) permittedAssets.delete(oldest);
-      }
-      permittedAssets.set(key, now + ASSET_PERMISSION_TTL);
-    } catch { }
-  }
 }
 
 function errorResponse(error: unknown, cors: Record<string, string>, retryAfter = 2): Response {
@@ -75,12 +49,10 @@ export function createArchiveHandler(service: typeof createArchive = createArchi
       const archive = await service(url, assetBase, linkBase, () => {
         if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
       });
-      const { assets, ...body } = archive;
-      registerArchiveAssets(assets);
-      return Response.json(body, {
+      return Response.json(archive, {
         headers: {
           ...cors,
-          // Output varies by Origin; each response renews exact asset permissions.
+          // Output varies by Origin.
           Vary: "Origin",
           "Cache-Control": "no-store",
           "Cloudflare-CDN-Cache-Control": "no-store",
@@ -150,10 +122,11 @@ export function createAssetProxyHandler(fetcher: PublicFetcher = fetchPublicReso
       const error = validateArchiveUrl(input);
       if (error) throw new ArchiveFetchError(error, 403);
       const key = assetKey(input);
-      const checkPermission = () => {
-        if ((permittedAssets.get(key) || 0) <= now()) throw new ArchiveFetchError("Asset is not referenced by a recent archive", 403);
-      };
-      checkPermission();
+      // Checked before the cache and the queue: only addresses this service
+      // wrote into a cleaned page are ever fetched or served.
+      if (!isSignedAsset(key, new URL(req.url).searchParams.get("sig"))) {
+        throw new ArchiveFetchError("Asset address was not issued by this service", 403);
+      }
       let job = pending.get(key);
       if (!job) {
         const shared = { readers: 1 };
@@ -161,7 +134,6 @@ export function createAssetProxyHandler(fetcher: PublicFetcher = fetchPublicReso
           // Orphaned queued work must not contact the origin. Active work remains
           // shared and bounded by the fetcher's deadline, even if one reader leaves.
           if (!shared.readers) throw cancelled();
-          checkPermission();
           const resource = await fetcher(key, { allowHttp: true, maxBytes: MAX_ASSET_BYTES, timeoutMs: 5000, accept: "image/*,font/*,application/octet-stream;q=0.8" });
           if (resource.status !== 200) throw new ArchiveFetchError("Asset upstream returned an error", 502);
           const contentType = validateAsset(resource);
@@ -182,7 +154,6 @@ export function createAssetProxyHandler(fetcher: PublicFetcher = fetchPublicReso
         });
       } finally { job.readers--; }
       if (req.signal.aborted) throw cancelled();
-      checkPermission();
       const maxAge = Math.max(0, Math.min(ASSET_CACHE_TTL / 1000, Math.floor((asset.expiresAt - now()) / 1000)));
       return new Response(Uint8Array.from(asset.body), {
         headers: {

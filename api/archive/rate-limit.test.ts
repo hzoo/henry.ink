@@ -52,19 +52,26 @@ test('general read budget still bounds invalid and cheap requests', async () => 
   expect(limited.headers.get('Retry-After')).toBe('1');
 });
 
-test('cached responses re-register exact assets without fetching the source', async () => {
-  let admitted = false;
-  const url = 'https://assets.example/from-persisted-cache.png';
-  const route = createArchiveHandler(async (_url, _assets, _links, _admit) => ({
-    html: `<img src="http://localhost:3000/api/asset-proxy?url=${encodeURIComponent(url)}">`,
-    css: '', textContent: 'Cached article', title: '', author: '', publishedTime: '', domain: 'example.com',
-    url: _url, resolvedUrl: _url, extractionTime: 0, contentSize: 0, htmlAttrs: {}, bodyAttrs: {}, assets: [url],
+test('every image address in a cleaned page is accepted by the asset proxy as written', async () => {
+  const service = createArchiveService(async () => ({
+    fullHTMLContent: '<!doctype html><body style="background:url(/paper.png)"><img src="/hero.jpg" srcset="/wide.jpg 900w"><p>Article</p></body>',
+    cssSources: [{ content: '@font-face{font-family:Body;src:url(/body.woff2)}', baseUrl: 'https://example.com/site.css', media: '' }],
+    pageData: { baseUrl: 'https://example.com/', cssSources: [], htmlAttrs: { class: '', style: '', lang: '' }, bodyAttrs: { class: '', style: '' },
+      metadata: { title: '', author: '', publishedTime: '', url: 'https://example.com/', domain: 'example.com' } },
   }));
-  expect((await route(request('cached-assets', 'https://example.com/cached'))).status).toBe(200);
+  const archive = await service('https://example.com/', 'http://localhost:3000');
+  const addresses = [...`${archive.html} ${archive.css} ${archive.bodyAttrs.style}`.replaceAll('&amp;', '&').replaceAll('&quot;', '"')
+    .matchAll(/http:\/\/localhost:3000\/api\/asset-proxy\?url=[^"'\s)]+/g)].map(match => match[0]);
+  expect(new Set(addresses).size).toBe(4);
+  const fetched: string[] = [];
   const proxy = createAssetProxyHandler(async input => {
-    admitted = input === url;
+    fetched.push(input);
     return { url: input, status: 200, headers: new Headers({ 'content-type': 'image/png' }), body: Buffer.from('89504e470d0a1a0a', 'hex') };
   });
-  await proxy(new Request(`http://localhost:3000/api/asset-proxy?url=${encodeURIComponent(url)}`));
-  expect(admitted).toBe(true);
+  for (const address of new Set(addresses)) {
+    const response = await proxy(new Request(address, { headers: { 'X-Forwarded-For': 'signed-page' } }));
+    // The font address serves PNG bytes here; reaching validation proves it was admitted.
+    expect(response.status).not.toBe(403);
+  }
+  expect(fetched.sort()).toEqual(['https://example.com/body.woff2', 'https://example.com/hero.jpg', 'https://example.com/paper.png', 'https://example.com/wide.jpg']);
 });

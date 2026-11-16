@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createArchiveService, rewriteAssetUrlsInCSS } from "@/api/archive/processor";
 import type { capturePage } from "@/api/archive/browser-capture";
+import { assetProxyUrl } from "@/api/archive/asset-signature";
+
+/** A proxied address as it appears inside serialized HTML. */
+const proxied = (url: string) => assetProxyUrl("http://localhost:3000", url).replace("&", "&amp;");
 
 const fixture: Awaited<ReturnType<typeof capturePage>> = {
   fullHTMLContent: '<!doctype html><html lang="en"><body style="background:url(/header.png)"><script>danger()</script><p style="cursor:u\\72l(/cursor.png), auto">Article</p><a href="java&#9;script:alert(1)">bad</a><a href="next">Next</a><img src="/a.png" srcset="/a.png 1x, /b.png 2x"></body></html>',
@@ -68,16 +72,16 @@ describe("archive processing", () => {
       fullHTMLContent: `<img srcset="${image} 1456w, /small.jpg 320w">`,
     }));
     const result = await service('https://example.com/article');
-    expect(result.html).toContain(`${encodeURIComponent(image)} 1456w, http://localhost:3000/api/asset-proxy?url=https%3A%2F%2Fexample.com%2Fsmall.jpg 320w`);
+    expect(result.html).toContain(`${proxied(image)} 1456w, ${proxied('https://example.com/small.jpg')} 320w`);
   });
   test('promotes missing lazy image sources through the same validated proxy', async () => {
     const service = createArchiveService(async () => ({ ...fixture,
       fullHTMLContent: '<img data-src="/hero.jpg"><img src="/keep.jpg" data-src="/other.jpg"><img data-src="javascript:evil()"><picture><source data-srcset="/wide.jpg 900w"><img data-src="/small.jpg"></picture>',
     }));
     const result = await service('https://example.com/article');
-    expect(result.html).toContain('src="http://localhost:3000/api/asset-proxy?url=https%3A%2F%2Fexample.com%2Fhero.jpg"');
-    expect(result.html).toContain('src="http://localhost:3000/api/asset-proxy?url=https%3A%2F%2Fexample.com%2Fkeep.jpg"');
-    expect(result.html).toContain('srcset="http://localhost:3000/api/asset-proxy?url=https%3A%2F%2Fexample.com%2Fwide.jpg 900w"');
+    expect(result.html).toContain(`src="${proxied('https://example.com/hero.jpg')}"`);
+    expect(result.html).toContain(`src="${proxied('https://example.com/keep.jpg')}"`);
+    expect(result.html).toContain(`srcset="${proxied('https://example.com/wide.jpg')} 900w"`);
     expect(result.html).not.toMatch(/\ssrc="javascript:/);
   });
   test("retains article text nested in legacy forms without submission controls", async () => {

@@ -263,7 +263,7 @@ describe("snapshot cache", () => {
   test("keys include version and rewrite options and ignore only source fragments", () => {
     const key = archiveCacheKey("https://example.com/a#quote", "https://api.henry.ink");
     expect(key).toBe(archiveCacheKey("https://example.com/a", "https://api.henry.ink"));
-    expect(key).toBe(JSON.stringify(["archive-v4", "https://example.com/a", "https://api.henry.ink", ""]));
+    expect(key).toBe(JSON.stringify(["archive-v5", "https://example.com/a", "https://api.henry.ink", ""]));
     expect(key).not.toBe(archiveCacheKey("https://example.com/a", "https://other.example"));
     expect(key).not.toBe(archiveCacheKey("https://example.com/a", "https://api.henry.ink", "https://henry.ink"));
     expect(key).not.toBe(archiveCacheKey("https://example.com/a?variant=2", "https://api.henry.ink"));
@@ -399,7 +399,6 @@ describe("persistent snapshot reuse", () => {
       fullHTMLContent: '<!doctype html><html lang="en"><body><article>Original</article></body></html>',
       css: '@layer base { :root { --ink: #123; } }',
       htmlAttrs: { lang: "en" }, bodyAttrs: { class: "article" },
-      assets: ["https://example.com/font.woff2"],
     };
     const options: CacheOptions<typeof snapshot> = {
       ...config, maxBytes: 1024, now: () => 0,

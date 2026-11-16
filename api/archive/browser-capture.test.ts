@@ -5,7 +5,8 @@ import { ARCHIVE_USER_AGENT, ArchiveFetchError, createPublicFetcher, type Public
 import { chromium, type Browser } from "playwright";
 import { Readable } from "node:stream";
 import type { IncomingMessage } from "node:http";
-import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
+import { createAssetProxyHandler } from "@/api/archive/routes";
+import { assetProxyUrl } from "@/api/archive/asset-signature";
 import { createArchiveService } from "@/api/archive/processor";
 
 const browserTest = test.skipIf(!process.env.ARCHIVE_BROWSER_TESTS);
@@ -311,12 +312,11 @@ browserTest("browser aborts a page exceeding the resource count budget", async (
 
 browserTest("proxied SVG still renders as an image and cannot execute in a document", async () => {
   const asset = "https://assets.example/csp-test.svg";
-  registerArchiveAssets([asset]);
   const proxy = createAssetProxyHandler(async url => ({
     url, status: 200, headers: new Headers({ "content-type": "image/svg+xml" }),
     body: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/><script>globalThis.__sourceScriptExecuted=true</script></svg>'),
   }));
-  const result = await proxy(new Request(`https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(asset)}`));
+  const result = await proxy(new Request(assetProxyUrl("https://api.henry.ink", asset)));
   expect(result.status).toBe(200);
   const body = Buffer.from(await result.arrayBuffer());
   const headers = Object.fromEntries(result.headers);

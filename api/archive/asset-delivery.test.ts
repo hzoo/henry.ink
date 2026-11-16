@@ -1,17 +1,19 @@
 import { expect, test } from "bun:test";
-import { createAssetProxyHandler, registerArchiveAssets } from "@/api/archive/routes";
+import { createAssetProxyHandler } from "@/api/archive/routes";
+import { assetProxyUrl } from "@/api/archive/asset-signature";
 import type { PublicResource } from "@/api/archive/public-fetch";
 
 const TTL = 15 * 60 * 1000;
 const png = Buffer.from("89504e470d0a1a0a", "hex");
 let sequence = 0;
 function permit(label: string): string {
-  const url = `https://assets.example/delivery-${label}-${++sequence}.png`;
-  registerArchiveAssets([url]);
-  return url;
+  return `https://assets.example/delivery-${label}-${++sequence}.png`;
 }
-function request(url: string, options: { origin?: string; ip?: string; signal?: AbortSignal } = {}): Request {
-  return new Request(`https://api.henry.ink/api/asset-proxy?url=${encodeURIComponent(url)}`, {
+/** `signedFor` lets a test present one page's signature with a different address. */
+function request(url: string, options: { origin?: string; ip?: string; signal?: AbortSignal; signedFor?: string } = {}): Request {
+  const address = new URL(assetProxyUrl("https://api.henry.ink", options.signedFor ?? url));
+  address.searchParams.set("url", url);
+  return new Request(address, {
     headers: { Origin: options.origin ?? "https://henry.ink", "X-Forwarded-For": options.ip ?? `delivery-reader-${++sequence}` },
     signal: options.signal,
   });
@@ -123,21 +125,35 @@ test("Date-bearing responses with no explicit freshness use the bounded 15-minut
   expect(calls).toBe(2);
 });
 
-test("permission and rate-limit checks run before cache hits", async () => {
+test("signature and rate-limit checks run before cache hits", async () => {
   const url = permit("permission");
-  let now = Date.now();
   let calls = 0;
-  const route = createAssetProxyHandler(async target => { calls++; return resource(target); }, { now: () => now });
-  // Populate shortly before permission expires, so the cache entry is still fresh afterward.
-  now += 24 * 60 * 60 * 1000 - 1000;
+  const route = createAssetProxyHandler(async target => { calls++; return resource(target); });
   expect((await route(request(url))).status).toBe(200);
-  expect((await route(request(url + "?unregistered=1"))).status).toBe(403);
+  expect((await route(request(url + "?unsigned=1", { signedFor: url }))).status).toBe(403);
   const ip = `delivery-budget-${++sequence}`;
   for (let i = 0; i < 30; i++) expect((await route(request(url, { ip }))).status).toBe(200);
   expect((await route(request(url, { ip }))).status).toBe(429);
-  now += 1000;
-  expect((await route(request(url))).status).toBe(403);
   expect(calls).toBe(1);
+});
+
+test("a stored page's image address works on a freshly started proxy, and only that address", async () => {
+  const url = permit("restart");
+  const address = assetProxyUrl("https://api.henry.ink", url);
+  // Nothing was registered with this handler: the address alone carries permission.
+  const route = createAssetProxyHandler(async target => resource(target));
+  const headers = { "X-Forwarded-For": `delivery-restart-${++sequence}` };
+  expect((await route(new Request(address, { headers }))).status).toBe(200);
+  expect((await route(new Request(`${address}#fragment`, { headers }))).status).toBe(200);
+  const unsigned = new URL(address);
+  unsigned.searchParams.delete("sig");
+  expect((await route(new Request(unsigned, { headers }))).status).toBe(403);
+  const forged = new URL(address);
+  forged.searchParams.set("sig", "AAAAAAAAAAAAAAAAAAAAAA");
+  expect((await route(new Request(forged, { headers }))).status).toBe(403);
+  const redirected = new URL(address);
+  redirected.searchParams.set("url", "https://elsewhere.example/other.png");
+  expect((await route(new Request(redirected, { headers }))).status).toBe(403);
 });
 
 test("eight active and eight waiting downloads bound distinct work, coalesce, and recover after failure", async () => {
