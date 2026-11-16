@@ -45,9 +45,7 @@ jobs:
       # capture tests and the reader smoke test). Run `bun run verify` locally
       # before merging to main; this is a floor, not a replacement.
       - name: Type-check
-        run: |
-          (cd extension && bunx wxt prepare >/dev/null)
-          bun run compile
+        run: bun run compile
       - name: Unit tests
         run: ARCHIVE_CACHE_PATH="$RUNNER_TEMP/archive-snapshots.db" bun run test
       - name: Build

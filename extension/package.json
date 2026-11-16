@@ -11,7 +11,7 @@
     "build:ff": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:ff": "wxt zip -b firefox",
-    "postinstall": "wxt prepare"
+    "types": "wxt prepare"
   },
   "devDependencies": {
     "vite": "^7.3.7",

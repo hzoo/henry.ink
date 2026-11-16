@@ -1,8 +1,37 @@
 {
-  "extends": "./.wxt/tsconfig.json",
+  // Written out instead of extending the generated ./.wxt/tsconfig.json. The web
+  // app imports a file from this directory, and its build reads this config, so
+  // extending a generated file made `build:ink` fail on a clone that had not run
+  // `wxt prepare`. Mirrors what wxt 0.21 generates; `bun run compile` runs
+  // `wxt prepare` first for the types in ./.wxt/.
   "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "paths": {
+      "@": [".."],
+      "@/*": ["../*"],
+      "~": [".."],
+      "~/*": ["../*"],
+      "@@": ["."],
+      "@@/*": ["./*"],
+      "~~": ["."],
+      "~~/*": ["./*"]
+    },
     "types": ["@atcute/atproto", "@atcute/bluesky"],
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
-  }
+  },
+  "include": ["./**/*", "./.wxt/wxt.d.ts"],
+  "exclude": ["./**/node_modules", "./.output"]
 }
