@@ -124,3 +124,27 @@ test('bounds upstream bodies and rejects malformed search data without treating 
     expect((await route(request())).status).toBe(502);
   }
 });
+
+test('serves one shared copy until a reader refreshes, and a failed refresh keeps that copy', async () => {
+  let searches = 0;
+  let channelsDown = false;
+  const route = createArenaLookupRoute(async input => {
+    const url = new URL(input);
+    if (url.pathname === '/v2/search') { searches++; return Response.json({ blocks: [block(1)], total_pages: 1 }); }
+    if (channelsDown) return Response.json({}, { status: 503 });
+    return Response.json({ channels: [channel(`seen-${searches}`)], total_pages: 1 });
+  });
+  const refresh = (source = target) => new Request(`${request(source).url}&refresh=1`);
+  const titles = async (response: Response) => ((await response.json()) as ArenaLookupPage).blocks
+    .flatMap(item => item.channels.state === 'ready' ? item.channels.items.map(c => c.slug) : ['error']);
+
+  expect(await titles(await route(request()))).toEqual(['seen-1']);
+  expect(await titles(await route(request()))).toEqual(['seen-1']);
+  expect(searches).toBe(1);
+  expect(await titles(await route(refresh()))).toEqual(['seen-2']);
+  expect(await titles(await route(request()))).toEqual(['seen-2']);
+  channelsDown = true;
+  expect(await titles(await route(refresh()))).toEqual(['error']);
+  expect(await titles(await route(request()))).toEqual(['seen-2']);
+  expect(searches).toBe(3);
+});

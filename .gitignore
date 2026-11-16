@@ -31,3 +31,4 @@ test-results/
 /DEPLOYMENT.md
 /docs/deployment.md
 /henry-ink/arena/DEPLOY.md
+arena-lookups.db*

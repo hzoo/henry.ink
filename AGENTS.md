@@ -80,6 +80,11 @@ inject keyword links into article text, build a channel index, or send
 selected text to Are.na. V3 search requires Premium, so moving to it is a
 product decision, not a fallback.
 
+The API keeps one shared copy of each lookup in `arena-lookups.db`, beside the
+article cache: fresh for an hour, then served while a visit refreshes it, and
+gone after a day. Incomplete lookups are never stored. The sidebar's refresh
+button asks the API to look again.
+
 ## Code style
 
 - Absolute imports with the `@/` prefix; no `import *`.

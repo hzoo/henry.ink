@@ -8,7 +8,7 @@ import { currentUrl, isSearchableUrl } from "@/src/lib/messaging";
 import { FirstTimePopup } from "@/src/components/FirstTimePopup";
 import { QuotePopup } from "@/src/components/QuotePopup";
 import { activeTabSignal, type TabType } from "@/henry-ink/signals";
-import { arenaQueryKey } from "@/src/lib/arena-api";
+import { refreshArenaUrl } from "@/src/lib/arena-api";
 import { MarginNotes } from "@/henry-ink/components/MarginNotes";
 import { ReaderIcon } from "@/src/components/ReaderIcon";
 import { targetPostRkey } from "@/src/lib/highlights/signals";
@@ -42,7 +42,7 @@ export function TabbedSidebar({ hidePopup = false, autoAllowDomain }: TabbedSide
 	};
 
 	const handleArenaRefresh = () => {
-		queryClient.invalidateQueries({ queryKey: arenaQueryKey(currentUrl.value) });
+		void refreshArenaUrl(queryClient, currentUrl.peek()).catch(() => {});
 	};
 
 	return (
