@@ -28,6 +28,8 @@ Source HTML and CSS render together as a sanitized same-origin HTML blob in an i
 
 Already-downloaded CSS imports are flattened within the capture's resource budget, preserving their source bases and conditions. Responsive image candidates preserve commas inside CDN URLs. Missing image sources can be recovered from declarative `data-src`/`data-srcset` attributes, then use the same validated asset proxy. Forms lose their submission controls but retain article text. Script-driven typesetting, widgets, media playback, and arbitrary lazy-loading state are not reproduced.
 
+The cleaned page is kept once and is the same for every reader; the browser still sanitizes it and builds the frame document on each read. Wherever the kept copy is served, the response carries the frame's CSP, `noindex`, and a link to the original.
+
 Keep the reader HUD outside that document. Article appearance and annotation interoperability are independent: reading Margin records does not require adopting Margin's UI or standardizing article styling. Bluesky link discussions belong at page level unless a quote is confidently matched. Ambiguous or stale anchors remain visible as unanchored discussion, never attached to an arbitrary passage.
 
 ## Evidence as of October 12 2026

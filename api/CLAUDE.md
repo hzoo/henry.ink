@@ -46,25 +46,28 @@ Creates a secure archive of a web page.
 }
 ```
 
-`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. Responses are not HTTP-cached; every response renews its exact asset permissions, including snapshots restored from disk.
+`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The response is the same for every reader: link destinations are the source's own, assets are named at `API_PUBLIC_ORIGIN`, and it is sent with `Access-Control-Allow-Origin: *`, the reader frame's CSP, `X-Robots-Tag: noindex` and a canonical `Link` to the original.
 
-Snapshots are fresh for 15 minutes and can be served stale while one background capture refreshes them, up to a hard 24-hour expiry. Failed refreshes back off for one minute without extending expiry. Memory is bounded to 50 entries / 32 MiB, SQLite to 200 entries / 128 MiB of keys and JSON payloads. SQLite overhead is additional. Capture, sanitization, or rewriting changes must bump the `archive-v3` key in `snapshot-cache.ts`. Corrupt or unavailable persistence falls back to capture, and loaded values must pass the current result schema.
+henry.ink does not call this endpoint for a page it has already kept. A Pages Function at `henry.ink/api/archive` (`functions/api/archive.ts`, policy in `src/lib/stored-pages.ts`) keeps one cleaned copy per page in Cloudflare KV and calls this endpoint only for a first capture or a weekly refresh. It names the reader in `X-Henry-Visitor`, which the rate limiter believes only with the shared `EDGE_KEY`.
 
-Cached reads have a separate, cheaper rate-limit budget from captures. Capture concurrency remains two, with at most eight pending distinct URLs. HTTP responses remain `no-store`; do not enable CDN caching without redesigning asset authorization.
+Snapshots are fresh for 15 minutes and can be served stale while one background capture refreshes them, up to a hard 24-hour expiry. Failed refreshes back off for one minute without extending expiry. Memory is bounded to 50 entries / 32 MiB, SQLite to 200 entries / 128 MiB of keys and JSON payloads. SQLite overhead is additional. Capture, sanitization, or rewriting changes must bump the `archive-v5` key in `snapshot-cache.ts`; to also drop the copies kept in KV, bump `page:v1:` in `src/lib/stored-pages.ts`. Corrupt or unavailable persistence falls back to capture, and loaded values must pass the current result schema.
+
+Cached reads have a separate, cheaper rate-limit budget from captures. Capture concurrency remains two, with at most eight pending distinct URLs. HTTP responses remain `no-store`; the stored copy lives in KV, not in a CDN cache.
 
 Each capture permits four concurrent resource downloads. Decoded chunks consume a shared 4 MiB page budget and 2 MiB stylesheet budget before retention; exceeding either cancels active and queued downloads. Already-aborted readers cannot enqueue captures. Once admitted, captures finish within their deadline to populate the shared snapshot, even if a reader disconnects.
 
 The web reader derives Text only from this same snapshot, with lazy Readability extraction and semantic HTML sanitization in the client. Switching modes does not fetch Jina or recapture the page. Original-layout CSS is unchanged by extraction.
 
 #### GET `/api/asset-proxy`
-Proxies validated image and font assets referenced by a recent successful archive. This is not an unrestricted URL proxy.
+Proxies validated image and font assets named by a cleaned page. This is not an unrestricted URL proxy: it serves only addresses this service signed.
 
 **Query Parameters:**
 - `url` - Exact referenced asset URL (required)
+- `sig` - HMAC of that URL under `ASSET_SIGNING_KEY`, written into the page when it was cleaned (required)
 
 Assets are checked by content, bounded in size, and returned with `nosniff` and a sandbox CSP.
 
-SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Asset permissions are process-local: run one API process unless authorization is redesigned for multiple workers.
+SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Signed addresses survive restarts and do not expire; rotating the key breaks images in kept pages until each is next refreshed.
 
 ### Arena Service
 
@@ -137,13 +140,19 @@ Reports `status` and services `archive`, `arena`, `youtube`, and `annotations`. 
 
 ## Environment Variables
 
-No credentials or env file are required. Are.na search and channel reads use
-public REST endpoints.
+Local development needs no credentials or env file. Are.na search and channel
+reads use public REST endpoints.
 
 ```bash
 API_PORT=3000  # Optional, defaults to 3000
 ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; parent directory must exist and be writable
+API_PUBLIC_ORIGIN=https://api.henry.ink  # Required in production; defaults to http://localhost:$API_PORT
+ASSET_SIGNING_KEY=...  # Required in production (32+ characters); a public dev default otherwise
+EDGE_KEY=...  # Optional; the same value as the Pages project's EDGE_KEY secret
 ```
+
+Production means `NODE_ENV=production`, which the systemd unit sets. The two
+secrets live in `~/.config/henry-ink/api.env` on the server, never in git.
 
 ## Reader Regression Checks
 

@@ -66,6 +66,9 @@ ignored `.env`; Wrangler reads it from there.
 - `api/`: the Bun API on the VPS: article snapshots, the asset proxy, Are.na
   and Margin lookups, YouTube transcripts. `ops/` holds its systemd unit and
   deploy script.
+- `functions/`: Cloudflare Pages Functions deployed with the web app.
+  `henry.ink/api/archive` serves kept pages from KV so the API is not on the
+  read path; the policy and its limits are in `src/lib/stored-pages.ts`.
 
 The reader boundary (sanitized, script-free iframe; parent-owned highlights)
 is documented in `api/annotations/README.md`. Keep it.

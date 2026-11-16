@@ -8,7 +8,8 @@
     "lib": ["ESNext"],
     "types": ["@atcute/atproto", "@atcute/bluesky"],
     "skipLibCheck": true,
+    "paths": { "@/*": ["./*"] },
     "noEmit": true
   },
-  "files": ["src/lib/worker.ts", "worker-configuration.d.ts"]
+  "files": ["src/lib/worker.ts", "functions/api/archive.ts", "worker-configuration.d.ts"]
 }

@@ -5,6 +5,8 @@ import { clientIp, RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher } from "@/api/archive/public-fetch";
 import { MAX_ASSET_BYTES, validateAsset } from "@/api/archive/asset-validation";
 import { SnapshotCache } from "@/api/archive/snapshot-cache";
+import { storedPageHeaders } from "@/src/lib/reader-csp";
+import { publicApiOrigin } from "@/api/public-origin";
 import { assetKey, isSignedAsset } from "@/api/archive/asset-signature";
 
 const archiveReadLimiter = new RateLimiter(30, 5);
@@ -46,14 +48,8 @@ export function createArchiveHandler(service: typeof createArchive = createArchi
       const archive = await service(url, () => {
         if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
       });
-      return Response.json(archive, {
-        headers: {
-          ...cors,
-          "Cache-Control": "no-store",
-          "Cloudflare-CDN-Cache-Control": "no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      });
+      // The same headers the stored copy is served with from Cloudflare.
+      return new Response(JSON.stringify(archive), { headers: storedPageHeaders(publicApiOrigin, url) });
     } catch (error) { return errorResponse(error, cors, 5); }
   };
 }

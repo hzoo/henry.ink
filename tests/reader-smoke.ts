@@ -104,7 +104,7 @@ async function websiteFlows(width: number) {
     const json = (value: unknown) => route.fulfill({ json: value, headers: { 'Access-Control-Allow-Origin': '*' } });
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204,
       headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type' } });
-    if (url.origin === api) {
+    if (url.origin === api || url.origin === origin) {
       if (url.pathname === '/api/archive') {
         archiveRequests.push(url.searchParams.get('url')!);
         if (url.searchParams.get('url') === unavailableSource) return route.fulfill({ status: 503, json: { error: 'Unavailable fixture' }, headers: { 'Access-Control-Allow-Origin': '*' } });
@@ -415,7 +415,7 @@ try {
         if (route.request().method() === 'OPTIONS' && url.origin === api) return route.fulfill({
           status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type' },
         });
-        if (url.origin === api) {
+        if (url.origin === api || url.origin === origin) {
           if (url.pathname === '/api/archive' && url.searchParams.get('url') === fixture.url) return json(archive);
           if (url.pathname === '/api/annotations/margin') return json({ items: [note, shortComment, longComment, unplacedComment, bookmark], skipped: 0 });
           if (url.pathname === '/api/arena/lookup') {
