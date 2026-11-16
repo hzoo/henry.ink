@@ -11,7 +11,10 @@ export function readerContentSecurityPolicy(assetOrigin: string): string {
   return `default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src ${assets} data: ${fonts}; font-src ${assets} data: ${fonts}; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'`;
 }
 
-/** Sent with a stored page wherever it is served: inert, unindexed, and pointing at its original. */
+/**
+ * Sent with a stored page wherever it is served: inert, unindexed, and pointing
+ * at its original. The caller adds the per-request CORS headers.
+ */
 export function storedPageHeaders(assetOrigin: string, sourceUrl: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -19,8 +22,6 @@ export function storedPageHeaders(assetOrigin: string, sourceUrl: string): Recor
     'X-Robots-Tag': 'noindex',
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Expose-Headers': 'Retry-After',
   };
   // URL.href is ASCII with <, > and whitespace percent-encoded, so it is header-safe.
   try { headers.Link = `<${new URL(sourceUrl).href}>; rel="canonical"`; } catch { /* No original to point at. */ }

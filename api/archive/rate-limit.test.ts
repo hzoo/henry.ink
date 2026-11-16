@@ -44,7 +44,7 @@ test('strict capture budget does not throttle cached archive reads', async () =>
   expect(captures).toBe(3);
 });
 
-test('readers on different origins receive the same copy, readable by any of them', async () => {
+test('readers on allowed origins receive the same copy; other sites cannot read it', async () => {
   const service = createArchiveService(async url => ({
     fullHTMLContent: '<!doctype html><p>Article</p><a href="next">Next</a><img src="/shared.png">',
     cssSources: [],
@@ -53,13 +53,13 @@ test('readers on different origins receive the same copy, readable by any of the
   }));
   const route = createArchiveHandler(service);
   const bodies: string[] = [];
-  const origins = ['https://henry.ink', 'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni', 'http://127.0.0.1:3003', ''];
+  const origins = ['https://henry.ink', 'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni', 'http://127.0.0.1:3003', 'https://elsewhere.example', ''];
   for (const [index, origin] of origins.entries()) {
     const response = await route(new Request(`https://${index % 2 ? 'api.henry.ink' : 'localhost:3000'}/api/archive?url=https://example.com/shared`, {
       headers: { ...(origin ? { Origin: origin } : {}), 'X-Forwarded-For': 'shared-copy' },
     }));
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
-    expect(response.headers.get('Vary')).toBeNull();
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(index < 3 ? origin : null);
+    expect(response.headers.get('Vary')).toBe('Origin');
     bodies.push(await response.text());
   }
   expect(new Set(bodies).size).toBe(1);

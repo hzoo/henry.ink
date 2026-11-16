@@ -5,6 +5,10 @@ const CORS_ORIGINS = new Set([
   'http://localhost:3003',
 ]);
 
+/**
+ * The body of a kept page is the same for every reader; only these headers
+ * are chosen per request. Shared by the API and henry.ink's Pages Function.
+ */
 export function getCorsHeaders(origin?: string): Record<string, string> {
   // Only allow known origins — omit header for unknown origins (browser blocks the response)
   const headers: Record<string, string> = {
@@ -18,15 +22,6 @@ export function getCorsHeaders(origin?: string): Record<string, string> {
   }
   return headers;
 }
-
-/**
- * For responses that are the same for every reader and carry nothing private.
- * No Vary: one stored copy can be handed to any origin, extensions included.
- */
-export const publicCorsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Expose-Headers': 'Retry-After',
-};
 
 export function optionsResponse(req: Request): Response {
   const origin = req.headers.get('Origin') || '';

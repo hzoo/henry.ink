@@ -1,5 +1,5 @@
 import { createArchive } from "@/api/archive/processor";
-import { getCorsHeaders, optionsResponse, publicCorsHeaders } from "@/api/cors";
+import { getCorsHeaders, optionsResponse } from "@/api/cors";
 import { validateArchiveUrl } from "@/api/archive/url-validation";
 import { clientIp, RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher } from "@/api/archive/public-fetch";
@@ -35,7 +35,7 @@ export { optionsResponse as archiveOptionsRoute };
 
 export function createArchiveHandler(service: typeof createArchive = createArchive) {
   return async (req: Request): Promise<Response> => {
-    const cors = publicCorsHeaders;
+    const cors = getCorsHeaders(req.headers.get("Origin") || "");
     if (req.signal.aborted) return errorResponse(new ArchiveFetchError('Archive request cancelled', 499), cors);
     const ip = clientIp(req);
     if (!archiveReadLimiter.consume(ip)) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors, 1);
@@ -49,7 +49,7 @@ export function createArchiveHandler(service: typeof createArchive = createArchi
         if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
       });
       // The same headers the stored copy is served with from Cloudflare.
-      return new Response(JSON.stringify(archive), { headers: storedPageHeaders(publicApiOrigin, url) });
+      return new Response(JSON.stringify(archive), { headers: { ...storedPageHeaders(publicApiOrigin, url), ...cors } });
     } catch (error) { return errorResponse(error, cors, 5); }
   };
 }

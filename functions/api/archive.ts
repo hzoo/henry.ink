@@ -1,6 +1,7 @@
 // Cloudflare Pages Function for henry.ink/api/archive: serves stored pages
 // without the API, and asks the API only for pages it has not kept.
 // The policy lives in src/lib/stored-pages.ts.
+import { optionsResponse } from '@/api/cors';
 import { servePage, type StoredPagesEnv } from '@/src/lib/stored-pages';
 
 interface Context {
@@ -12,11 +13,4 @@ interface Context {
 export const onRequestGet = (context: Context): Promise<Response> =>
   servePage(context.request, context.env, work => context.waitUntil(work));
 
-export const onRequestOptions = (): Response => new Response(null, {
-  status: 204,
-  headers: {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Max-Age': '86400',
-  },
-});
+export const onRequestOptions = (context: Context): Response => optionsResponse(context.request);

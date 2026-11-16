@@ -46,7 +46,7 @@ Creates a secure archive of a web page.
 }
 ```
 
-`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The response is the same for every reader: link destinations are the source's own, assets are named at `API_PUBLIC_ORIGIN`, and it is sent with `Access-Control-Allow-Origin: *`, the reader frame's CSP, `X-Robots-Tag: noindex` and a canonical `Link` to the original.
+`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The response is the same for every reader: link destinations are the source's own, assets are named at `API_PUBLIC_ORIGIN`, and it is sent with the reader frame's CSP, `X-Robots-Tag: noindex` and a canonical `Link` to the original.
 
 henry.ink does not call this endpoint for a page it has already kept. A Pages Function at `henry.ink/api/archive` (`functions/api/archive.ts`, policy in `src/lib/stored-pages.ts`) keeps one cleaned copy per page in Cloudflare KV and calls this endpoint only for a first capture or a weekly refresh. It names the reader in `X-Henry-Visitor`, which the rate limiter believes only with the shared `EDGE_KEY`.
 

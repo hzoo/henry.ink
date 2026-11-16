@@ -1,3 +1,4 @@
+import { getCorsHeaders } from '@/api/cors';
 import { storedPageHeaders } from '@/src/lib/reader-csp';
 
 /**
@@ -18,6 +19,8 @@ import { storedPageHeaders } from '@/src/lib/reader-csp';
  * - A page whose address looks like it carries a credential is served but not kept.
  * - When storage passes its budget, the least recently read copies go first.
  * - Every response is marked noindex and links to the original.
+ * - One body for everyone; only the CORS headers are chosen per request,
+ *   from the same origin allowlist the API uses.
  *
  * This runs in a Pages Function, and in tests with a Map-backed store.
  */
@@ -135,6 +138,7 @@ export async function servePage(
   { fetch: send = (url, init) => fetch(url, init), now = Date.now }: Partial<Dependencies> = {},
 ): Promise<Response> {
   const api = env.API_ORIGIN || 'https://api.henry.ink';
+  const cors = getCorsHeaders(request.headers.get('Origin') || '');
   const requested = new URL(request.url).searchParams.get('url') || '';
   let source: string | undefined;
   try {
@@ -164,6 +168,7 @@ export async function servePage(
   const respond = (body: string, copy: 'stored' | 'captured', capturedAt: number) => new Response(body, {
     headers: {
       ...storedPageHeaders(api, source!),
+      ...cors,
       'X-Page-Copy': copy,
       'X-Page-Captured': new Date(capturedAt).toISOString(),
     },
@@ -171,8 +176,9 @@ export async function servePage(
   /** Errors and anything unstorable pass through untouched, including Retry-After. */
   const passThrough = (response: Response) => {
     const headers = new Headers(response.headers);
-    headers.set('Access-Control-Allow-Origin', '*');
-    headers.set('Access-Control-Expose-Headers', 'Retry-After');
+    // The API answered the Function, not the reader: its CORS headers are replaced.
+    for (const name of [...headers.keys()]) if (name.toLowerCase().startsWith('access-control-')) headers.delete(name);
+    for (const [name, value] of Object.entries(cors)) headers.set(name, value);
     headers.set('X-Robots-Tag', 'noindex');
     return new Response(response.body, { status: response.status, headers });
   };

@@ -38,16 +38,16 @@ function world(options: { env?: Partial<StoredPagesEnv>; pageBytes?: number } = 
   };
   const background: Promise<unknown>[] = [];
   const env: StoredPagesEnv = { PAGES: store, ...options.env };
-  async function read(url = article, visitor = '203.0.113.7') {
+  async function read(url = article, visitor = '203.0.113.7', origin = 'https://henry.ink') {
     const response = await servePage(
-      new Request(`https://henry.ink/api/archive?${new URLSearchParams({ url })}`, { headers: { 'CF-Connecting-IP': visitor } }),
+      new Request(`https://henry.ink/api/archive?${new URLSearchParams({ url })}`, { headers: { 'CF-Connecting-IP': visitor, ...(origin ? { Origin: origin } : {}) } }),
       env, work => { background.push(work); },
       {
         now: () => state.now,
         fetch: async (target, init) => {
           state.captures.push({ url: target, headers: { ...(init.headers as Record<string, string>) } });
           if (state.api === 'down') throw new TypeError('fetch failed');
-          if (state.api === 'busy') return Response.json({ error: 'Too many captures' }, { status: 429, headers: { 'Retry-After': '5' } });
+          if (state.api === 'busy') return Response.json({ error: 'Too many captures' }, { status: 429, headers: { 'Retry-After': '5', 'Access-Control-Allow-Origin': 'https://api-internal.example', Vary: 'Origin' } });
           if (state.api === 'garbage') return new Response('<html>gateway page</html>');
           const source = new URL(target).searchParams.get('url')!;
           return Response.json({ html: `<p>${source} edition ${++state.edition}</p>${'x'.repeat(options.pageBytes ?? 0)}`, textContent: 'Article', resolvedUrl: source });
@@ -157,7 +157,7 @@ test('when storage fills, the least recently read copies go first', async () => 
   for (const name of ['loved', 'recent', 'newest']) expect((await read(`https://example.com/${name}`)).response.status).toBe(200);
 });
 
-test('every copy is served inert, unindexed, readable from any origin, and linked to its original', async () => {
+test('every copy is served inert, unindexed, and linked to its original', async () => {
   const { read } = world();
   for (const copy of ['captured', 'stored']) {
     const { response } = await read(`${article}?a=1#part`);
@@ -169,8 +169,27 @@ test('every copy is served inert, unindexed, readable from any origin, and linke
     expect(policy).toContain("default-src 'none'");
     expect(policy).toContain('img-src https://api.henry.ink/api/asset-proxy');
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
-    expect(response.headers.get('Vary')).toBeNull();
+  }
+});
+
+test('one kept body for everyone; only allowed origins may read it, captured, stored or failed', async () => {
+  const { state, read } = world();
+  const allowed = ['https://henry.ink', 'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni', 'http://127.0.0.1:3003'];
+  const bodies = new Set<string>();
+  for (const origin of [...allowed, 'https://elsewhere.example', '']) {
+    const { response, text } = await read(article, '203.0.113.7', origin);
+    bodies.add(text);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(allowed.includes(origin) ? origin : null);
+    expect(response.headers.get('Vary')).toBe('Origin');
+  }
+  expect(bodies.size).toBe(1);
+  expect(state.captures).toHaveLength(1);
+  state.api = 'busy';
+  for (const origin of ['http://127.0.0.1:3003', 'https://elsewhere.example']) {
+    const { response } = await read('https://example.com/new', '203.0.113.7', origin);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(allowed.includes(origin) ? origin : null);
+    expect(response.headers.get('Access-Control-Expose-Headers')).toContain('Retry-After');
   }
 });
 
