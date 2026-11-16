@@ -19,6 +19,16 @@ import { publicApiOrigin } from "@/api/public-origin";
  */
 function cleanDocument(window: JSDOM["window"]): void {
   const document = window.document;
+  // A named image, form, embed, iframe or object shadows the document property
+  // of the same name: <img name="body"> makes document.body that image, here as
+  // in a browser. Remove such names first, without trusting any property the
+  // page could have shadowed, or the pass below would clean the wrong element.
+  const find = window.Document.prototype.querySelectorAll;
+  for (const element of find.call(document, 'embed[name], form[name], iframe[name], img[name], object[name], object[id]')) {
+    for (const attribute of ['name', 'id']) {
+      if ((element.getAttribute(attribute) || '') in window.Document.prototype) element.removeAttribute(attribute);
+    }
+  }
   // Legacy pages sometimes wrap article text in forms. Remove submission
   // controls before the allowlist unwraps the form around the readable content.
   document.querySelectorAll('form').forEach(form => {
@@ -37,7 +47,11 @@ function cleanDocument(window: JSDOM["window"]): void {
     for (const name of root.getAttributeNames()) root.removeAttribute(name);
     return { root, attributes };
   });
-  createDOMPurify(window).sanitize(document.body, { ...readerHtmlPolicy, IN_PLACE: true });
+  // SANITIZE_DOM would also drop ordinary anchors named like DOM properties
+  // (id="title", id="links", id="attributes"). Nothing here looks elements up
+  // by name once the shadowing names above are gone, and Text only needs those
+  // anchors; the browser applies the full policy before the frame renders.
+  createDOMPurify(window).sanitize(document.body, { ...readerHtmlPolicy, IN_PLACE: true, SANITIZE_DOM: false });
   for (const { root, attributes } of kept) for (const [name, value] of attributes) root.setAttribute(name, value);
 }
 

@@ -309,4 +309,34 @@ describe("one cleaning pass", () => {
       } finally { reader.window.close(); }
     }
   });
+
+  test("markup that shadows document properties cannot make the pass clean the wrong element", async () => {
+    const shadows = ["body", "head", "documentElement", "querySelectorAll", "querySelector", "createElement", "implementation"];
+    const page = `<!doctype html><html><body><p>Before.</p>${shadows.map(name => `<img name="${name}" src="/${name}.png">`).join("")}
+      <form name="head"><p>In a form.</p></form><object id="body" name="documentElement"></object><iframe name="body"></iframe>
+      <script>steal()</script><p onclick="steal()">After.</p></body></html>`;
+    const result = await createArchiveService(async () => ({ ...fixture, fullHTMLContent: page }))("https://example.com/shadowed");
+    expect(result.html).toStartWith("<!doctype html><html><head></head><body>");
+    for (const text of ["Before.", "In a form.", "After."]) expect(result.textContent).toContain(text);
+    expect(result.html).not.toMatch(/<script|onclick|steal\(|<iframe|<object|<form/);
+    for (const name of shadows) expect(result.html).toContain(proxied(`https://example.com/${name}.png`));
+  });
+
+  test("Text only keeps in-page anchors whose names are also DOM properties", async () => {
+    const { JSDOM } = await import("jsdom");
+    const { extractReadableArticle } = await import("@/henry-ink/reader/readable");
+    const url = "https://example.com/reference";
+    const page = `<!doctype html><article><h1>Reference</h1><p><a href="#attributes">Attributes</a> <a href="#title">Title</a> <a href="#links">Links</a></p>
+      <h2 id="attributes">Attributes</h2><p>About attributes.</p><h2 id="title">Title</h2><p>About titles.</p><h2 id="links">Links</h2><p>About links.</p></article>`;
+    const archive = await createArchiveService(async () => ({ ...fixture, fullHTMLContent: page,
+      pageData: { ...fixture.pageData, baseUrl: url, metadata: { ...fixture.pageData.metadata, url } } }))(url);
+    const host = new JSDOM("");
+    try {
+      const text = await extractReadableArticle(archive, url, host.window.document);
+      for (const name of ["attributes", "title", "links"]) {
+        expect(text.html).toContain(`href="#henry-text-${name}"`);
+        expect(text.html).toContain(`id="henry-text-${name}"`);
+      }
+    } finally { host.window.close(); }
+  });
 });
