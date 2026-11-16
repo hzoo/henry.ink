@@ -1,4 +1,6 @@
 import { JSDOM, VirtualConsole } from "jsdom";
+import createDOMPurify from "dompurify";
+import { readerHtmlPolicy, READER_ROOT_ATTRIBUTES } from "@/src/lib/reader-html-policy";
 import { transform } from "lightningcss";
 import { isTrustedCDN } from "@/api/archive/trusted-cdns";
 import { capturePage } from "@/api/archive/browser-capture";
@@ -10,72 +12,33 @@ import { validatedEmbeddedSvg } from "@/api/archive/embedded-svg";
 import { assetProxyUrl } from "@/api/archive/asset-signature";
 import { publicApiOrigin } from "@/api/public-origin";
 
-// Dangerous URI schemes — allow data:image/ for inline images, block everything else
-// Block data:image/svg+xml specifically (SVGs can contain scripts)
-const DANGEROUS_URI_RE = /^(javascript|vbscript|blob):/i;
-const DANGEROUS_DATA_URI_RE = /^\s*data\s*:(?!image\/(?!svg\+xml))/i;
-
-// Sanitize a JSDOM document in-place: strip scripts, dangerous elements, event handlers
-function sanitizeDocument(document: Document): void {
+/**
+ * The one cleaning pass: the reader's allowlist, applied in place to the parsed
+ * page. Everything written into the document afterwards (proxied asset
+ * addresses, resolved links, rewritten inline styles) is generated here.
+ */
+function cleanDocument(window: JSDOM["window"]): void {
+  const document = window.document;
   // Legacy pages sometimes wrap article text in forms. Remove submission
-  // controls and unwrap the form, not the readable content inside it.
+  // controls before the allowlist unwraps the form around the readable content.
   document.querySelectorAll('form').forEach(form => {
     form.querySelectorAll('input, select, textarea, button').forEach(control => control.remove());
-    form.replaceWith(...Array.from(form.childNodes));
   });
-  // Remove dangerous elements:
-  // - script: JS execution
-  // - iframe/embed/object/applet: load external content in same origin context
-  // - base: hijacks all relative URLs
-  // - meta[http-equiv]: redirects, charset overrides
-  // - noscript/template: mXSS vectors (JSDOM/browser parser differentials)
-  // - math: mXSS vector via annotation-xml
-  // - link: prefetch/pingback/prerender tracking, icon injection
-  document.querySelectorAll(
-    'script, iframe, embed, object, applet, base, meta[http-equiv], ' +
-    'noscript, template, math, link'
-  ).forEach((el: Element) => el.remove());
-
-  // Sanitize SVGs: keep visual elements, strip anything that can execute code
-  document.querySelectorAll(
-    'svg foreignObject, svg script, svg animate, svg animateTransform, ' +
-    'svg animateMotion, svg set, svg use, svg a'
-  ).forEach((el: Element) => el.remove());
-
-  // Walk all elements: strip event handlers, dangerous URIs, script data attrs
-  document.querySelectorAll('*').forEach((element: Element) => {
-    const attributesToRemove: string[] = [];
-    for (let i = 0; i < element.attributes.length; i++) {
-      const attr = element.attributes[i];
-      const name = attr.name.toLowerCase();
-
-      // Strip all on* event handlers
-      if (name.startsWith('on')) {
-        attributesToRemove.push(attr.name);
-        continue;
-      }
-
-      // Strip formaction (bypasses form-level action stripping)
-      if (name === 'formaction') {
-        attributesToRemove.push(attr.name);
-        continue;
-      }
-
-      // Strip dangerous URI schemes from href, src, action, poster, etc.
-      if (['href', 'src', 'action', 'poster', 'formaction', 'xlink:href'].includes(name)) {
-        const uri = attr.value.replace(/[\u0000-\u0020\u007f]/g, '');
-        if (DANGEROUS_URI_RE.test(uri) || DANGEROUS_DATA_URI_RE.test(uri)) {
-          attributesToRemove.push(attr.name);
-        }
-      }
-    }
-    attributesToRemove.forEach(attrName => element.removeAttribute(attrName));
-
-    // Remove script-related data attributes
-    for (const attr of ['data-script', 'data-js', 'data-on']) {
-      if (element.hasAttribute(attr)) element.removeAttribute(attr);
-    }
+  // Nothing reads the source head: styles were captured separately, the title
+  // and metadata travel beside the page, and the reader builds its own head.
+  document.head.replaceChildren();
+  // The reader copies a fixed list of root attributes by name, as text. Keep
+  // exactly those on <html> and <body>, including legacy ones the allowlist drops.
+  const kept = [document.documentElement, document.body].map(root => {
+    const attributes = READER_ROOT_ATTRIBUTES.flatMap(name => {
+      const value = root.getAttribute(name);
+      return value === null ? [] : [[name, value] as const];
+    });
+    for (const name of root.getAttributeNames()) root.removeAttribute(name);
+    return { root, attributes };
   });
+  createDOMPurify(window).sanitize(document.body, { ...readerHtmlPolicy, IN_PLACE: true });
+  for (const { root, attributes } of kept) for (const [name, value] of attributes) root.setAttribute(name, value);
 }
 
 const FONT_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
@@ -111,7 +74,7 @@ export function rewriteAssetUrlsInCSS(css: string, baseUrl: string, assetProxyBa
 
 function extractRootAttributes(element: Element): Record<string, string> {
   const attributes: Record<string, string> = { class: '', style: '' };
-  for (const name of ['class', 'style', 'lang', 'id', 'dir', 'bgcolor', 'text', 'link', 'vlink', 'alink', 'marginwidth', 'marginheight', 'topmargin', 'leftmargin', 'rightmargin', 'bottommargin']) {
+  for (const name of READER_ROOT_ATTRIBUTES) {
     const value = element.getAttribute(name);
     if (value !== null) attributes[name] = value;
   }
@@ -195,10 +158,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, capture: t
     });
     const document = dom.window.document;
 
-    // Sanitize in-place (was previously a separate parse+serialize cycle)
-    sanitizeDocument(document);
-
-    // Note: link elements already removed by sanitizeDocument
+    cleanDocument(dom.window);
 
     // Recover declarative lazy images without executing the site's loader.
     document.querySelectorAll('img, picture source').forEach(element => {
@@ -274,9 +234,6 @@ async function processArchive(url: string, assetProxyBaseUrl: string, capture: t
         link.setAttribute('href', destination.href);
       } catch { link.removeAttribute('href'); }
     });
-
-    // Remove inline style tags (CSS already extracted separately via Playwright)
-    document.querySelectorAll('style').forEach((tag: Element) => tag.remove());
 
     // Extract text content server-side (saves a client-side DOMParser round-trip)
     const textContent = document.body?.textContent || '';

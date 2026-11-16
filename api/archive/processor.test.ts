@@ -263,3 +263,50 @@ describe("archive processing", () => {
     expect(result.html).toContain('href="https://external.example/path"');
   });
 });
+
+describe("one cleaning pass", () => {
+  const hostile = `<!doctype html><html lang="en" onclick="steal()" data-theme="dark"><head><title>T</title>
+    <meta http-equiv="refresh" content="0;url=https://evil.example"><base href="https://evil.example/"><link rel="prefetch" href="https://evil.example/ping">
+    <style>p{color:red}</style><script>head()</script></head>
+    <body class="post" onload="steal()" marginwidth="0">
+    <article><h1 onmouseover="steal()">Title</h1><p id="first">First <a href="javascript:steal()">bad link</a> <a href="/next">good link</a> paragraph.</p>
+    <script>body()</script><noscript><img src=x onerror=steal()></noscript><template><p>Template text</p></template>
+    <iframe src="https://evil.example"></iframe><object data="x.swf"></object><embed src="x.swf">
+    <form action="https://evil.example"><p>Text inside a form.</p><input name="q"><button formaction="https://evil.example">Go</button></form>
+    <svg viewBox="0 0 10 10"><circle r="4"></circle><foreignObject><div onclick="steal()">foreign</div></foreignObject><use xlink:href="#x"></use><animate attributeName="r"></animate><script>svg()</script></svg>
+    <math><annotation-xml encoding="text/html"><img src=x onerror=steal()></annotation-xml></math>
+    <side-note class="aside" is="evil-element">Passive custom container.</side-note>
+    <img src="/photo.jpg" onerror="steal()" srcdoc="<script>x</script>"><div contenteditable autofocus style="background:url(javascript:steal())">Editable</div>
+    <p>Last paragraph.</p></article></body></html>`;
+  const clean = () => createArchiveService(async () => ({ ...fixture, fullHTMLContent: hostile }))("https://example.com/hostile");
+
+  test("the kept copy holds the article and nothing that could act", async () => {
+    const result = await clean();
+    for (const text of ["Title", "good link", "Text inside a form.", "Passive custom container.", "Last paragraph."]) {
+      expect(result.html).toContain(text);
+    }
+    expect(result.html).toContain("<circle");
+    // "is" cannot be removed from an element, so the allowlist blanks it.
+    expect(result.html).toContain('<side-note class="aside" is="">');
+    expect(result.html).toContain('href="https://example.com/next"');
+    expect(result.html).toContain(proxied("https://example.com/photo.jpg"));
+    expect(result.html).not.toMatch(/<(script|style|iframe|object|embed|form|input|button|noscript|template|math|meta|base|link|title|foreignobject|use|animate)\b/i);
+    expect(result.html).not.toMatch(/\son[a-z]+\s*=|javascript:|srcdoc|contenteditable|autofocus|formaction|xlink:href|evil-element|data-theme|evil\.example|steal\(/i);
+    expect(result.textContent).not.toMatch(/head\(\)|body\(\)|svg\(\)|Template text|foreign/);
+    expect(result.htmlAttrs).toMatchObject({ lang: "en" });
+    expect(result.bodyAttrs).toMatchObject({ class: "post", marginwidth: "0" });
+  });
+
+  test("the reader's own pass finds nothing left to remove from a kept copy", async () => {
+    const { JSDOM } = await import("jsdom");
+    const { default: createDOMPurify } = await import("dompurify");
+    const { readerHtmlPolicy } = await import("@/src/lib/reader-html-policy");
+    for (const html of [(await clean()).html, (await createArchiveService(async () => fixture)("https://example.com/articles/post/")).html]) {
+      const reader = new JSDOM(html);
+      try {
+        const kept = reader.window.document.body.innerHTML;
+        expect(createDOMPurify(reader.window).sanitize(html, readerHtmlPolicy)).toBe(kept);
+      } finally { reader.window.close(); }
+    }
+  });
+});
