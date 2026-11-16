@@ -404,8 +404,10 @@ try {
       // Force a real scroll without depending on the amount of synthetic prose.
       const archive = {
         ...fixture.archive,
-        html: `<a href="${fixture.url}#last-paragraph">Jump to ending</a>` + fixture.archive.html.replace('<p', '<p onclick="parent.__sourceScriptRan=true"') + '<a href="#">Return to beginning</a><script>parent.__sourceScriptRan=true</script>',
-        css: `${fixture.archive.css || ''}\n#last-paragraph{margin-top:1200px}`,
+        html: `<a href="${fixture.url}#last-paragraph">Jump to ending</a>` + fixture.archive.html.replace('<p', '<p onclick="parent.__sourceScriptRan=true"') + '<a href="#">Return to beginning</a><script>parent.__sourceScriptRan=true</script>'
+          // Anchors named like DOM properties are ordinary link targets; an image so named is not.
+          + '<p><a href="#title">Jump to title</a> <a href="#links">Jump to links</a></p><h2 id="title">Title section</h2><p><a name="links">Links section</a></p><img name="body" alt="">',
+        css: `${fixture.archive.css || ''}\n#last-paragraph{margin-top:1200px}\n#title,a[name="links"]{display:block;margin-top:1500px}`,
       };
       await context.route('**/*', async route => {
         const url = new URL(route.request().url());
@@ -451,7 +453,8 @@ try {
           const source = await sourceContext.newPage();
           await source.setContent(`<!doctype html><html><head><style>${archive.css}</style></head><body>${archive.html}</body></html>`);
           await source.evaluate(attrs => {
-            for (const [el, values] of [[document.documentElement, attrs.html], [document.body, attrs.body]] as const) {
+            // The unsanitized comparison page contains <img name="body">, which replaces document.body there.
+            for (const [el, values] of [[document.documentElement, attrs.html], [document.querySelector('body')!, attrs.body]] as const) {
               for (const [name, value] of Object.entries(values || {})) el.setAttribute(name, value);
             }
           }, { html: archive.htmlAttrs, body: archive.bodyAttrs });
@@ -589,6 +592,21 @@ try {
           await page.waitForFunction(sourceFragmentVisible);
           assert.equal(await fragmentFrame.getAttribute('src'), fragmentSrc, 'Fragment history must keep the loaded document');
           assert.equal(requests.filter(url => new URL(url).pathname === '/api/archive').length, fragmentRequests, 'Fragment history and mode changes must reuse the archive');
+          for (const anchor of ['title', 'links']) {
+            await fragmentFrame.evaluate(el => (el as HTMLIFrameElement).contentWindow!.scrollTo(0, 0));
+            await page.frameLocator('iframe[title]').getByRole('link', { name: `Jump to ${anchor}` }).click();
+            await page.waitForFunction(name => {
+              const frame = document.querySelector('iframe[title]') as HTMLIFrameElement;
+              const doc = frame.contentDocument!;
+              const rect = (doc.getElementById(name) || doc.getElementsByName(name)[0])?.getBoundingClientRect();
+              // The last anchor cannot reach the top of the frame; being scrolled into view is the jump.
+              return location.hash === `#${name}` && frame.contentWindow!.scrollY > 1000 && rect && rect.top >= -1 && rect.bottom <= frame.clientHeight + 1;
+            }, anchor, { timeout: 5000 }).catch(() => assert.fail(`A link to #${anchor} must jump to that anchor in the original layout`));
+          }
+          assert.deepEqual(await fragmentFrame.evaluate(el => {
+            const doc = (el as HTMLIFrameElement).contentDocument!;
+            return [doc.body.localName, typeof doc.title, doc.links instanceof (doc.defaultView as Window & typeof globalThis).HTMLCollection];
+          }), ['body', 'string', true], 'Article markup must not replace properties of the frame document');
           await page.goto(`${origin}/https://www.youtube.com/watch?v=H4LosXgKX4g`);
           const player = page.locator('iframe[src*="youtube-nocookie.com/embed/H4LosXgKX4g"]');
           await player.waitFor();

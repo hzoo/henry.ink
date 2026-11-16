@@ -30,6 +30,8 @@ Already-downloaded CSS imports are flattened within the capture's resource budge
 
 The API cleans a page with the same allowlist the browser uses; the browser still sanitizes it with its own parser and builds the frame document on each read.
 
+Anchors keep their source names, including ones that are also DOM property names (`id="title"`, `<a name="links">`), so in-page links jump. Only names that could replace a property of the frame's document are removed: any such `name` or `id` on an image (embeds, forms, iframes and objects are removed whole), and such a `name` on anything but a link.
+
 Keep the reader HUD outside that document. Article appearance and annotation interoperability are independent: reading Margin records does not require adopting Margin's UI or standardizing article styling. Bluesky link discussions belong at page level unless a quote is confidently matched. Ambiguous or stale anchors remain visible as unanchored discussion, never attached to an arbitrary passage.
 
 ## Evidence as of October 12 2026

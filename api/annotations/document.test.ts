@@ -48,6 +48,27 @@ describe('isolated reader document', () => {
     dom.window.close();
   });
 
+  test('keeps anchors named like DOM properties, but nothing that could replace a property of the frame document', () => {
+    const anchors = ['title', 'links', 'attributes', 'body', 'location', 'children', 'open', 'action', 'method'];
+    const dom = render(`${anchors.map(name => `<h2 id="${name}">${name}</h2><a name="${name}">named ${name}</a>`).join('')}
+      <img name="body" id="head" src="a.png"><img id="documentElement" name="querySelector" src="b.png"><img name="plain" id="figure-1" src="c.png">
+      <input name="title" value="loose"><p name="links">Paragraph</p>`);
+    const doc = dom.window.document;
+    for (const name of anchors) {
+      expect(doc.getElementById(name)?.textContent).toBe(name);
+      expect(doc.getElementsByName(name)[0]?.textContent).toBe(`named ${name}`);
+      expect(doc.getElementsByName(name)).toHaveLength(1);
+    }
+    // The reader's own code depends on these being the real things.
+    expect(doc.body.localName).toBe('body');
+    expect(doc.head.localName).toBe('head');
+    expect(doc.documentElement.localName).toBe('html');
+    expect(typeof doc.querySelector).toBe('function');
+    expect(doc.querySelectorAll('img').length).toBe(3);
+    expect([...doc.querySelectorAll('img')].map(image => [image.getAttribute('name'), image.id])).toEqual([[null, ''], [null, ''], ['plain', 'figure-1']]);
+    dom.window.close();
+  });
+
   test('preserves passive markup while rejecting active SVG and malformed source', () => {
     const host = new JSDOM('');
     const source = '<table><tr><td>Cell</td></tr></table><stamp-thwack>Layout</stamp-thwack><svg viewBox="0 0 10 10"><path d="M0 0L10 10"></path><foreignObject><iframe srcdoc="<script>evil()</script>"></iframe></foreignObject><animate attributeName="href"></animate></svg><img src="x" onerror="evil()"><p><a href="javascript:evil()">Text</a>';

@@ -14,6 +14,14 @@ interface ArchiveDocumentInput {
   documentMode?: ReaderDocumentMode;
 }
 
+/**
+ * The elements whose name (or, for some, id) becomes a property of their
+ * document, ahead of the built-in one: <img name="body"> replaces
+ * document.body. The reader's own code reads the frame's document, so these
+ * must never carry such a name. Other elements' ids never shadow anything.
+ */
+const NAMED_ON_DOCUMENT = new Set(['embed', 'form', 'iframe', 'img', 'object']);
+
 export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument: Document = document): string {
   const doc = ownerDocument.implementation.createHTMLDocument(input.title || 'Article');
   const policy = doc.createElement('meta');
@@ -46,8 +54,23 @@ export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument:
   // direct-child layout, inheritance and the source cascade.
   // The API already applied this policy under jsdom. Applying it again here is
   // deliberate: this parser, not jsdom's, is the one that renders the result.
-  const content = DOMPurify(ownerDocument.defaultView!).sanitize(input.html, {
-    ...readerHtmlPolicy, RETURN_DOM_FRAGMENT: true,
+  const purifier = DOMPurify(ownerDocument.defaultView!);
+  const form = ownerDocument.createElement('form');
+  purifier.addHook('uponSanitizeAttribute', (node, attribute) => {
+    if (attribute.attrName !== 'id' && attribute.attrName !== 'name') return;
+    if (!(attribute.attrValue in ownerDocument) && !(attribute.attrValue in form)) return;
+    // The value is also the name of a document or form property. DOMPurify's
+    // SANITIZE_DOM would drop every such id and name, which breaks ordinary
+    // anchors: <h2 id="title">, <a name="links">. Only some elements can
+    // actually shadow a property of the frame's document (see NAMED_ON_DOCUMENT),
+    // and the frame has no forms to shadow. Drop the attribute there and on any
+    // non-anchor name; keep it where it is just a link target.
+    if (NAMED_ON_DOCUMENT.has(node.localName) || (attribute.attrName === 'name' && node.localName !== 'a')) {
+      attribute.keepAttr = false;
+    }
+  });
+  const content = purifier.sanitize(input.html, {
+    ...readerHtmlPolicy, SANITIZE_DOM: false, RETURN_DOM_FRAGMENT: true,
   });
   // Adopt sanitized nodes directly, avoiding serialization and a second parse
   // before the final document is serialized for the isolated iframe.
