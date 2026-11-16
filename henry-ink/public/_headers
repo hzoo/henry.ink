@@ -1,0 +1,12 @@
+# Reader pages (henry.ink/<url>) show someone else's writing: search engines
+# should index the original, not this copy. Every static response is marked
+# "do not index", and henry.ink's own pages are then unmarked by path. This
+# file costs nothing per request; do not replace it with a Function.
+/*
+  X-Robots-Tag: noindex
+/
+  ! X-Robots-Tag
+/profile/*
+  ! X-Robots-Tag
+/tools/*
+  ! X-Robots-Tag
