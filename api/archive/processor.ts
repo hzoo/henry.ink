@@ -12,6 +12,8 @@ import { validatedEmbeddedSvg } from "@/api/archive/embedded-svg";
 import { assetProxyUrl } from "@/api/archive/asset-signature";
 import { publicApiOrigin } from "@/api/public-origin";
 
+const INLINE_NON_RASTER = /^\s*data\s*:(?!image\/(?:png|jpeg|gif|webp|avif)[;,])/i;
+
 /**
  * The one cleaning pass: the reader's allowlist, applied in place to the parsed
  * page. Everything written into the document afterwards (proxied asset
@@ -52,6 +54,13 @@ function cleanDocument(window: JSDOM["window"]): void {
   // by name once the shadowing names above are gone, and Text only needs those
   // anchors; the browser applies the full policy before the frame renders.
   createDOMPurify(window).sanitize(document.body, { ...readerHtmlPolicy, IN_PLACE: true, SANITIZE_DOM: false });
+  // The allowlist accepts any data: address on media and SVG image elements.
+  // Keep only what the reader could show anyway: inline raster images.
+  for (const element of document.body.querySelectorAll('[src], [href]')) {
+    for (const attribute of ['src', 'href']) {
+      if (INLINE_NON_RASTER.test(element.getAttribute(attribute) || '')) element.removeAttribute(attribute);
+    }
+  }
   for (const { root, attributes } of kept) for (const [name, value] of attributes) root.setAttribute(name, value);
 }
 

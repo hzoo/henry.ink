@@ -277,6 +277,8 @@ describe("one cleaning pass", () => {
     <math><annotation-xml encoding="text/html"><img src=x onerror=steal()></annotation-xml></math>
     <side-note class="aside" is="evil-element">Passive custom container.</side-note>
     <img src="/photo.jpg" onerror="steal()" srcdoc="<script>x</script>"><div contenteditable autofocus style="background:url(javascript:steal())">Editable</div>
+    <video src="data:video/mp4;base64,AAAA" controls></video><audio src="data:text/html;base64,PGI+"></audio>
+    <svg><image href="data:image/svg+xml;base64,PHN2Zy8+"></image></svg><img alt="dot" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
     <p>Last paragraph.</p></article></body></html>`;
   const clean = () => createArchiveService(async () => ({ ...fixture, fullHTMLContent: hostile }))("https://example.com/hostile");
 
@@ -293,6 +295,8 @@ describe("one cleaning pass", () => {
     expect(result.html).not.toMatch(/<(script|style|iframe|object|embed|form|input|button|noscript|template|math|meta|base|link|title|foreignobject|use|animate)\b/i);
     expect(result.html).not.toMatch(/\son[a-z]+\s*=|javascript:|srcdoc|contenteditable|autofocus|formaction|xlink:href|evil-element|data-theme|evil\.example|steal\(/i);
     expect(result.textContent).not.toMatch(/head\(\)|body\(\)|svg\(\)|Template text|foreign/);
+    expect(result.html).not.toMatch(/data:(?!image\/gif)/);
+    expect(result.html).toContain('src="data:image/gif;base64,R0lGODlhAQABAAAAACw="');
     expect(result.htmlAttrs).toMatchObject({ lang: "en" });
     expect(result.bodyAttrs).toMatchObject({ class: "post", marginwidth: "0" });
   });
