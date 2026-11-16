@@ -193,3 +193,15 @@ test('without storage, or while storage is failing, readers are still served by 
   outage.state.storeDown = true;
   expect((await outage.read()).html).toContain('edition 2');
 });
+
+test('an address that carries a credential is served but never kept', async () => {
+  const { state, read, copies } = world();
+  for (const url of [`${article}?token=abc`, `${article}?X-Amz-Signature=abc&X-Amz-Expires=60`, 'https://user:pass@example.com/doc']) {
+    expect((await read(url)).html).toContain('edition');
+    expect((await read(url)).response.status).toBe(200);
+  }
+  expect(copies()).toBe(0);
+  expect(state.captures).toHaveLength(6);
+  await read(`${article}?page=2&author=key`);
+  expect(copies()).toBe(1);
+});

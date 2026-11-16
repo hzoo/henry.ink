@@ -1,6 +1,6 @@
 import type { ArchiveResponse } from '@/api/archive/routes';
-import { archiveBase } from '@/src/lib/api-url';
-import { requestArchive } from '@/henry-ink/reader/archive-request';
+import { apiBase, archiveBase } from '@/src/lib/api-url';
+import { requestKeptArchive } from '@/henry-ink/reader/archive-request';
 import { extractReadableArticle, type ReadableArticle } from '@/henry-ink/reader/readable';
 
 interface Entry {
@@ -29,7 +29,7 @@ export function createArchiveCache({
   ttl = 15 * 60 * 1000,
   now = Date.now,
   load = (url: string, signal: AbortSignal, onRetry: () => void) => {
-    return requestArchive(`${archiveBase}/api/archive?${new URLSearchParams({ url })}`, signal, onRetry);
+    return requestKeptArchive(archiveBase, apiBase, url, signal, onRetry);
   },
   extract = extractReadableArticle,
 } = {}) {

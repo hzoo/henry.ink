@@ -135,4 +135,6 @@ test('the API serves a cleaned page inert, unindexed and linked to its original'
   expect(response.headers.get('X-Robots-Tag')).toBe('noindex');
   expect(response.headers.get('Link')).toBe('<https://example.com/headers>; rel="canonical"');
   expect(response.headers.get('Content-Type')).toContain('application/json');
+  // henry.ink's function recognises a cleaned page by this opening without parsing it.
+  expect(await response.text()).toStartWith('{"html":"');
 });

@@ -18,6 +18,11 @@ export function retryDelay(value: string | null, now = Date.now()): number | nul
   return delay > 15000 ? null : Math.max(1000, delay);
 }
 
+/** The address answered, but not as the article service: its front door is closed or broken. */
+export class NotAnArchive extends Error {
+  constructor() { super('The article could not be loaded. Try again or open the source.'); }
+}
+
 export async function requestArchive(url: string, signal: AbortSignal, onRetry: () => void, dependencies: {
   fetch: (url: string, init: RequestInit) => Promise<Response>;
   wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
@@ -29,7 +34,16 @@ export async function requestArchive(url: string, signal: AbortSignal, onRetry: 
     signal.throwIfAborted();
     const response = await dependencies.fetch(url, { signal });
     signal.throwIfAborted();
-    if (response.ok) return response.json() as Promise<ArchiveResponse>;
+    if (response.ok) {
+      if ((response.headers.get('Content-Type') || '').includes('json')) return response.json() as Promise<ArchiveResponse>;
+      await response.body?.cancel();
+      throw new NotAnArchive();
+    }
+    // Cloudflare's own error pages are HTML; the article service always answers in JSON.
+    if (response.status >= 500 && !(response.headers.get('Content-Type') || '').includes('json')) {
+      await response.body?.cancel();
+      throw new NotAnArchive();
+    }
     await response.body?.cancel();
     if (response.status === 429) {
       const delay = retryDelay(response.headers.get('Retry-After'));
@@ -42,4 +56,18 @@ export async function requestArchive(url: string, signal: AbortSignal, onRetry: 
     }
     throw new Error(`The article could not be loaded (${response.status}). Try again or open the source.`);
   }
+}
+
+/**
+ * Kept pages come from the site's own address (`front`). If that stops
+ * answering as the article service (its daily allowance ran out, or it
+ * crashed), reading must not stop with it: ask the API directly.
+ */
+export function requestKeptArchive(front: string, api: string, url: string, signal: AbortSignal, onRetry: () => void,
+  dependencies?: Parameters<typeof requestArchive>[3]): Promise<ArchiveResponse> {
+  const path = `/api/archive?${new URLSearchParams({ url })}`;
+  return requestArchive(front + path, signal, onRetry, dependencies).catch(error => {
+    if (!(error instanceof NotAnArchive) || front === api) throw error;
+    return requestArchive(api + path, signal, onRetry, dependencies);
+  });
 }

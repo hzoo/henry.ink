@@ -12,8 +12,10 @@ import { storedPageHeaders } from '@/src/lib/reader-csp';
  *   reader is served the copy on hand; the refresh happens behind them.
  * - A copy is replaced only by a capture that succeeded. A failed capture is
  *   never stored, and a failed refresh keeps the copy and tries again a day later.
- * - A copy nobody reads expires about 90 days after its last write, which is
- *   at most a week after it was last read (KV expiry does the forgetting).
+ * - A copy expires 90 days after its last write (KV expiry does the
+ *   forgetting). Reads cause a write at most weekly, so an unread copy goes
+ *   between about 83 and 90 days after its last read.
+ * - A page whose address looks like it carries a credential is served but not kept.
  * - When storage passes its budget, the least recently read copies go first.
  * - Every response is marked noindex and links to the original.
  *
@@ -57,8 +59,10 @@ export const RETRY_FAILED_REFRESH_AFTER = DAY;
 export const FORGET_UNREAD_AFTER = 90 * DAY;
 const SWEEP_EVERY = DAY;
 const DEFAULT_MAX_BYTES = 800 * 1024 * 1024;
-/** KV values stop at 25 MiB; a cleaned page is far smaller. Larger ones are served, not kept. */
-const MAX_COPY_BYTES = 10 * 1024 * 1024;
+/** A cleaned page is usually a few hundred KB. Larger ones are served, not kept, so a few fat pages cannot fill the store. */
+const MAX_COPY_BYTES = 4 * 1024 * 1024;
+/** Query names that usually make an address a private capability rather than a public page. */
+const CREDENTIAL_PARAM = /^(?:token|access_token|id_token|auth|authorization|sig|signature|key|api_?key|secret|password|code|x-amz-.+|x-goog-.+)$/i;
 const PREFIX = 'page:v1:';
 const SWEEP_MARKER = 'sweep:v1';
 
@@ -73,15 +77,23 @@ function isMetadata(value: unknown): value is CopyMetadata {
   return ['capturedAt', 'checkAt', 'touchedAt', 'bytes'].every(key => Number.isFinite(meta[key]));
 }
 
-/** The API's success shape, checked before a response may become the stored copy. */
-function isCleanedPage(body: string): boolean {
-  try {
-    const page = JSON.parse(body) as Record<string, unknown>;
-    return typeof page.html === 'string' && typeof page.textContent === 'string';
-  } catch { return false; }
+/**
+ * Whether a 200 from the API is a cleaned page, not an intermediary's error
+ * page. The API writes `html` first; checking that is enough, and parsing
+ * megabytes of JSON here would spend the Function's small CPU allowance.
+ */
+function isCleanedPage(response: Response, body: string): boolean {
+  return response.ok && (response.headers.get('Content-Type') || '').includes('application/json')
+    && body.startsWith('{"html":"');
 }
 
-async function storeKey(url: string): Promise<string> {
+export async function storeKey(url: string): Promise<string> {
+  const parsed = new URL(url);
+  parsed.hash = '';
+  return hashedKey(parsed.href);
+}
+
+async function hashedKey(url: string): Promise<string> {
   // KV keys stop at 512 bytes and URLs do not.
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
   return PREFIX + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -128,7 +140,9 @@ export async function servePage(
   try {
     const parsed = new URL(requested);
     parsed.hash = '';
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') source = parsed.href;
+    const capability = parsed.username || parsed.password
+      || [...parsed.searchParams.keys()].some(name => CREDENTIAL_PARAM.test(name));
+    if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && !capability) source = parsed.href;
   } catch { /* The API explains what is wrong with the address. */ }
 
   const capture = async (): Promise<Response> => {
@@ -165,7 +179,7 @@ export async function servePage(
 
   const store = env.PAGES;
   if (!store || !source) return passThrough(await capture());
-  const key = await storeKey(source);
+  const key = await hashedKey(source);
   const save = (body: string, meta: CopyMetadata) =>
     store.put(key, body, { expirationTtl: FORGET_UNREAD_AFTER / 1000, metadata: meta });
 
@@ -178,16 +192,17 @@ export async function servePage(
     const meta = kept.metadata;
     if (now() >= meta.checkAt) {
       waitUntil((async () => {
-        let fresh: string | undefined;
+        let fresh: { body: string; bytes: number } | undefined;
         try {
           const response = await capture();
           const text = await response.text();
-          if (response.ok && isCleanedPage(text) && byteLength(text) <= MAX_COPY_BYTES) fresh = text;
+          const bytes = byteLength(text);
+          if (isCleanedPage(response, text) && bytes <= MAX_COPY_BYTES) fresh = { body: text, bytes };
         } catch { /* The copy on hand stays. */ }
         const at = now();
         await (fresh === undefined
           ? save(body, { ...meta, checkAt: at + RETRY_FAILED_REFRESH_AFTER, touchedAt: at })
-          : save(fresh, { capturedAt: at, checkAt: at + REFRESH_AFTER, touchedAt: at, bytes: byteLength(fresh) }));
+          : save(fresh.body, { capturedAt: at, checkAt: at + REFRESH_AFTER, touchedAt: at, bytes: fresh.bytes }));
       })().catch(() => {}));
     }
     return respond(body, 'stored', meta.capturedAt);
@@ -195,17 +210,19 @@ export async function servePage(
 
   const response = await capture();
   if (!response.ok) return passThrough(response);
-  const body = await response.text();
+  let body = '';
+  try { body = await response.text(); } catch { /* A connection lost mid-body is a failed capture. */ }
   const at = now();
   // A 200 that is not a cleaned page (an intermediary's error page, say) is a failure.
-  if (!isCleanedPage(body)) {
+  if (!isCleanedPage(response, body)) {
     return passThrough(Response.json({ error: 'Upstream fetch failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } }));
   }
   const bytes = byteLength(body);
   if (bytes <= MAX_COPY_BYTES) {
     waitUntil((async () => {
-      await save(body, { capturedAt: at, checkAt: at + REFRESH_AFTER, touchedAt: at, bytes });
-      await forgetLeastRecentlyRead(store, Number(env.PAGES_MAX_BYTES) || DEFAULT_MAX_BYTES);
+      // Make room even when this save failed: a full store is exactly when it must run.
+      try { await save(body, { capturedAt: at, checkAt: at + REFRESH_AFTER, touchedAt: at, bytes }); }
+      finally { await forgetLeastRecentlyRead(store, Number(env.PAGES_MAX_BYTES) || DEFAULT_MAX_BYTES); }
     })().catch(() => {}));
   }
   return respond(body, 'captured', at);
