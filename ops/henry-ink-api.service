@@ -8,13 +8,7 @@ After=network-online.target
 Type=simple
 WorkingDirectory=%h/apps/henry.ink
 Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
-# Secrets live outside the checkout, in a file only this user can read:
-#   ASSET_SIGNING_KEY=<openssl rand -hex 32>
-#   EDGE_KEY=<openssl rand -hex 32, also the Pages project's EDGE_KEY secret>
-# The unit refuses to start without the file, and the API refuses to start in
-# production without the key, so a deploy that forgot it rolls itself back.
-EnvironmentFile=%h/.config/henry-ink/api.env
-Environment=NODE_ENV=production
+# Not a secret: the address readers use, which the API cannot see from localhost.
 Environment=API_PUBLIC_ORIGIN=https://api.henry.ink
 ExecStart=%h/.bun/bin/bun run api
 Restart=on-failure
@@ -28,7 +22,8 @@ LimitNOFILE=4096
 
 # Capture loads arbitrary pages in Chrome. If one escapes, it finds a read-only
 # checkout, an empty home and one writable directory,
-# ~/.local/state/henry-ink, which holds the article snapshot cache. The path is
+# ~/.local/state/henry-ink, which holds the article snapshot cache and the
+# asset signing key the API makes for itself on first start. The path is
 # spelled out because %S and StateDirectory= move between systemd versions.
 # PrivateUsers is what makes the mount rules apply in a user unit (systemd 252).
 PrivateUsers=yes

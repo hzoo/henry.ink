@@ -63,11 +63,11 @@ Proxies validated image and font assets named by a cleaned page. This is not an 
 
 **Query Parameters:**
 - `url` - Exact referenced asset URL (required)
-- `sig` - HMAC of that URL under `ASSET_SIGNING_KEY`, written into the page when it was cleaned (required)
+- `sig` - HMAC of that URL under the API's own signing key, written into the page when it was cleaned (required)
 
 Assets are checked by content, bounded in size, and returned with `nosniff` and a sandbox CSP.
 
-SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Signed addresses survive restarts and do not expire; rotating the key breaks images in kept pages until each is next refreshed.
+SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Signed addresses survive restarts and do not expire. The API makes its signing key on first start and keeps it as `asset-signing.key` beside the snapshot database (owner-only); there is nothing to configure. Deleting that file rotates the key, which breaks images in kept pages until each is next refreshed. If the file cannot be read or created the API does not start, so a deploy rolls back.
 
 ### Arena Service
 
@@ -140,19 +140,15 @@ Reports `status` and services `archive`, `arena`, `youtube`, and `annotations`. 
 
 ## Environment Variables
 
-Local development needs no credentials or env file. Are.na search and channel
-reads use public REST endpoints.
+No credentials, secrets or env file are required, in development or on the
+server. Are.na search and channel reads use public REST endpoints.
 
 ```bash
 API_PORT=3000  # Optional, defaults to 3000
-ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; parent directory must exist and be writable
-API_PUBLIC_ORIGIN=https://api.henry.ink  # Required in production; defaults to http://localhost:$API_PORT
-ASSET_SIGNING_KEY=...  # Required in production (32+ characters); a public dev default otherwise
+ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; its directory must exist and be writable, and also holds asset-signing.key
+API_PUBLIC_ORIGIN=https://api.henry.ink  # Set in the systemd unit; defaults to http://localhost:$API_PORT
 EDGE_KEY=...  # Optional; the same value as the Pages project's EDGE_KEY secret
 ```
-
-Production means `NODE_ENV=production`, which the systemd unit sets. The two
-secrets live in `~/.config/henry-ink/api.env` on the server, never in git.
 
 ## Reader Regression Checks
 

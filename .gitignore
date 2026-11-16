@@ -21,6 +21,7 @@ dist
 .dev.vars
 
 archive-snapshots.db*
+asset-signing.key*
 .wrangler
 test-results/
 /.deploy.lock

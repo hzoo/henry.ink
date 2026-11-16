@@ -256,3 +256,21 @@ test("LRU retention stays within 128 entries and 32 MiB", async () => {
     expect(calls).toBe(count + 1);
   }
 });
+
+test("the API makes its own signing key once, keeps it private, and refuses a damaged one", async () => {
+  const { loadSigningKey } = await import("@/api/archive/asset-signature");
+  const { mkdtempSync, statSync, writeFileSync, readdirSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const directory = mkdtempSync(`${tmpdir()}/henry-key-`);
+  try {
+    const first = loadSigningKey(directory);
+    // A restart signs the same addresses: stored pages keep their images.
+    expect(loadSigningKey(directory).equals(first)).toBe(true);
+    expect(first.length).toBe(32);
+    expect(statSync(`${directory}/asset-signing.key`).mode & 0o777).toBe(0o600);
+    expect(readdirSync(directory)).toEqual(["asset-signing.key"]);
+    writeFileSync(`${directory}/asset-signing.key`, "truncated");
+    expect(() => loadSigningKey(directory)).toThrow("not a signing key");
+    expect(() => loadSigningKey(`${directory}/missing`)).toThrow();
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
