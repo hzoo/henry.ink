@@ -1,0 +1,67 @@
+# Deploys the web app (henry.ink: the static site and the Pages Function in
+# functions/) to Cloudflare Pages when main changes. It does what
+# `bun run deploy:ink` does, minus the checks that need Chrome.
+#
+# It does NOT deploy the API. That stays `bun run deploy:api` from a laptop,
+# and no server key belongs in GitHub. When a change needs both, deploy the API
+# first: this workflow publishes the web app as soon as main is pushed.
+#
+# Off until the repository has these secrets (Settings > Secrets > Actions):
+#   CLOUDFLARE_API_TOKEN   Account > Cloudflare Pages > Edit, this account only
+#   CLOUDFLARE_ACCOUNT_ID  the account that owns the henry-note-reader project
+# Without the token the workflow still checks and builds, then skips publishing.
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, in order; a newer push waits rather than cancelling a
+# publish halfway.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Never from a fork or another branch, including manual runs.
+    if: github.repository == 'hzoo/henry.ink' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+
+      # scripts/verify.sh without its two Chrome steps (the real-browser
+      # capture tests and the reader smoke test). Run `bun run verify` locally
+      # before merging to main; this is a floor, not a replacement.
+      - name: Type-check
+        run: |
+          (cd extension && bunx wxt prepare >/dev/null)
+          bun run compile
+      - name: Unit tests
+        run: ARCHIVE_CACHE_PATH="$RUNNER_TEMP/archive-snapshots.db" bun run test
+      - name: Build
+        run: bun run build:ink
+
+      - name: Publish to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice title=Not published::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not set, so the web app was checked and built but not deployed."
+            echo "Not published: add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to turn deploys on." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Run from the repository root so Wrangler bundles ./functions too.
+          bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main

@@ -47,7 +47,7 @@ bun run compile        # Type-checks web, API, extension and Worker
 bun run test           # Unit tests; test:browser adds Chrome capture tests
 bun run verify         # Everything deploys require
 
-bun run deploy:ink     # henry.ink to Cloudflare Pages
+bun run deploy:ink     # henry.ink to Cloudflare Pages (also done by .github/workflows/deploy-web.yml on push to main)
 bun run deploy:search  # Bluesky search Worker (bsky-search.henry.ink)
 bun run deploy:api     # Verify, then deploy main to the API server
 ```
