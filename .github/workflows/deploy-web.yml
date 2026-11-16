@@ -1,5 +1,5 @@
-# Deploys the web app (henry.ink: the static site and the Pages Function in
-# functions/) to Cloudflare Pages when main changes. It does what
+# Deploys the web app (henry.ink, a static site) to Cloudflare Pages when main
+# changes. It does what
 # `bun run deploy:ink` does, minus the checks that need Chrome.
 #
 # It does NOT deploy the API. That stays `bun run deploy:api` from a laptop,
@@ -63,5 +63,4 @@ jobs:
             echo "Not published: add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to turn deploys on." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          # Run from the repository root so Wrangler bundles ./functions too.
           bunx wrangler pages deploy henry-ink/dist --project-name=henry-note-reader --branch=main

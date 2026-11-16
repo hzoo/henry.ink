@@ -46,13 +46,11 @@ Creates a secure archive of a web page.
 }
 ```
 
-`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The response is the same for every reader: link destinations are the source's own, assets are named at `API_PUBLIC_ORIGIN`, and it is sent with the reader frame's CSP, `X-Robots-Tag: noindex` and a canonical `Link` to the original.
+`css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The body is the same for every reader: link destinations are the source's own and assets are named at `API_PUBLIC_ORIGIN`. Only the CORS headers are chosen per request, from the origin allowlist. It is sent with `X-Robots-Tag: noindex` and a canonical `Link` to the original.
 
-henry.ink does not call this endpoint for a page it has already kept. A Pages Function at `henry.ink/api/archive` (`functions/api/archive.ts`, policy in `src/lib/stored-pages.ts`) keeps one cleaned copy per page in Cloudflare KV and calls this endpoint only for a first capture or a weekly refresh. The API sees those calls as one Cloudflare address, so they share one budget; a reader the Function answers with 429 is sent by the web app straight to this endpoint, where they have a budget of their own.
+Snapshots are fresh for 15 minutes and can be served stale while one background capture refreshes them, up to a hard 24-hour expiry. Failed refreshes back off for one minute without extending expiry. Memory is bounded to 50 entries / 32 MiB, SQLite to 200 entries / 128 MiB of keys and JSON payloads. SQLite overhead is additional. Capture, sanitization, or rewriting changes must bump the `archive-v6` key in `snapshot-cache.ts`. Corrupt or unavailable persistence falls back to capture, and loaded values must pass the current result schema.
 
-Snapshots are fresh for 15 minutes and can be served stale while one background capture refreshes them, up to a hard 24-hour expiry. Failed refreshes back off for one minute without extending expiry. Memory is bounded to 50 entries / 32 MiB, SQLite to 200 entries / 128 MiB of keys and JSON payloads. SQLite overhead is additional. Capture, sanitization, or rewriting changes must bump the `archive-v6` key in `snapshot-cache.ts`; to also drop the copies kept in KV, bump `page:v1:` in `src/lib/stored-pages.ts`. Corrupt or unavailable persistence falls back to capture, and loaded values must pass the current result schema.
-
-Cached reads have a separate, cheaper rate-limit budget from captures. Capture concurrency remains two, with at most eight pending distinct URLs. HTTP responses remain `no-store`; the stored copy lives in KV, not in a CDN cache.
+Cached reads have a separate, cheaper rate-limit budget from captures. Capture concurrency remains two, with at most eight pending distinct URLs. HTTP responses remain `no-store`.
 
 Each capture permits four concurrent resource downloads. Decoded chunks consume a shared 4 MiB page budget and 2 MiB stylesheet budget before retention; exceeding either cancels active and queued downloads. Already-aborted readers cannot enqueue captures. Once admitted, captures finish within their deadline to populate the shared snapshot, even if a reader disconnects.
 
@@ -67,7 +65,7 @@ Proxies validated image and font assets named by a cleaned page. This is not an 
 
 Assets are checked by content, bounded in size, and returned with `nosniff` and a sandbox CSP.
 
-SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Signed addresses survive restarts and do not expire. The API makes its signing key on first start and keeps it as `asset-signing.key` beside the snapshot database (owner-only); there is nothing to configure. Deleting that file rotates the key, which breaks images in kept pages until each is next refreshed. If the file cannot be read or created the API does not start, so a deploy rolls back.
+SVG validation uses streaming XML parsing with a 1 MiB / 64-level / 10,000-element / 128-attributes-per-element limit, not a DOM. Recognized font MIME mismatches are normalized to the detected font format; HTML and cross-family mismatches remain rejected. Signed addresses survive restarts and do not expire. The API makes its signing key on first start and keeps it as `asset-signing.key` beside the snapshot database (owner-only); there is nothing to configure. Deleting that file rotates the key, which breaks images in already-cleaned pages until each is next captured (at most a day). If the file cannot be read or created the API does not start, so a deploy rolls back.
 
 ### Arena Service
 

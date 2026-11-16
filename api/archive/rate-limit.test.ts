@@ -97,17 +97,14 @@ test('every image address in a cleaned page is accepted by the asset proxy as wr
   expect(fetched.sort()).toEqual(['https://example.com/body.woff2', 'https://example.com/hero.jpg', 'https://example.com/paper.png', 'https://example.com/wide.jpg']);
 });
 
-test('the API serves a cleaned page inert, unindexed and linked to its original', async () => {
+test('a cleaned page is served unindexed and linked to its original', async () => {
   const route = createArchiveHandler(createArchiveService(async url => ({
     fullHTMLContent: '<!doctype html><p>Article</p>', cssSources: [],
     pageData: { baseUrl: url, cssSources: [], htmlAttrs: { class: '', style: '', lang: 'en' }, bodyAttrs: { class: '', style: '' },
       metadata: { title: 'Article', author: '', publishedTime: '', domain: 'example.com', url } },
   })));
   const response = await route(request('header-reader', 'https://example.com/headers'));
-  expect(response.headers.get('Content-Security-Policy')).toContain("script-src 'none'");
   expect(response.headers.get('X-Robots-Tag')).toBe('noindex');
   expect(response.headers.get('Link')).toBe('<https://example.com/headers>; rel="canonical"');
   expect(response.headers.get('Content-Type')).toContain('application/json');
-  // henry.ink's function recognises a cleaned page by this opening without parsing it.
-  expect(await response.text()).toStartWith('{"html":"');
 });

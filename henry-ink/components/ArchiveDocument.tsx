@@ -49,7 +49,7 @@ export function ArchiveDocument(props: Props) {
           const destination = new URL(href, props.resolvedUrl || props.url);
           if (!['https:', 'http:'].includes(destination.protocol) || destination.username || destination.password) return;
           if (event.ctrlKey || event.metaKey || link.target === '_blank') {
-            // The stored page keeps source addresses. A new tab stays in the
+            // The cleaned page keeps source addresses. A new tab stays in the
             // reader for the article's own site and leaves it for other sites.
             const sameSite = destination.origin === new URL(props.resolvedUrl || props.url).origin;
             window.open(sameSite ? `${window.location.origin}/${destination.href}` : destination.href, '_blank', 'noopener,noreferrer');

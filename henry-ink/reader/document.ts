@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import { readerHtmlPolicy, READER_ROOT_ATTRIBUTES } from '@/src/lib/reader-html-policy';
-import { readerContentSecurityPolicy } from '@/src/lib/reader-csp';
+import { TRUSTED_CDNS } from '@/api/archive/trusted-cdns';
 import { READER_DOCTYPES, type ReaderDocumentMode } from '@/src/lib/archive-document-mode';
 export { readerDocumentMode, type ReaderDocumentMode } from '@/src/lib/archive-document-mode';
 
@@ -18,7 +18,9 @@ export function createReaderDocument(input: ArchiveDocumentInput, ownerDocument:
   const doc = ownerDocument.implementation.createHTMLDocument(input.title || 'Article');
   const policy = doc.createElement('meta');
   policy.httpEquiv = 'Content-Security-Policy';
-  policy.content = readerContentSecurityPolicy(input.assetOrigin);
+  const assets = `${new URL(input.assetOrigin).origin}/api/asset-proxy`;
+  const fonts = TRUSTED_CDNS.map(host => `https://${host} https://*.${host}`).join(' ');
+  policy.content = `default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src ${assets} data: ${fonts}; font-src ${assets} data: ${fonts}; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'`;
   doc.head.insertBefore(policy, doc.head.firstChild);
   const referrer = doc.createElement('meta');
   referrer.name = 'referrer';

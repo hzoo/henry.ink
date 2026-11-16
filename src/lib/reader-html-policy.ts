@@ -2,7 +2,7 @@ import type { Config } from 'dompurify';
 
 /**
  * The one allowlist for article markup shown in the reader frame. The API
- * applies it when it cleans a page, so the kept copy is already allowlisted;
+ * applies it when it cleans a page, so what it sends is already allowlisted;
  * the browser applies it again with its own parser before rendering.
  */
 export const readerHtmlPolicy: Config = {

@@ -3,16 +3,17 @@ import { existsSync, linkSync, readFileSync, unlinkSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 
 /**
- * Stored pages name their images and fonts by address, and those addresses must
- * keep working after an API restart. The proxy therefore serves exactly the
+ * A cleaned page names its images and fonts by address, and those addresses
+ * must keep working after an API restart (the page may sit in the snapshot
+ * cache, or in a reader's open tab). The proxy therefore serves exactly the
  * addresses this service signed while cleaning a page, instead of remembering
  * them. This is an abuse bound, not a replacement for destination validation
  * on every fetch.
  *
  * The key is nobody's to configure. The API makes one on first start and keeps
  * it beside the snapshot database, readable only by its own user. Deleting the
- * file rotates the key, which breaks images in stored pages until each page is
- * next refreshed. If the file cannot be read or created the API does not start.
+ * file rotates the key, which breaks images in already-cleaned pages until each is
+ * next captured. If the file cannot be read or created the API does not start.
  */
 export function loadSigningKey(directory: string): Buffer {
   const path = join(directory, "asset-signing.key");

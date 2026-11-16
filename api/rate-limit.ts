@@ -8,10 +8,6 @@ const MAX_BUCKETS = 100_000;
 /**
  * The client's rate-limit key. The trusted reverse proxy must overwrite these
  * headers. IPv6 clients are keyed by their /64, since one host usually owns it.
- *
- * Requests henry.ink's Pages Function makes for readers arrive from
- * Cloudflare's address and so share one budget. A reader who meets that
- * shared limit is sent here directly by the web app, with a budget of their own.
  */
 export function clientIp(req: Request): string {
 	const ip = req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()

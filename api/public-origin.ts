@@ -1,7 +1,7 @@
 /**
  * The one public address of this API, written into every cleaned page as the
  * home of its images and fonts. It is configuration, never taken from a
- * request, so the same stored page is correct for every reader. The API
+ * request, so the same cleaned page is correct for every reader. The API
  * listens on localhost behind a proxy and cannot know this address itself;
  * the systemd unit states it.
  */

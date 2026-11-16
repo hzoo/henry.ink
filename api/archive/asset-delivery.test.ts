@@ -137,7 +137,7 @@ test("signature and rate-limit checks run before cache hits", async () => {
   expect(calls).toBe(1);
 });
 
-test("a stored page's image address works on a freshly started proxy, and only that address", async () => {
+test("an already-cleaned page's image address works on a freshly started proxy, and only that address", async () => {
   const url = permit("restart");
   const address = assetProxyUrl("https://api.henry.ink", url);
   // Nothing was registered with this handler: the address alone carries permission.
@@ -264,7 +264,7 @@ test("the API makes its own signing key once, keeps it private, and refuses a da
   const directory = mkdtempSync(`${tmpdir()}/henry-key-`);
   try {
     const first = loadSigningKey(directory);
-    // A restart signs the same addresses: stored pages keep their images.
+    // A restart signs the same addresses: pages cleaned before it keep their images.
     expect(loadSigningKey(directory).equals(first)).toBe(true);
     expect(first.length).toBe(32);
     expect(statSync(`${directory}/asset-signing.key`).mode & 0o777).toBe(0o600);

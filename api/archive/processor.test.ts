@@ -280,7 +280,7 @@ describe("one cleaning pass", () => {
     <p>Last paragraph.</p></article></body></html>`;
   const clean = () => createArchiveService(async () => ({ ...fixture, fullHTMLContent: hostile }))("https://example.com/hostile");
 
-  test("the kept copy holds the article and nothing that could act", async () => {
+  test("a cleaned page holds the article and nothing that could act", async () => {
     const result = await clean();
     for (const text of ["Title", "good link", "Text inside a form.", "Passive custom container.", "Last paragraph."]) {
       expect(result.html).toContain(text);
@@ -297,7 +297,7 @@ describe("one cleaning pass", () => {
     expect(result.bodyAttrs).toMatchObject({ class: "post", marginwidth: "0" });
   });
 
-  test("the reader's own pass finds nothing left to remove from a kept copy", async () => {
+  test("the reader's own pass finds nothing left to remove from a cleaned page", async () => {
     const { JSDOM } = await import("jsdom");
     const { default: createDOMPurify } = await import("dompurify");
     const { readerHtmlPolicy } = await import("@/src/lib/reader-html-policy");

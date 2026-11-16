@@ -1,14 +1,5 @@
 export const blueskySearchUrl = 'https://bsky-search.henry.ink';
 
-/**
- * Where the reader asks for a cleaned page. The deployed site asks its own
- * origin, where a Pages Function serves stored pages without the API. A build
- * pointed at a specific API, and the dev server, ask the API directly.
- */
-export function resolveArchiveBase(value: string | undefined, production: boolean): string {
-  return production && !value ? '' : resolveApiBase(value, production);
-}
-
 export function resolveApiBase(value: string | undefined, production: boolean): string {
   const url = new URL(value || 'https://api.henry.ink');
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
