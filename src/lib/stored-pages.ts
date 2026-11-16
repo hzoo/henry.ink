@@ -41,8 +41,6 @@ export interface StoredPagesEnv {
   PAGES?: PageStore;
   /** The capture API. Defaults to production. */
   API_ORIGIN?: string;
-  /** Shared with the API so it trusts the visitor address sent with a capture. */
-  EDGE_KEY?: string;
   /** Storage budget in bytes. Defaults to 800 MB of the free plan's 1 GB. */
   PAGES_MAX_BYTES?: string;
 }
@@ -150,16 +148,10 @@ export async function servePage(
   } catch { /* The API explains what is wrong with the address. */ }
 
   const capture = async (): Promise<Response> => {
-    const headers: Record<string, string> = {};
-    const visitor = request.headers.get('CF-Connecting-IP');
-    // The API limits first-time captures per visitor, so it must hear who is
-    // asking; it believes this header only alongside the shared key.
-    if (visitor && env.EDGE_KEY) {
-      headers['X-Henry-Visitor'] = visitor;
-      headers['X-Henry-Edge-Key'] = env.EDGE_KEY;
-    }
+    // The API cannot tell readers apart here and limits these requests as one
+    // visitor. A reader told "busy" asks the API directly (see requestKeptArchive).
     try {
-      return await send(`${api}/api/archive?${new URLSearchParams({ url: requested })}`, { headers });
+      return await send(`${api}/api/archive?${new URLSearchParams({ url: requested })}`, {});
     } catch {
       // The API is unreachable. Stored pages are unaffected; a new one has to wait.
       return Response.json({ error: 'The article service is unavailable' }, { status: 502, headers: { 'Cache-Control': 'no-store' } });

@@ -18,7 +18,7 @@ export function retryDelay(value: string | null, now = Date.now()): number | nul
   return delay > 15000 ? null : Math.max(1000, delay);
 }
 
-/** The address answered, but not as the article service: its front door is closed or broken. */
+/** The site's own address cannot serve this read (closed, broken, or busy): the API should be asked instead. */
 export class NotAnArchive extends Error {
   constructor() { super('The article could not be loaded. Try again or open the source.'); }
 }
@@ -29,7 +29,7 @@ export async function requestArchive(url: string, signal: AbortSignal, onRetry: 
 } = {
   fetch: (url, init) => fetch(url, init),
   wait: waitForRetry,
-}): Promise<ArchiveResponse> {
+}, busy: 'wait' | 'ask-elsewhere' = 'wait'): Promise<ArchiveResponse> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
     const response = await dependencies.fetch(url, { signal });
@@ -46,6 +46,7 @@ export async function requestArchive(url: string, signal: AbortSignal, onRetry: 
     }
     await response.body?.cancel();
     if (response.status === 429) {
+      if (busy === 'ask-elsewhere') throw new NotAnArchive();
       const delay = retryDelay(response.headers.get('Retry-After'));
       if (attempt < 2 && delay !== null) {
         onRetry();
@@ -62,12 +63,19 @@ export async function requestArchive(url: string, signal: AbortSignal, onRetry: 
  * Kept pages come from the site's own address (`front`). If that stops
  * answering as the article service (its daily allowance ran out, or it
  * crashed), reading must not stop with it: ask the API directly.
+ *
+ * The same goes for "busy". The API sees every first-time capture made
+ * through `front` as coming from one address, so one heavy reader can spend
+ * that shared budget. Asked directly, the API gives each reader their own.
+ * The reader therefore never waits on `front`: only the API's own "busy" is
+ * waited for and, if it persists, shown.
  */
 export function requestKeptArchive(front: string, api: string, url: string, signal: AbortSignal, onRetry: () => void,
   dependencies?: Parameters<typeof requestArchive>[3]): Promise<ArchiveResponse> {
   const path = `/api/archive?${new URLSearchParams({ url })}`;
-  return requestArchive(front + path, signal, onRetry, dependencies).catch(error => {
-    if (!(error instanceof NotAnArchive) || front === api) throw error;
+  if (front === api) return requestArchive(api + path, signal, onRetry, dependencies);
+  return requestArchive(front + path, signal, onRetry, dependencies, 'ask-elsewhere').catch(error => {
+    if (!(error instanceof NotAnArchive)) throw error;
     return requestArchive(api + path, signal, onRetry, dependencies);
   });
 }

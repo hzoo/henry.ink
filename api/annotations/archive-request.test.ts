@@ -79,3 +79,33 @@ test('an answer from the article service is final, even when it is an error', as
   })).rejects.toThrow('(502)');
   expect(calls).toBe(1);
 });
+
+test('a reader is not stuck behind a busy shared front door when the API would serve them', async () => {
+  const page = { html: '<p>Article</p>', textContent: 'Article' };
+  const asked: string[] = [];
+  const waits: number[] = [];
+  let notices = 0;
+  const result = await requestKeptArchive('', 'https://api.example.test', 'https://example.com/a', new AbortController().signal, () => notices++, {
+    fetch: async url => {
+      asked.push(url.startsWith('/api/') ? 'front' : 'api');
+      return url.startsWith('/api/') ? Response.json({ error: 'Too many captures' }, { status: 429, headers: { 'Retry-After': '5' } }) : Response.json(page);
+    },
+    wait: async delay => { waits.push(delay); },
+  });
+  expect(result.html).toBe(page.html);
+  expect(asked).toEqual(['front', 'api']);
+  // Served at once: no cooldown, no "busy" notice.
+  expect(waits).toEqual([]);
+  expect(notices).toBe(0);
+});
+
+test('"busy" is shown only when the API itself stays busy, after its cooldowns and no others', async () => {
+  const asked: string[] = [];
+  const waits: number[] = [];
+  await expect(requestKeptArchive('', 'https://api.example.test', 'https://example.com/a', new AbortController().signal, () => {}, {
+    fetch: async url => { asked.push(url.startsWith('/api/') ? 'front' : 'api'); return busy(); },
+    wait: async delay => { waits.push(delay); },
+  })).rejects.toThrow('The article service is busy. Try again shortly.');
+  expect(asked).toEqual(['front', 'api', 'api', 'api']);
+  expect(waits).toEqual([5000, 5000]);
+});

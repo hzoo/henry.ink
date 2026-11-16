@@ -193,16 +193,6 @@ test('one kept body for everyone; only allowed origins may read it, captured, st
   }
 });
 
-test('the API hears which visitor is asking only alongside the shared key', async () => {
-  const keyed = world({ env: { EDGE_KEY: 'k'.repeat(40), API_ORIGIN: 'https://api.test' } });
-  await keyed.read(article, '198.51.100.9');
-  expect(keyed.state.captures[0].url).toBe(`https://api.test/api/archive?url=${encodeURIComponent(article)}`);
-  expect(keyed.state.captures[0].headers).toEqual({ 'X-Henry-Visitor': '198.51.100.9', 'X-Henry-Edge-Key': 'k'.repeat(40) });
-  const keyless = world();
-  await keyless.read();
-  expect(keyless.state.captures[0].headers).toEqual({});
-});
-
 test('without storage, or while storage is failing, readers are still served by the API', async () => {
   const unbound = world({ env: { PAGES: undefined } });
   expect((await unbound.read()).html).toContain('edition 1');

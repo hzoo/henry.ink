@@ -97,33 +97,6 @@ test('every image address in a cleaned page is accepted by the asset proxy as wr
   expect(fetched.sort()).toEqual(['https://example.com/body.woff2', 'https://example.com/hero.jpg', 'https://example.com/paper.png', 'https://example.com/wide.jpg']);
 });
 
-test('first-time captures arriving through henry.ink are limited per visitor, not per Cloudflare address', async () => {
-  const previous = process.env.EDGE_KEY;
-  process.env.EDGE_KEY = 'edge-key-for-this-test-0123456789abcdef';
-  try {
-    let page = 0;
-    const route = createArchiveHandler(createArchiveService(async url => ({
-      fullHTMLContent: '<!doctype html><p>Article</p>', cssSources: [],
-      pageData: { baseUrl: url, cssSources: [], htmlAttrs: { class: '', style: '', lang: 'en' }, bodyAttrs: { class: '', style: '' },
-        metadata: { title: 'Article', author: '', publishedTime: '', domain: 'example.com', url } },
-    })));
-    const viaEdge = (visitor: string, key = process.env.EDGE_KEY!) => route(new Request(
-      `https://api.henry.ink/api/archive?url=https://example.com/edge-${++page}`,
-      { headers: { 'X-Forwarded-For': '2a06:98c0:3600::103', 'X-Henry-Visitor': visitor, 'X-Henry-Edge-Key': key } },
-    ));
-    for (let i = 0; i < 3; i++) expect((await viaEdge('198.51.100.1')).status).toBe(200);
-    expect((await viaEdge('198.51.100.1')).status).toBe(429);
-    // Another reader behind the same Cloudflare address still has a full budget.
-    expect((await viaEdge('198.51.100.2')).status).toBe(200);
-    // Without the key the header is only a claim: all such requests share the sender's budget.
-    for (let i = 0; i < 3; i++) expect((await viaEdge(`203.0.113.${i}`, 'wrong')).status).toBe(200);
-    expect((await viaEdge('203.0.113.99', 'wrong')).status).toBe(429);
-  } finally {
-    if (previous === undefined) delete process.env.EDGE_KEY;
-    else process.env.EDGE_KEY = previous;
-  }
-});
-
 test('the API serves a cleaned page inert, unindexed and linked to its original', async () => {
   const route = createArchiveHandler(createArchiveService(async url => ({
     fullHTMLContent: '<!doctype html><p>Article</p>', cssSources: [],

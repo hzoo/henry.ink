@@ -48,7 +48,7 @@ Creates a secure archive of a web page.
 
 `css`, `title`, `htmlAttrs`, and `bodyAttrs` are optional. The response is the same for every reader: link destinations are the source's own, assets are named at `API_PUBLIC_ORIGIN`, and it is sent with the reader frame's CSP, `X-Robots-Tag: noindex` and a canonical `Link` to the original.
 
-henry.ink does not call this endpoint for a page it has already kept. A Pages Function at `henry.ink/api/archive` (`functions/api/archive.ts`, policy in `src/lib/stored-pages.ts`) keeps one cleaned copy per page in Cloudflare KV and calls this endpoint only for a first capture or a weekly refresh. It names the reader in `X-Henry-Visitor`, which the rate limiter believes only with the shared `EDGE_KEY`.
+henry.ink does not call this endpoint for a page it has already kept. A Pages Function at `henry.ink/api/archive` (`functions/api/archive.ts`, policy in `src/lib/stored-pages.ts`) keeps one cleaned copy per page in Cloudflare KV and calls this endpoint only for a first capture or a weekly refresh. The API sees those calls as one Cloudflare address, so they share one budget; a reader the Function answers with 429 is sent by the web app straight to this endpoint, where they have a budget of their own.
 
 Snapshots are fresh for 15 minutes and can be served stale while one background capture refreshes them, up to a hard 24-hour expiry. Failed refreshes back off for one minute without extending expiry. Memory is bounded to 50 entries / 32 MiB, SQLite to 200 entries / 128 MiB of keys and JSON payloads. SQLite overhead is additional. Capture, sanitization, or rewriting changes must bump the `archive-v6` key in `snapshot-cache.ts`; to also drop the copies kept in KV, bump `page:v1:` in `src/lib/stored-pages.ts`. Corrupt or unavailable persistence falls back to capture, and loaded values must pass the current result schema.
 
@@ -147,7 +147,6 @@ server. Are.na search and channel reads use public REST endpoints.
 API_PORT=3000  # Optional, defaults to 3000
 ARCHIVE_CACHE_PATH=./archive-snapshots.db  # Optional; its directory must exist and be writable, and also holds asset-signing.key
 API_PUBLIC_ORIGIN=https://api.henry.ink  # Set in the systemd unit; defaults to http://localhost:$API_PORT
-EDGE_KEY=...  # Optional; the same value as the Pages project's EDGE_KEY secret
 ```
 
 ## Reader Regression Checks

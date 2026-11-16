@@ -1,29 +1,20 @@
 /**
  * Simple in-memory token-bucket rate limiter.
- * Keyed by client network (see clientIp).
+ * Keyed by client network (see clientIp). No dependencies.
  */
-import { timingSafeEqual } from "node:crypto";
 
 const MAX_BUCKETS = 100_000;
-
-function sameSecret(given: string | null, expected: string): boolean {
-	const a = Buffer.from(given || "");
-	const b = Buffer.from(expected);
-	return a.length === b.length && timingSafeEqual(a, b);
-}
 
 /**
  * The client's rate-limit key. The trusted reverse proxy must overwrite these
  * headers. IPv6 clients are keyed by their /64, since one host usually owns it.
  *
- * Stored pages are fetched for readers by henry.ink's Pages Function, so the
- * address the proxy reports is Cloudflare's, not the reader's. The function
- * names the reader in X-Henry-Visitor, believed only with the shared EDGE_KEY.
+ * Requests henry.ink's Pages Function makes for readers arrive from
+ * Cloudflare's address and so share one budget. A reader who meets that
+ * shared limit is sent here directly by the web app, with a budget of their own.
  */
-export function clientIp(req: Request, edgeKey = process.env.EDGE_KEY): string {
-	const visitor = edgeKey && sameSecret(req.headers.get("X-Henry-Edge-Key"), edgeKey)
-		? req.headers.get("X-Henry-Visitor")?.trim() : undefined;
-	const ip = visitor || req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()
+export function clientIp(req: Request): string {
+	const ip = req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()
 		|| req.headers.get("CF-Connecting-IP") || "unknown";
 	if (!ip.includes(":")) return ip;
 	const [head = "", tail = ""] = ip.toLowerCase().split("::");
