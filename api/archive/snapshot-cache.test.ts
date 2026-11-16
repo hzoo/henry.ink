@@ -260,14 +260,11 @@ describe("snapshot cache", () => {
     }
   });
 
-  test("keys include version and rewrite options and ignore only source fragments", () => {
-    const key = archiveCacheKey("https://example.com/a#quote", "https://api.henry.ink");
-    expect(key).toBe(archiveCacheKey("https://example.com/a", "https://api.henry.ink"));
-    expect(key).toBe(JSON.stringify(["archive-v5", "https://example.com/a", "https://api.henry.ink", ""]));
-    expect(key).not.toBe(archiveCacheKey("https://example.com/a", "https://other.example"));
-    expect(key).not.toBe(archiveCacheKey("https://example.com/a", "https://api.henry.ink", "https://henry.ink"));
-    expect(key).not.toBe(archiveCacheKey("https://example.com/a?variant=2", "https://api.henry.ink"));
-    expect(key).not.toBe(archiveCacheKey("https://example.com/a", "https://api.henry.ink", undefined, "archive-v3"));
+  test("keys include the version and ignore only source fragments", () => {
+    const key = archiveCacheKey("https://example.com/a#quote");
+    expect(key).toBe(archiveCacheKey("https://example.com/a"));
+    expect(key).not.toBe(archiveCacheKey("https://example.com/a?variant=2"));
+    expect(key).not.toBe(archiveCacheKey("https://example.com/a", "archive-v3"));
   });
 });
 
@@ -313,17 +310,15 @@ describe("persistent snapshot reuse", () => {
     expect(await fourth.getOrCreate("page", async () => "new")).toBe("new");
   });
 
-  test("version and rewrite key changes invalidate persistent reuse", async () => {
+  test("a version change invalidates persistent reuse", async () => {
     const options = { now: () => 0, persistence: persistence() };
-    const oldKey = archiveCacheKey("https://example.com/", "https://api.example", undefined, "archive-v2");
+    const oldKey = archiveCacheKey("https://example.com/", "archive-v2");
     const first = cache(options);
     await first.getOrCreate(oldKey, async () => "old");
     first.close();
     const second = cache(options);
-    const newKey = archiveCacheKey("https://example.com/", "https://api.example", undefined, "archive-v3");
+    const newKey = archiveCacheKey("https://example.com/", "archive-v3");
     expect(await second.getOrCreate(newKey, async () => "new")).toBe("new");
-    const rewritten = archiveCacheKey("https://example.com/", "https://api.other", undefined, "archive-v3");
-    expect(await second.getOrCreate(rewritten, async () => "rewrite")).toBe("rewrite");
     expect(await second.getOrCreate(oldKey, async () => "wrong")).toBe("old");
   });
 

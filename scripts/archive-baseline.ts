@@ -24,9 +24,9 @@ try {
       const start = performance.now();
       const captured = await capturePage(url);
       const captureMs = performance.now() - start;
-      const service = createArchiveService(async () => captured);
+      const service = createArchiveService(async () => captured, { assetOrigin: 'https://api.henry.ink' });
       const processStart = performance.now();
-      const archive = await service(url, 'https://api.henry.ink');
+      const archive = await service(url);
       const processMs = performance.now() - processStart;
       await Bun.write(`${directory}/${name}.json`, JSON.stringify({ url, captured, archive, captureMs, processMs }));
       console.log(JSON.stringify({ name, captureMs, processMs, bytes: JSON.stringify(archive).length }));

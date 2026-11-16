@@ -8,7 +8,7 @@ import { readerDocumentMode, READER_DOCTYPES } from "@/src/lib/archive-document-
 import { validatedEmbeddedFont } from "@/api/archive/asset-validation";
 import { validatedEmbeddedSvg } from "@/api/archive/embedded-svg";
 import { assetProxyUrl } from "@/api/archive/asset-signature";
-import { sameArticle } from '@/src/lib/annotations/anchors';
+import { publicApiOrigin } from "@/api/public-origin";
 
 // Dangerous URI schemes — allow data:image/ for inline images, block everything else
 // Block data:image/svg+xml specifically (SVGs can contain scripts)
@@ -147,16 +147,17 @@ function isArchiveResult(value: unknown): value is ArchiveResult {
     });
 }
 
-export function createArchiveService(capture: typeof capturePage = capturePage, options: Partial<CacheOptions<ArchiveResult>> = {}) {
+/** One cleaned copy per page: nothing in it depends on who asked. */
+export function createArchiveService(capture: typeof capturePage = capturePage, { assetOrigin = publicApiOrigin, ...options }: Partial<CacheOptions<ArchiveResult>> & { assetOrigin?: string } = {}) {
   const cache = new SnapshotCache<ArchiveResult>({
     maxEntries: 50, maxBytes: 32 * 1024 * 1024, ttlMs: 15 * 60 * 1000,
     concurrency: 2, maxPending: 8,
     size: result => Buffer.byteLength(JSON.stringify(result)),
     ...options,
   });
-  return async (url: string, assetProxyBaseUrl = 'http://localhost:3000', linkRewriteBaseUrl?: string, admitCapture?: () => void): Promise<ArchiveResult> => {
-    const result = await cache.getOrCreate(archiveCacheKey(url, assetProxyBaseUrl, linkRewriteBaseUrl),
-      () => processArchive(url, assetProxyBaseUrl, linkRewriteBaseUrl, capture), admitCapture);
+  return async (url: string, admitCapture?: () => void): Promise<ArchiveResult> => {
+    const result = await cache.getOrCreate(archiveCacheKey(url),
+      () => processArchive(url, assetOrigin, capture), admitCapture);
     return result.url === url ? result : { ...result, url };
   };
 }
@@ -170,7 +171,7 @@ export const createArchive = createArchiveService(capturePage, {
   },
 });
 
-async function processArchive(url: string, assetProxyBaseUrl: string, linkRewriteBaseUrl: string | undefined, capture: typeof capturePage): Promise<ArchiveResult> {
+async function processArchive(url: string, assetProxyBaseUrl: string, capture: typeof capturePage): Promise<ArchiveResult> {
   const startTime = Date.now();
   const { fullHTMLContent, pageData, cssSources } = await capture(url);
   const baseUrl = pageData.baseUrl;
@@ -258,7 +259,8 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
     });
 
     // Resolve against the captured document base, which can differ from the
-    // requested URL after redirects or a source <base> element.
+    // requested URL after redirects or a source <base> element. Links keep
+    // their source destination; the reader decides where a click goes.
     document.querySelectorAll('a[href]').forEach((link: Element) => {
       const href = (link.getAttribute('href') || '').trim();
       if (!href) return;
@@ -269,10 +271,7 @@ async function processArchive(url: string, assetProxyBaseUrl: string, linkRewrit
       try {
         const destination = new URL(href, baseUrl);
         if (destination.protocol !== 'http:' && destination.protocol !== 'https:') return;
-        const relative = !/^[a-z][a-z0-9+.-]*:/i.test(href);
-        const currentFragment = destination.hash && sameArticle(destination.href, pageData.metadata.url);
-        link.setAttribute('href', relative && linkRewriteBaseUrl && !currentFragment
-          ? `${linkRewriteBaseUrl}/${destination.href}` : destination.href);
+        link.setAttribute('href', destination.href);
       } catch { link.removeAttribute('href'); }
     });
 

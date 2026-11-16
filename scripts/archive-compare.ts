@@ -15,9 +15,9 @@ try {
   for await (const filename of new Bun.Glob('*.json').scan(directory)) {
     const fixture = await Bun.file(`${directory}/${filename}`).json();
     if (!fixture.captured) continue;
-    const service = createArchiveService(async () => fixture.captured);
+    const service = createArchiveService(async () => fixture.captured, { assetOrigin: 'https://api.henry.ink' });
     const start = performance.now();
-    const after = await service(fixture.url, 'https://api.henry.ink');
+    const after = await service(fixture.url);
     const processMs = performance.now() - start;
     for (const width of [1440, 390]) {
       const context = await browser.newContext({ viewport: { width, height: 900 }, javaScriptEnabled: false, reducedMotion: 'reduce', serviceWorkers: 'block' });

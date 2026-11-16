@@ -137,7 +137,7 @@ describe("archive processing", () => {
         },
       ],
     }));
-    const { css } = await service("https://example.com/articles/post/", "https://api.henry.ink");
+    const { css } = await service("https://example.com/articles/post/");
     const layerOrder = [...new Set([...css.matchAll(/@layer\s+([^;{]+)[;{]/g)]
       .flatMap(match => match[1].split(',').map(name => name.trim())))];
     expect(layerOrder).toEqual(["reset", "theme"]);
@@ -165,7 +165,7 @@ describe("archive processing", () => {
           bgcolor="#222222" text="#dddddd" link="#00bbff" vlink="#bb00ff" alink="#ff1111"
           onload="danger()" data-source="ignored"><p>Article</p></body></html>`,
     }));
-    const result = await service("https://example.com/articles/post/", "https://api.henry.ink");
+    const result = await service("https://example.com/articles/post/");
     expect(result.htmlAttrs).toMatchObject({
       id: "source-root", class: "dark", lang: "en", dir: "rtl",
       bgcolor: "#111111", text: "#eeeeee", link: "#00aaff", vlink: "#aa00ff", alink: "#ff0000",
@@ -188,7 +188,7 @@ describe("archive processing", () => {
       ...fixture,
       fullHTMLContent: '<!doctype html><html lang="en-US"><body><p>Article</p></body></html>',
     }));
-    const result = await service("https://example.com/articles/post/", "https://api.henry.ink");
+    const result = await service("https://example.com/articles/post/");
     expect(result.htmlAttrs.lang).toBe("en-US");
     expect(result.bodyAttrs).not.toHaveProperty("lang");
     expect(result.html).toContain('<html lang="en-US">');
@@ -204,34 +204,31 @@ describe("archive processing", () => {
     expect(rewriteAssetUrlsInCSS(oversized, "https://example.com", "https://api.henry.ink")).toBe("");
   });
 
-  test("coalesces capture and keeps rewrite variants distinct", async () => {
+  test("coalesces capture into one copy, with assets at the configured public origin", async () => {
     let captures = 0;
-    const service = createArchiveService(async () => { captures++; await Bun.sleep(10); return fixture; });
+    const service = createArchiveService(async () => { captures++; await Bun.sleep(10); return fixture; }, { assetOrigin: "https://api.henry.ink" });
     const input = "https://example.com/articles/post/";
-    const results = await Promise.all(Array.from({ length: 5 }, () => service(input, "https://api.henry.ink", "https://henry.ink")));
+    const results = await Promise.all(Array.from({ length: 5 }, () => service(input)));
     expect(captures).toBe(1);
-    expect(results[0].html).toContain("https://henry.ink/https://example.com/articles/post/next");
-    const other = await service(input, "https://other.example");
-    expect(captures).toBe(2);
-    expect(other.html).toContain("https://other.example/api/asset-proxy");
-    expect(other.html).not.toContain("https://henry.ink/https://example.com");
-    const fragment = await service(input + "#quote", "https://api.henry.ink", "https://henry.ink");
+    expect(results[0].html).toContain("https://api.henry.ink/api/asset-proxy");
+    expect(results[0].html).toContain('href="https://example.com/articles/post/next"');
+    const fragment = await service(input + "#quote");
     expect(fragment.url).toBe(input + "#quote");
-    expect(captures).toBe(2);
+    expect(captures).toBe(1);
   });
 
   test('keeps relative current-article fragments in the source document', async () => {
     const service = createArchiveService(async () => ({ ...fixture,
       fullHTMLContent: '<p id="section">Article</p><a href="../post/#section">Same article</a><a href="next#section">Next article</a>',
     }));
-    const result = await service('https://example.com/articles/post/', 'https://api.henry.ink', 'https://henry.ink');
+    const result = await service('https://example.com/articles/post/');
     expect(result.html).toContain('href="https://example.com/articles/post/#section"');
-    expect(result.html).toContain('href="https://henry.ink/https://example.com/articles/post/next#section"');
+    expect(result.html).toContain('href="https://example.com/articles/post/next#section"');
   });
 
   test("preserves stylesheet bases/media, rewrites inline URLs, and removes scripts", async () => {
     const service = createArchiveService(async () => fixture);
-    const result = await service("https://example.com/articles/post/", "https://api.henry.ink");
+    const result = await service("https://example.com/articles/post/");
     expect(result.css).toContain("@media screen");
     expect(result.css).toContain("600px");
     expect(result.css).toContain(encodeURIComponent("https://styles.example/images/bg.png"));
@@ -259,14 +256,10 @@ describe("archive processing", () => {
       pageData: { ...fixture.pageData, baseUrl: "https://redirect.example/new/path/article/" },
     };
     const service = createArchiveService(async () => redirected);
-    const result = await service("https://example.com/original", "https://api.henry.ink");
+    const result = await service("https://example.com/original");
     expect(result.html).toContain('href="https://redirect.example/new/path/article/next"');
     expect(result.html).toContain('href="https://redirect.example/root"');
     expect(result.html).toContain('href="#section"');
     expect(result.html).toContain('href="https://external.example/path"');
-    const wrapped = await service("https://example.com/original", "https://api.henry.ink", "https://henry.ink");
-    expect(wrapped.html).toContain('href="https://henry.ink/https://redirect.example/new/path/article/next"');
-    expect(wrapped.html).toContain('href="#section"');
-    expect(wrapped.html).toContain('href="https://external.example/path"');
   });
 });

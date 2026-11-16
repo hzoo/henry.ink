@@ -14,6 +14,7 @@ Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
 # production without the key, so a deploy that forgot it rolls itself back.
 EnvironmentFile=%h/.config/henry-ink/api.env
 Environment=NODE_ENV=production
+Environment=API_PUBLIC_ORIGIN=https://api.henry.ink
 ExecStart=%h/.bun/bin/bun run api
 Restart=on-failure
 RestartSec=3

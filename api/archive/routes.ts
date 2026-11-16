@@ -1,5 +1,5 @@
 import { createArchive } from "@/api/archive/processor";
-import { getCorsHeaders, optionsResponse } from "@/api/cors";
+import { getCorsHeaders, optionsResponse, publicCorsHeaders } from "@/api/cors";
 import { validateArchiveUrl } from "@/api/archive/url-validation";
 import { clientIp, RateLimiter } from "@/api/rate-limit";
 import { ArchiveFetchError, fetchPublicResource, type PublicFetcher } from "@/api/archive/public-fetch";
@@ -33,8 +33,7 @@ export { optionsResponse as archiveOptionsRoute };
 
 export function createArchiveHandler(service: typeof createArchive = createArchive) {
   return async (req: Request): Promise<Response> => {
-    const origin = req.headers.get("Origin") || "";
-    const cors = getCorsHeaders(origin);
+    const cors = publicCorsHeaders;
     if (req.signal.aborted) return errorResponse(new ArchiveFetchError('Archive request cancelled', 499), cors);
     const ip = clientIp(req);
     if (!archiveReadLimiter.consume(ip)) return errorResponse(new ArchiveFetchError("Too many requests", 429), cors, 1);
@@ -44,16 +43,12 @@ export function createArchiveHandler(service: typeof createArchive = createArchi
       if (!url) return errorResponse(new ArchiveFetchError("Missing url parameter", 400), cors);
       const error = validateArchiveUrl(url);
       if (error) return errorResponse(new ArchiveFetchError(error, 403), cors);
-      const assetBase = requestUrl.hostname === "api.henry.ink" ? "https://api.henry.ink" : requestUrl.origin;
-      const linkBase = origin === "https://henry.ink" ? "https://henry.ink" : undefined;
-      const archive = await service(url, assetBase, linkBase, () => {
+      const archive = await service(url, () => {
         if (!archiveCaptureLimiter.consume(ip)) throw new ArchiveFetchError('Too many captures', 429);
       });
       return Response.json(archive, {
         headers: {
           ...cors,
-          // Output varies by Origin.
-          Vary: "Origin",
           "Cache-Control": "no-store",
           "Cloudflare-CDN-Cache-Control": "no-store",
           "X-Content-Type-Options": "nosniff",

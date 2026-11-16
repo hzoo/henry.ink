@@ -31,7 +31,7 @@ for (const width of [1280, 390]) browserTest(`capture and sandbox preserve CSS a
     }
     return { url, status: 200, headers: new Headers({ 'content-type': 'text/html' }), body: Buffer.from(source) };
   };
-  const archive = await createArchiveService(url => capturePage(url, fetcher))('https://compat.example/article', 'https://api.example');
+  const archive = await createArchiveService(url => capturePage(url, fetcher), { assetOrigin: 'https://api.example' })('https://compat.example/article');
   expect(assetDownloads).toBe(0);
   expect(archive.html).not.toContain('<script');
   const proxy = createAssetProxyHandler(fetcher);

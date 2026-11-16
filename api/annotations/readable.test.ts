@@ -29,13 +29,13 @@ test('captured same-page links jump to prefixed footnotes', async () => {
     pageData: { baseUrl: url, cssSources: [], htmlAttrs: { class: '', style: '', lang: '' }, bodyAttrs: { class: '', style: '' },
       metadata: { title: 'Notes', author: '', publishedTime: '', domain: 'source.test', url } },
   }));
-  const archive = await service(url, 'https://api.henry.ink', 'https://henry.ink');
+  const archive = await service(url);
   const host = new JSDOM('');
   try {
     const result = await extractReadableArticle(archive, url, host.window.document);
     expect(result.html).toContain('href="#henry-text-note"');
     expect(result.html).toContain('id="henry-text-note"');
-    expect(result.html).toContain('href="https://henry.ink/https://source.test/posts/other#note"');
+    expect(result.html).toContain('href="https://source.test/posts/other#note"');
   } finally { host.window.close(); }
 });
 

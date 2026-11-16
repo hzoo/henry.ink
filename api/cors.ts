@@ -19,6 +19,15 @@ export function getCorsHeaders(origin?: string): Record<string, string> {
   return headers;
 }
 
+/**
+ * For responses that are the same for every reader and carry nothing private.
+ * No Vary: one stored copy can be handed to any origin, extensions included.
+ */
+export const publicCorsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Expose-Headers': 'Retry-After',
+};
+
 export function optionsResponse(req: Request): Response {
   const origin = req.headers.get('Origin') || '';
   return new Response(null, {

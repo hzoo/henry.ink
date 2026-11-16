@@ -44,6 +44,27 @@ test('strict capture budget does not throttle cached archive reads', async () =>
   expect(captures).toBe(3);
 });
 
+test('readers on different origins receive the same copy, readable by any of them', async () => {
+  const service = createArchiveService(async url => ({
+    fullHTMLContent: '<!doctype html><p>Article</p><a href="next">Next</a><img src="/shared.png">',
+    cssSources: [],
+    pageData: { baseUrl: url, cssSources: [], htmlAttrs: { class: '', style: '', lang: 'en' }, bodyAttrs: { class: '', style: '' },
+      metadata: { title: 'Article', author: '', publishedTime: '', domain: 'example.com', url } },
+  }));
+  const route = createArchiveHandler(service);
+  const bodies: string[] = [];
+  const origins = ['https://henry.ink', 'chrome-extension://lbbbgodnfjcndohnhdjkomcckekjpjni', 'http://127.0.0.1:3003', ''];
+  for (const [index, origin] of origins.entries()) {
+    const response = await route(new Request(`https://${index % 2 ? 'api.henry.ink' : 'localhost:3000'}/api/archive?url=https://example.com/shared`, {
+      headers: { ...(origin ? { Origin: origin } : {}), 'X-Forwarded-For': 'shared-copy' },
+    }));
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Vary')).toBeNull();
+    bodies.push(await response.text());
+  }
+  expect(new Set(bodies).size).toBe(1);
+});
+
 test('general read budget still bounds invalid and cheap requests', async () => {
   const route = createArchiveHandler();
   for (let i = 0; i < 30; i++) expect((await route(request('read-budget'))).status).toBe(400);
@@ -59,7 +80,7 @@ test('every image address in a cleaned page is accepted by the asset proxy as wr
     pageData: { baseUrl: 'https://example.com/', cssSources: [], htmlAttrs: { class: '', style: '', lang: '' }, bodyAttrs: { class: '', style: '' },
       metadata: { title: '', author: '', publishedTime: '', url: 'https://example.com/', domain: 'example.com' } },
   }));
-  const archive = await service('https://example.com/', 'http://localhost:3000');
+  const archive = await service('https://example.com/');
   const addresses = [...`${archive.html} ${archive.css} ${archive.bodyAttrs.style}`.replaceAll('&amp;', '&').replaceAll('&quot;', '"')
     .matchAll(/http:\/\/localhost:3000\/api\/asset-proxy\?url=[^"'\s)]+/g)].map(match => match[0]);
   expect(new Set(addresses).size).toBe(4);

@@ -294,7 +294,7 @@ browserTest("five concurrent archives use one real browser capture and one HTML 
     return { url, status: 200, headers: new Headers({ "content-type": "text/html" }), body: Buffer.from('<!doctype html><title>Article</title><p>Original text</p><img src="https://images.example/slow.png">') };
   };
   const service = createArchiveService(url => { captures++; return capturePage(url, fetcher); });
-  const results = await Promise.all(Array.from({ length: 5 }, () => service("https://source.example/article", "https://api.henry.ink")));
+  const results = await Promise.all(Array.from({ length: 5 }, () => service("https://source.example/article")));
   expect(captures).toBe(1);
   expect(downloads).toBe(1);
   expect(results).toHaveLength(5);

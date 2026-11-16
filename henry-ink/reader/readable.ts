@@ -80,13 +80,8 @@ export async function extractReadableArticle(
       if (!value) continue;
       if (attribute === 'href' && value.startsWith('#')) continue;
       try {
-        let resolved = new URL(value, archive.resolvedUrl || url);
+        const resolved = new URL(value, archive.resolvedUrl || url);
         const href = resolved.href;
-        // Production captures wrap relative links in the reader route. Compare
-        // their source destination before deciding whether a footnote is local.
-        if (attribute === 'href' && resolved.origin === 'https://henry.ink' && /^\/https?:\/\//.test(resolved.pathname)) {
-          resolved = new URL(resolved.href.slice(resolved.origin.length + 1));
-        }
         if (attribute === 'href' && resolved.hash) {
           const page = new URL(archive.resolvedUrl || url);
           page.hash = '';
