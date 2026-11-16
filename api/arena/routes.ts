@@ -2,6 +2,7 @@ import { getCorsHeaders } from '@/api/cors';
 import { SnapshotCache } from '@/api/archive/snapshot-cache';
 import { ArchiveFetchError } from '@/api/archive/public-fetch';
 import { validateArchiveUrl } from '@/api/archive/url-validation';
+import { dirname, join } from 'node:path';
 import type { ArenaChannel, ArenaLookupPage, ArenaPerson, ArenaUrlBlock } from '@/src/lib/arena-types';
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
@@ -137,11 +138,22 @@ async function lookup(url: string, page: number, fetcher: Fetcher): Promise<Aren
   return { blocks, nextPage: page < 1000 && Number(result.total_pages) > page ? page + 1 : null };
 }
 
-export function createArenaLookupRoute(fetcher: Fetcher = fetch) {
+const isLookupPage = (value: unknown): value is ArenaLookupPage => {
+  const page = object(value);
+  return Array.isArray(page.blocks) && (page.nextPage === null || Number.isSafeInteger(page.nextPage));
+};
+
+// Saves change slowly. Serve the shared copy for an hour, then keep serving it
+// while one reader's visit refreshes it in the background, never past a day.
+const FRESH_MS = 60 * 60 * 1000;
+const KEEP_MS = 24 * 60 * 60 * 1000;
+
+export function createArenaLookupRoute(fetcher: Fetcher = fetch, persistPath?: string) {
   const cache = new SnapshotCache<ArenaLookupPage>({
-    maxEntries: 50, maxBytes: 2 * 1024 * 1024, ttlMs: 5 * 60 * 1000,
+    maxEntries: 500, maxBytes: 16 * 1024 * 1024, ttlMs: FRESH_MS, staleWhileRevalidateMs: KEEP_MS - FRESH_MS,
     concurrency: 2, maxPending: 4, size: value => Buffer.byteLength(JSON.stringify(value)),
     shouldCache: value => value.blocks.every(block => block.channels.state === 'ready'),
+    ...(persistPath ? { persistence: { path: persistPath, maxEntries: 5000, maxBytes: 64 * 1024 * 1024, validate: isLookupPage } } : {}),
   });
   return async (request: Request): Promise<Response> => {
     const headers = { ...getCorsHeaders(request.headers.get('Origin') || ''), 'Cache-Control': 'no-store' };
@@ -154,7 +166,9 @@ export function createArenaLookupRoute(fetcher: Fetcher = fetch) {
     if (!url || validateArchiveUrl(input) || !Number.isSafeInteger(page) || page < 1 || page > 1000) return json({ error: 'A public HTTP(S) URL and valid page are required' }, 400);
     if (request.signal.aborted) return json({ error: 'Request cancelled' }, 499);
     try {
-      return json(await cache.getOrCreate(JSON.stringify([url, page]), () => lookup(url, page, fetcher)));
+      const key = JSON.stringify(['arena-v1', url, page]);
+      const create = () => lookup(url, page, fetcher);
+      return json(await (params.get('refresh') === '1' ? cache.refresh(key, create) : cache.getOrCreate(key, create)));
     } catch (error) {
       const limited = error instanceof UpstreamError && error.status === 429 || error instanceof ArchiveFetchError && error.status === 429;
       const retry = error instanceof UpstreamError ? Number(error.retryAfter) : NaN;
@@ -164,4 +178,6 @@ export function createArenaLookupRoute(fetcher: Fetcher = fetch) {
   };
 }
 
-export const arenaLookupRoute = createArenaLookupRoute();
+// Kept beside the article cache, in the API's one writable state directory.
+export const arenaLookupRoute = createArenaLookupRoute(fetch,
+  join(dirname(process.env.ARCHIVE_CACHE_PATH || 'archive-snapshots.db'), 'arena-lookups.db'));

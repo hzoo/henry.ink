@@ -80,6 +80,14 @@ export class SnapshotCache<T> {
     return this.start(key, create, undefined, admit);
   }
 
+  /** Skip any cached value and wait for a new one. A failed or uncacheable refresh keeps the old entry. */
+  async refresh(key: string, create: () => Promise<T>): Promise<T> {
+    const existing = this.pending.get(key);
+    if (existing) return existing;
+    if (this.pending.size >= this.options.maxPending) throw new ArchiveFetchError("Archive queue is full", 429);
+    return this.start(key, create, this.cache.get(key) ?? this.load(key, this.now()));
+  }
+
   /** Release the database handle. The cache can continue operating in memory. */
   close(): void {
     this.persistence?.close();
@@ -135,10 +143,14 @@ export class SnapshotCache<T> {
     const job = this.run(create).then(value => {
       const freshUntil = this.now() + this.options.ttlMs;
       const entry = { value, freshUntil, expires: freshUntil + this.staleMs, retryAt: 0 };
+      let keep = true;
+      try { keep = this.options.shouldCache?.(value) !== false; } catch { keep = false; }
+      if (!keep) {
+        // An incomplete refresh must not replace the complete copy readers already have.
+        this.deferRefresh(key, stale);
+        return value;
+      }
       this.remove(key);
-      try {
-        if (this.options.shouldCache?.(value) === false) return value;
-      } catch { return value; }
       try {
         this.remember(key, { ...entry, bytes: this.measure(value) });
       } catch { /* Cache bookkeeping must not discard a successful capture. */ }
