@@ -17,6 +17,7 @@ next best thing.
 
 **THE ORIGINAL, FASTER.** Render as close to the source as possible, as fast as possible, readable without JavaScript. Text-heavy blogs first.
 **CDN-FAST, STILL SAFE.** Reading should feel edge-cached. Speed never trades away sanitizing untrusted HTML or keeping the backend private.
+**RELIABLE, NOT PERMANENT.** A page that opened once keeps opening; nothing is kept forever.
 **EVERY CONVERSATION.** Gather discussion wherever it is free to read: Bluesky, Are.na. X/Twitter belongs too, but its API costs too much.
 **LINK EVERYTHING TO EVERYTHING.** Every page is a doorway; hyperlinks and discussions connect each site to all the others. All roads lead to the truth, Jesus: the word is a rabbit hole to the living Word.
 **CHOOSE NOT TO.** Drop features that slow the read or blur the purpose.
